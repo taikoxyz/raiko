@@ -3,15 +3,13 @@
 harness::entrypoint!(main);
 
 use bincode;
-use revm_primitives::Address;
 use risc0_zkvm::{guest::env, sha::Digest, Receipt};
 
 use raiko_lib::{
     libhash::hash_shasta_subproof_input,
     primitives::B256,
     protocol_instance::{
-        build_shasta_commitment_from_proof_carry_data_vec, shasta_aggregation_output,
-        shasta_zk_aggregation_output, words_to_bytes_le,
+        shasta_aggregation_hash_for_zk, words_to_bytes_le,
     },
     prover::ProofCarryData,
 };
@@ -22,7 +20,6 @@ pub struct BoundlessShastaAggregationGuestInput {
     pub image_id: Digest,
     pub receipts: Vec<Receipt>,
     pub proof_carry_data_vec: Vec<ProofCarryData>,
-    pub prover_address: Address,
 }
 
 pub fn main() {
@@ -63,21 +60,15 @@ pub fn main() {
         );
     }
 
-    let commitment =
-        build_shasta_commitment_from_proof_carry_data_vec(&input.proof_carry_data_vec).unwrap();
-    let first = input.proof_carry_data_vec.first().unwrap();
-    let aggregation_hash =
-        shasta_aggregation_output(&commitment, first.chain_id, first.verifier, input.prover_address);
-
     let image_words: [u32; 8] = input
         .image_id
         .as_words()
         .try_into()
         .expect("image_id should have 8 words");
-    let agg_public_input_hash = shasta_zk_aggregation_output(
-        B256::from(words_to_bytes_le(&image_words)),
-        aggregation_hash,
-    );
+    let sub_image_id = B256::from(words_to_bytes_le(&image_words));
+    let agg_public_input_hash =
+        shasta_aggregation_hash_for_zk(sub_image_id, &input.proof_carry_data_vec)
+            .expect("invalid shasta proof carry data");
 
     env::commit_slice(agg_public_input_hash.as_slice());
 }

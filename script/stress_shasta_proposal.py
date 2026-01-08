@@ -58,6 +58,7 @@ class BatchMonitor:
         watch_mode: bool = False,
         time_speed: float = 1.0,
         anchor_abi_file: Optional[str] = None,
+        aggregate: int = 0,
     ):
         self.l1_rpc = l1_rpc
         self.l2_rpc = l2_rpc
@@ -78,11 +79,20 @@ class BatchMonitor:
         self.watch_mode = watch_mode
         self.time_speed = time_speed
         self.anchor_abi_file = anchor_abi_file
+        self.aggregate = aggregate
         # Initialize Shasta event decoder
         self.shasta_decoder = ShastaEventDecoder()
         # Cache for proposal block numbers: proposal_id -> l1_block_number
         # Used for both normal proposals and bond proposals
         self.proposal_block_cache: Dict[int, Optional[int]] = {}
+        # Queue for proposals waiting to be aggregated
+        self.pending_proposals: list[Dict[str, Any]] = []
+        # Aggregate running count
+        self.aggregate_running_count = 0
+        # Track aggregate requests: list of proposal data dicts
+        self.aggregate_requests: list[list[Dict[str, Any]]] = []
+        # Track aggregate requests: list of proposal_ids lists
+        self.aggregate_requests: list[list[int]] = []
         # logger
         logging.basicConfig(
             level=logging.INFO,
@@ -706,23 +716,18 @@ class BatchMonitor:
         return logs[0].blockNumber, batch_ids
 
     def generate_post_data(
-        self, proposal_id: int, l1_inclusion_block_number: int, l2_block_numbers: list[int], last_anchor_block_number: int
+        self, 
+        proposals: list[Dict[str, Any]], 
+        aggregate: bool = False
     ) -> Dict[str, Any]:
         """generate post data"""
-        proposal_data = {
-            "proposal_id": proposal_id,
-            "l1_inclusion_block_number": l1_inclusion_block_number,
-            "l2_block_numbers": l2_block_numbers,
-            "checkpoint": None,
-            "last_anchor_block_number": last_anchor_block_number,
-        }
-        
         return {
-            "proposals": [proposal_data],
+            "proposals": proposals,
             "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
             "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
             "proof_type": self.prove_type,
             "blob_proof_type": "proof_of_equivalence",
+            "aggregate": aggregate,
             "native": {},
             "sgx": {
                 "instance_id": 1234,
@@ -746,7 +751,15 @@ class BatchMonitor:
         try:
             headers = {"x-api-key": "1", "Content-Type": "application/json"}
 
-            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers, last_anchor_block_number)
+            proposal_data = {
+                "proposal_id": proposal_id,
+                "l1_inclusion_block_number": l1_inclusion_block,
+                "l2_block_numbers": l2_block_numbers,
+                "checkpoint": None,
+                "last_anchor_block_number": last_anchor_block_number,
+            }
+            
+            payload = self.generate_post_data([proposal_data], aggregate=False)
             print(f"payload = {payload}")
 
             response = requests.post(
@@ -771,6 +784,51 @@ class BatchMonitor:
         except Exception as e:
             self.logger.error(f"Failed to submit to Raiko: {e}")
             return None
+    
+    async def submit_aggregate_to_raiko(self) -> Optional[str]:
+        """submit aggregate request to Raiko"""
+        if len(self.pending_proposals) == 0:
+            return None
+            
+        try:
+            headers = {"x-api-key": "1", "Content-Type": "application/json"}
+            
+            # Use the collected proposals
+            proposals_to_aggregate = self.pending_proposals.copy()
+            self.pending_proposals.clear()
+            
+            payload = self.generate_post_data(proposals_to_aggregate, aggregate=True)
+            proposal_ids = [p["proposal_id"] for p in proposals_to_aggregate]
+            self.logger.info(
+                f"Submitting aggregate request for {len(proposals_to_aggregate)} proposals: {proposal_ids}"
+            )
+            print(f"aggregate payload = {payload}")
+
+            response = requests.post(
+                f"{self.raiko_rpc}/v3/proof/batch/shasta",
+                headers=headers,
+                json=payload,
+                timeout=10,
+            )
+            result = response.json()
+            if "data" in result:
+                result["data"] = {}  # avoid big print
+            if result.get("status") == "ok":
+                self.aggregate_running_count += 1
+                self.aggregate_requests.append(proposals_to_aggregate)
+                self.logger.info(
+                    f"Aggregate request for proposals {proposal_ids} submitted to Raiko with response: {result}, "
+                    f"current running aggregate requests: {self.aggregate_running_count}"
+                )
+                return None
+            else:
+                self.logger.error(
+                    f"Failed to submit aggregate request: {result.get('message', 'Unknown error')}"
+                )
+                return None
+        except Exception as e:
+            self.logger.error(f"Failed to submit aggregate to Raiko: {e}")
+            return None
 
     async def query_raiko_status(
         self, proposal_id: int, l1_inclusion_block: int, l2_block_numbers: list[int], last_anchor_block_number: int
@@ -778,7 +836,14 @@ class BatchMonitor:
         """query Raiko status"""
         try:
             headers = {"x-api-key": "1", "Content-Type": "application/json"}
-            payload = self.generate_post_data(proposal_id, l1_inclusion_block, l2_block_numbers, last_anchor_block_number)
+            proposal_data = {
+                "proposal_id": proposal_id,
+                "l1_inclusion_block_number": l1_inclusion_block,
+                "l2_block_numbers": l2_block_numbers,
+                "checkpoint": None,
+                "last_anchor_block_number": last_anchor_block_number,
+            }
+            payload = self.generate_post_data([proposal_data], aggregate=False)
             response = requests.post(
                 f"{self.raiko_rpc}/v3/proof/batch/shasta",
                 headers=headers,
@@ -796,6 +861,30 @@ class BatchMonitor:
                 return RaikoResponse(status="error", message="Invalid response format")
         except Exception as e:
             self.logger.error(f"Failed to query Raiko status: {e}")
+            return RaikoResponse(status="error", message=str(e))
+    
+    async def query_aggregate_status(self, proposals: list[Dict[str, Any]]) -> RaikoResponse:
+        """query aggregate request status"""
+        try:
+            headers = {"x-api-key": "1", "Content-Type": "application/json"}
+            payload = self.generate_post_data(proposals, aggregate=True)
+            response = requests.post(
+                f"{self.raiko_rpc}/v3/proof/batch/shasta",
+                headers=headers,
+                json=payload,
+                timeout=10,
+            )
+            result = response.json()
+            if result.get("status") == "error":
+                return RaikoResponse(
+                    status="error", message=result.get("message", "Unknown error")
+                )
+            elif result.get("status") == "ok":
+                return RaikoResponse(status="ok", data=result.get("data", {}))
+            else:
+                return RaikoResponse(status="error", message="Invalid response format")
+        except Exception as e:
+            self.logger.error(f"Failed to query aggregate status: {e}")
             return RaikoResponse(status="error", message=str(e))
 
     async def process_proposal_group(self, group: ProposalGroup, l1_inclusion_block: int):
@@ -877,6 +966,23 @@ class BatchMonitor:
                         self.logger.info(
                             f"Proposal {group.proposal_id} in L1 Block {l1_inclusion_block} completed with proof {response.data['proof']['proof']}"
                         )
+                        # If aggregate mode is enabled, add completed proposal to pending list
+                        if self.aggregate > 0:
+                            proposal_data = {
+                                "proposal_id": group.proposal_id,
+                                "l1_inclusion_block_number": l1_inclusion_block,
+                                "l2_block_numbers": group.l2_block_numbers,
+                                "checkpoint": None,
+                                "last_anchor_block_number": last_anchor_block_number,
+                            }
+                            self.pending_proposals.append(proposal_data)
+                            self.logger.info(
+                                f"Added completed proposal {group.proposal_id} to pending aggregate list ({len(self.pending_proposals)}/{self.aggregate})"
+                            )
+                            
+                            # If we've collected enough proposals, submit aggregate request
+                            if len(self.pending_proposals) >= self.aggregate:
+                                await self.submit_aggregate_to_raiko()
                         break
                     else:
                         self.logger.warning(
@@ -1160,8 +1266,11 @@ class BatchMonitor:
             # Apply block_running_ratio
             acc_odds += self.block_running_ratio
             if acc_odds >= 1.0:
+                aggregate_info = ""
+                if self.aggregate > 0:
+                    aggregate_info = f", aggregate running: {self.aggregate_running_count}"
                 self.logger.info(
-                    f"Submitting proposal {group.proposal_id} (L2 blocks {group.l2_block_numbers}) @ L1 block {l1_inclusion_block}, current running tasks: {self.running_count}"
+                    f"Submitting proposal {group.proposal_id} (L2 blocks {group.l2_block_numbers}) @ L1 block {l1_inclusion_block}, current running tasks: {self.running_count}{aggregate_info}"
                 )
                 self.running_count += 1
                 acc_odds -= 1.0
@@ -1182,6 +1291,30 @@ class BatchMonitor:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
         
+        # Submit any remaining pending proposals as aggregate if aggregate mode is enabled
+        if self.aggregate > 0 and len(self.pending_proposals) > 0:
+            self.logger.info(
+                f"Submitting remaining {len(self.pending_proposals)} proposals as aggregate"
+            )
+            await self.submit_aggregate_to_raiko()
+        
+        # Check aggregate requests status and decrease count when completed
+        if self.aggregate > 0 and len(self.aggregate_requests) > 0:
+            completed_requests = []
+            for proposals in self.aggregate_requests:
+                response = await self.query_aggregate_status(proposals)
+                if response.data and response.data.get("proof"):
+                    proposal_ids = [p["proposal_id"] for p in proposals]
+                    self.logger.info(
+                        f"Aggregate request for proposals {proposal_ids} completed"
+                    )
+                    completed_requests.append(proposals)
+                    self.aggregate_running_count = max(0, self.aggregate_running_count - 1)
+            
+            # Remove completed requests
+            for completed in completed_requests:
+                self.aggregate_requests.remove(completed)
+        
         self.logger.info("All L2 blocks processed")
 
     async def run(self):
@@ -1195,6 +1328,7 @@ class BatchMonitor:
             "l2_block_range": self.l2_block_range,
             "prove_type": self.prove_type,
             "block_running_ratio": self.block_running_ratio,
+            "aggregate": self.aggregate,
         }
         self.logger.info(f"Config:\n{json.dumps(config_dict, indent=2, default=str)}")
         
@@ -1332,6 +1466,14 @@ async def main():
         help="time scaling, real world 1s to 1*x s in stress",
     )
 
+    parser.add_argument(
+        "-A",
+        "--aggregate",
+        type=lambda x: parse_none_value(x, int),
+        default=0,
+        help="Aggregate mode: if > 0, collect n proposals and submit as aggregate request",
+    )
+
     args = parser.parse_args()
 
     monitor = BatchMonitor(
@@ -1348,6 +1490,7 @@ async def main():
         watch_mode=args.watch_event,
         time_speed=args.time_speed,
         anchor_abi_file=args.anchor_abi_file,
+        aggregate=args.aggregate,
     )
 
     await monitor.run()
@@ -1355,9 +1498,11 @@ async def main():
 
 # Example usage:
 # python stress_shasta_proposal.py -t native -g 1000,2000 -p 10 -o stress_dev.log -a http://localhost:8080 -c 0xe9BDA5fd0C7F8E97b12860a57Cbcc89f33AAfFE8 -e https://l1rpc.internal.taiko.xyz -l https://l2rpc.internal.taiko.xyz -i IInbox.json -b Anchor.json -x 100 -w
+# python stress_shasta_proposal.py -t native -g 1000,2000 -A 5 -a http://localhost:8080 -c 0xe9BDA5fd0C7F8E97b12860a57Cbcc89f33AAfFE8 -e https://l1rpc.internal.taiko.xyz -l https://l2rpc.internal.taiko.xyz -i IInbox.json -b Anchor.json
 # Note: 
 #   -a (--raiko-rpc): Raiko RPC endpoint (default: http://localhost:8080)
 #   -g now specifies L2 block range instead of L1 block range
 #   -b (--anchor-abi-file) is optional but recommended for proper anchorV4 decoding
+#   -A (--aggregate): Aggregate mode, if > 0, collect n proposals and submit as aggregate request
 if __name__ == "__main__":
     asyncio.run(main())

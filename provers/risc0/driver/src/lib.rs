@@ -5,7 +5,7 @@ use crate::{
     methods::risc0_aggregation::RISC0_AGGREGATION_ELF, methods::risc0_batch::RISC0_BATCH_ELF,
     methods::risc0_shasta_aggregation::RISC0_SHASTA_AGGREGATION_ELF,
 };
-use alloy_primitives::{hex::ToHexExt, Address, B256};
+use alloy_primitives::{hex::ToHexExt, B256};
 use bonsai::{cancel_proof, maybe_prove};
 use log::{info, warn};
 use raiko_lib::{
@@ -306,7 +306,6 @@ impl Prover for Risc0Prover {
             image_id: input_proof_image_id.as_words().try_into().unwrap(),
             block_inputs: block_inputs.clone(),
             proof_carry_data_vec,
-            prover_address: Address::ZERO,
         };
 
         let env = {
