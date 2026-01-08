@@ -89,6 +89,10 @@ class BatchMonitor:
         self.pending_proposals: list[Dict[str, Any]] = []
         # Aggregate running count
         self.aggregate_running_count = 0
+        # Track aggregate requests: list of proposal data dicts
+        self.aggregate_requests: list[list[Dict[str, Any]]] = []
+        # Track aggregate requests: list of proposal_ids lists
+        self.aggregate_requests: list[list[int]] = []
         # logger
         logging.basicConfig(
             level=logging.INFO,
@@ -811,6 +815,7 @@ class BatchMonitor:
                 result["data"] = {}  # avoid big print
             if result.get("status") == "ok":
                 self.aggregate_running_count += 1
+                self.aggregate_requests.append(proposals_to_aggregate)
                 self.logger.info(
                     f"Aggregate request for proposals {proposal_ids} submitted to Raiko with response: {result}, "
                     f"current running aggregate requests: {self.aggregate_running_count}"
@@ -1268,6 +1273,23 @@ class BatchMonitor:
                 f"Submitting remaining {len(self.pending_proposals)} proposals as aggregate"
             )
             await self.submit_aggregate_to_raiko()
+        
+        # Check aggregate requests status and decrease count when completed
+        if self.aggregate > 0 and len(self.aggregate_requests) > 0:
+            completed_requests = []
+            for proposals in self.aggregate_requests:
+                response = await self.query_aggregate_status(proposals)
+                if response.data and response.data.get("proof"):
+                    proposal_ids = [p["proposal_id"] for p in proposals]
+                    self.logger.info(
+                        f"Aggregate request for proposals {proposal_ids} completed"
+                    )
+                    completed_requests.append(proposals)
+                    self.aggregate_running_count = max(0, self.aggregate_running_count - 1)
+            
+            # Remove completed requests
+            for completed in completed_requests:
+                self.aggregate_requests.remove(completed)
         
         self.logger.info("All L2 blocks processed")
 

@@ -348,6 +348,7 @@ pub async fn shasta_aggregate(
     // No key-rotation: every sub-proof must be signed by the same instance address and the
     // embedded instance bytes must match the recovered signer.
     let expected_instance = Address::from_slice(&input.proofs[0].proof.clone()[4..24]);
+    assert_eq!(expected_instance, sgx_instance);
 
     assert!(validate_shasta_aggregate_proof_carry_data(&input));
 
@@ -367,7 +368,7 @@ pub async fn shasta_aggregate(
     }
 
     let aggregation_hash =
-        shasta_pcd_aggregation_hash(&input.proof_carry_data_vec)
+        shasta_pcd_aggregation_hash(&input.proof_carry_data_vec, sgx_instance)
             .ok_or_else(|| anyhow!("invalid shasta proof carry data for aggregation"))?;
 
     // Sign the public aggregation hash

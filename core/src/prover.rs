@@ -6,12 +6,10 @@ use raiko_lib::{
         ShastaRawAggregationGuestInput,
     },
     proof_type::ProofType,
-    protocol_instance::{
-        shasta_pcd_aggregation_hash,
-        ProtocolInstance,
-    },
+    protocol_instance::{shasta_pcd_aggregation_hash, ProtocolInstance},
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
+use reth_primitives::Address;
 use serde::{de::Error, Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::trace;
@@ -162,12 +160,13 @@ impl Prover for NativeProver {
                 .collect(),
         };
 
-        let aggregated_proving_hash = shasta_pcd_aggregation_hash(
-            &raw_input.proof_carry_data_vec,
-        )
-        .ok_or_else(|| {
-            ProverError::GuestError("invalid shasta proof carry data for aggregation".to_string())
-        })?;
+        let aggregated_proving_hash =
+            shasta_pcd_aggregation_hash(&raw_input.proof_carry_data_vec, Address::ZERO)
+                .ok_or_else(|| {
+                    ProverError::GuestError(
+                        "invalid shasta proof carry data for aggregation".to_string(),
+                    )
+                })?;
         tracing::info!("aggregated proving hash: {aggregated_proving_hash:?}");
 
         Ok(Proof {
