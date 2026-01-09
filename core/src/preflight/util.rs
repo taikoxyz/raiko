@@ -917,7 +917,6 @@ pub async fn filter_block_proposed_event(
                 event_data.proposal.originBlockNumber = origin_block_number;
                 event_data.proposal.originBlockHash = origin_block_hash;
                 event_data.proposal.timestamp = timestamp;
-                event_data.proposal.parentProposalHash = B256::ZERO;
                 (
                     raiko_lib::primitives::U256::from(event_data.proposal.id),
                     BlockProposedFork::Shasta(event_data),
