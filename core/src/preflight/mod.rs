@@ -236,7 +236,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
     } else {
         // The first pair's parent is the grandparent (first block's parent's parent)
         // Extract it and remove the first pair since we don't need it for subsequent processing
-        println!("all_block_parent_pairs: {:?}", all_block_parent_pairs);
+        debug!("all_block_parent_pairs: {:?}", all_block_parent_pairs);
         (
             all_block_parent_pairs
                 .first()
