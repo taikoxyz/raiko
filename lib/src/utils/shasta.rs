@@ -109,6 +109,7 @@ pub fn generate_transactions_for_shasta_blocks(
                         if !validate_shasta_block_base_fee(
                             &guest_batch_input.inputs,
                             is_first_shasta_proposal,
+                            guest_batch_input.taiko.l2_grandparent_header.as_ref(),
                         ) {
                             warn!("shasta block base fee is invalid, need double check");
                             make_default_manifest(
