@@ -14,7 +14,7 @@ use crate::{
     provider::BlockDataProvider,
     MerkleProof,
 };
-use tracing::{info, trace};
+use tracing::{info, debug, trace};
 
 pub struct ProviderDb<'a, BDP: BlockDataProvider> {
     pub provider: &'a BDP,
@@ -92,7 +92,7 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
                     .insert(block_number, block.header.try_into().unwrap());
             }
         }
-        info!(
+        debug!(
             "Initial new provider_db of parent block: {:?}",
             provider_db.block_number
         );

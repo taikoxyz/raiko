@@ -69,7 +69,7 @@ where
         };
         if db.fetch_data().await {
             clear_line();
-            info!("State data fetched in {num_iterations} iterations");
+            debug!("State data fetched in {num_iterations} iterations");
             break;
         }
     }

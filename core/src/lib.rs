@@ -127,8 +127,8 @@ impl Raiko {
 
         match result {
             Ok(header) => {
-                info!("Verifying final state using provider data ...");
-                info!(
+                debug!("Verifying final state using provider data ...");
+                debug!(
                     "Final block hash derived successfully. {}",
                     header.hash_slow()
                 );
@@ -205,11 +205,11 @@ impl Raiko {
         match result {
             Ok(block) => {
                 let header = block.header.clone();
-                info!(
+                debug!(
                     "Verifying final block {} state using provider data ...",
                     header.number
                 );
-                info!(
+                debug!(
                     "Final block {} hash derived successfully. {}",
                     header.number,
                     header.hash_slow()
