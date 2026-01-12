@@ -80,7 +80,6 @@ impl Raiko {
         &self,
         provider: BDP,
     ) -> RaikoResult<GuestInput> {
-        //TODO: read fork from config
         let preflight_data = self.get_preflight_data();
         info!("Generating input for block {}", self.request.block_number);
         preflight(provider, preflight_data)
@@ -92,7 +91,6 @@ impl Raiko {
         &self,
         provider: BDP,
     ) -> RaikoResult<GuestBatchInput> {
-        //TODO: read fork from config
         let preflight_data = self.get_batch_preflight_data();
         info!("Generating batch input for batch {}", self.request.batch_id);
         batch_preflight(provider, preflight_data)
