@@ -537,6 +537,7 @@ mod tests {
 
         let aggregate_hash = shasta_pcd_aggregation_hash(
             &guest_input.proof_carry_data_vec,
+            Address::ZERO,
         )
         .expect("failed to get aggregate hash");
         let output = AggregationGuestOutput {
