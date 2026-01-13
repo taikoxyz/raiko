@@ -108,3 +108,15 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	# 	/home/runner/.sp1/bin/sp1up
 	# fi
 fi
+
+# Brevis Pico
+if [ -z "$1" ] || [ "$1" == "brevis" ]; then
+	if ! command -v cargo-pico >/dev/null 2>&1; then
+		echo "cargo-pico not installed, installing..."
+		cargo install --git https://github.com/brevis-network/pico --locked -p pico-cli
+	else
+		echo "cargo-pico already installed"
+	fi
+	# Ensure the toolchain used by cargo-pico exists
+	rustup install nightly-2025-08-04
+fi

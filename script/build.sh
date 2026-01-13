@@ -6,6 +6,7 @@ set -e
 TOOLCHAIN_RISC0=+nightly-2024-12-20
 TOOLCHAIN_SP1=+nightly-2024-12-20
 TOOLCHAIN_SGX=+nightly-2024-12-20
+TOOLCHAIN_BREVIS=+nightly-2025-08-04
 
 
 check_toolchain() {
@@ -195,6 +196,53 @@ if [ "$1" == "sp1" ]; then
             # Don't want to span Succinct Network and wait 2 hours in CI
             # echo "Running Sp1 verification"
             # cargo ${TOOLCHAIN_SP1} run ${FLAGS} --bin sp1-verifier --features enable,sp1-verifier
+        fi
+    fi
+fi
+
+# BREVIS PICO
+if [ "$1" == "brevis" ]; then
+    check_toolchain $TOOLCHAIN_BREVIS
+
+    if ! command -v cargo-pico >/dev/null 2>&1; then
+        echo "cargo-pico not found. Run ./script/install.sh brevis first."
+        exit 1
+    fi
+
+    BREVIS_GUEST_DIR="./provers/brevis/guest"
+    BREVIS_ELF_DIR="${BREVIS_GUEST_DIR}/elf"
+    BREVIS_BATCH_ELF="${BREVIS_ELF_DIR}/brevis-batch"
+    BREVIS_AGG_ELF="${BREVIS_ELF_DIR}/brevis-aggregation"
+    BREVIS_SHASTA_AGG_ELF="${BREVIS_ELF_DIR}/brevis-shasta-aggregation"
+
+    if [ -n "${CLIPPY}" ]; then
+        cargo ${TOOLCHAIN_BREVIS} clippy -p raiko-host -p brevis-pico-driver --features "brevis_pico,enable" -- -D warnings
+    elif [ -z "${RUN}" ]; then
+        if [ -z "${TEST}" ]; then
+            echo "Building Brevis Pico guest ELFs"
+            (cd "${BREVIS_GUEST_DIR}" && cargo pico build --bin brevis-batch)
+            (cd "${BREVIS_GUEST_DIR}" && cargo pico build --bin brevis-aggregation)
+            (cd "${BREVIS_GUEST_DIR}" && cargo pico build --bin brevis-shasta-aggregation)
+
+            if [ -z "${GUEST}" ]; then
+                echo "Building Brevis Pico prover host"
+                cargo ${TOOLCHAIN_BREVIS} build ${FLAGS} --features brevis_pico
+            fi
+        else
+            echo "Building Brevis Pico tests"
+            cargo ${TOOLCHAIN_BREVIS} test ${FLAGS} --features brevis_pico --no-run
+        fi
+    else
+        if [ -z "${TEST}" ]; then
+            echo "Running Brevis Pico prover"
+            : "${BREVIS_PICO_BATCH_ELF:=${BREVIS_BATCH_ELF}}"
+            : "${BREVIS_PICO_AGG_ELF:=${BREVIS_AGG_ELF}}"
+            : "${BREVIS_PICO_SHASTA_AGG_ELF:=${BREVIS_SHASTA_AGG_ELF}}"
+            export BREVIS_PICO_BATCH_ELF BREVIS_PICO_AGG_ELF BREVIS_PICO_SHASTA_AGG_ELF
+            cargo ${TOOLCHAIN_BREVIS} run ${FLAGS} --features brevis_pico
+        else
+            echo "Running Brevis Pico tests"
+            cargo ${TOOLCHAIN_BREVIS} test ${FLAGS} --features brevis_pico
         fi
     fi
 fi

@@ -10,6 +10,7 @@ default-run = "raiko-host"
 sp1-driver = { path = "../provers/sp1/driver", optional = true }
 risc0-driver = { path = "../provers/risc0/driver", optional = true }
 sgx-prover = { path = "../provers/sgx/prover", optional = true }
+brevis-pico-driver = { path = "../provers/brevis/driver", optional = true }
 
 # raiko
 raiko-lib = { workspace = true }
@@ -94,6 +95,7 @@ default = []
 sp1 = ["raiko-core/sp1"]
 risc0 = ["raiko-core/risc0"]
 sgx = ["raiko-core/sgx"]
+brevis_pico = ["raiko-core/brevis_pico"]
 integration = []
 
 [[bin]]

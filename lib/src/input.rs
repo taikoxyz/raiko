@@ -151,6 +151,15 @@ pub struct ShastaSp1AggregationGuestInput {
     pub proof_carry_data_vec: Vec<ProofCarryData>,
 }
 
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ShastaBrevisAggregationGuestInput {
+    /// Verifier image id for the Brevis Pico proofs being aggregated
+    pub image_id: [u32; 8],
+    /// Public inputs associated with each underlying proof
+    pub block_inputs: Vec<B256>,
+    pub proof_carry_data_vec: Vec<ProofCarryData>,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 
 pub enum BlockProposedFork {

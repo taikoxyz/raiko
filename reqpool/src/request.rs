@@ -970,6 +970,7 @@ impl ImageIdReader for ProofType {
             ProofType::Sp1 => "SP1_BATCH_VK_HASH",
             ProofType::Sgx => "SGX_MRENCLAVE",
             ProofType::SgxGeth => "SGXGETH_MRENCLAVE",
+            ProofType::BrevisPico => "BREVIS_PICO_VKEY",
             _ => panic!("Unsupported proof type for image ID: {:?}", self),
         }
     }
@@ -977,6 +978,9 @@ impl ImageIdReader for ProofType {
     fn default_value(&self, _request_type: Option<&str>) -> &'static str {
         match self {
             ProofType::Risc0 | ProofType::Sp1 | ProofType::Sgx | ProofType::SgxGeth => {
+                "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            }
+            ProofType::BrevisPico => {
                 "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
             }
             _ => panic!("Unsupported proof type for default value: {:?}", self),
@@ -1033,6 +1037,10 @@ impl ImageId {
                 if let Ok(mrenclave) = proof_type.read_image_id(None) {
                     image_id.sgxgeth_enclave = Some(mrenclave);
                 }
+            }
+            ProofType::BrevisPico => {
+                // Brevis Pico doesn't have a stable image ID available at request time.
+                // Leave the image ID empty to avoid incorrect cache keys.
             }
             _ => {
                 // For proof type Native, we don't need image IDs

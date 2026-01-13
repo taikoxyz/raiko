@@ -1,0 +1,30 @@
+[package]
+name = "brevis-pico-driver"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+raiko-lib = { workspace = true, optional = true }
+alloy-primitives = { workspace = true, optional = true }
+alloy-sol-types = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+bincode = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
+once_cell = { workspace = true, optional = true }
+
+[features]
+enable = [
+    "raiko-lib",
+    "alloy-primitives",
+    "alloy-sol-types",
+    "serde",
+    "serde_json",
+    "reqwest",
+    "tokio",
+    "bincode",
+    "tracing",
+    "once_cell",
+]

@@ -9,6 +9,7 @@ members = [
     "provers/sp1/builder",
     "provers/risc0/driver",
     "provers/risc0/builder",
+    "provers/brevis/driver",
     "provers/sgx/prover",
     "provers/sgx/guest",
     "provers/sgx/setup",

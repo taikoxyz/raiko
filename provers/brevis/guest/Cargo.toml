@@ -1,0 +1,23 @@
+[workspace]
+
+[package]
+name = "brevis-pico-guest"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "brevis-batch"
+path = "src/bin/brevis_batch.rs"
+
+[[bin]]
+name = "brevis-aggregation"
+path = "src/bin/brevis_aggregation.rs"
+
+[[bin]]
+name = "brevis-shasta-aggregation"
+path = "src/bin/brevis_shasta_aggregation.rs"
+
+[dependencies]
+raiko-lib = { path = "../../../lib" }
+pico-sdk = { git = "https://github.com/brevis-network/pico", package = "pico-sdk", default-features = false, features = ["kb"] }
+sha2 = "0.10"
