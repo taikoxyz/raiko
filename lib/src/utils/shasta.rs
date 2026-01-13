@@ -103,7 +103,8 @@ pub fn generate_transactions_for_shasta_blocks(
                                 guest_batch_input.inputs[0].parent_header.timestamp,
                             )
                             .unwrap()
-                            == SpecId::PACAYA;
+                            == SpecId::PACAYA
+                            || guest_batch_input.inputs[0].parent_header.number == 0;
 
                         //TODO: move to validate_normal_proposal_manifest
                         if !validate_shasta_block_base_fee(
@@ -137,15 +138,15 @@ pub fn generate_transactions_for_shasta_blocks(
                 .blocks
                 .iter()
                 .enumerate()
-                .for_each(|(offset, block)| {
+                .for_each(|(offset, block_manifest)| {
                     assert!(
                         validate_input_block_param(
-                            block,
+                            block_manifest,
                             &guest_batch_input.inputs[idx + offset].block
                         ),
                         "input block manifest is invalid"
                     );
-                    tx_list_bufs.push((block.transactions.clone(), false))
+                    tx_list_bufs.push((block_manifest.transactions.clone(), false))
                 });
         } else {
             assert!(
