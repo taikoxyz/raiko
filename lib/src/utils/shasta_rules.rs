@@ -1,6 +1,6 @@
 use core::cmp::{max, min};
 use reth_evm_ethereum::taiko::ANCHOR_V4_GAS_LIMIT;
-use reth_primitives::{Address, Block};
+use reth_primitives::{Address, Block, Header};
 use std::cmp::max as std_max;
 use tracing::warn;
 
@@ -340,26 +340,41 @@ pub const SHASTA_INITIAL_BASE_FEE: u64 = 25_000_000;
 pub fn validate_shasta_block_base_fee(
     block_guest_inputs: &[GuestInput],
     is_first_shasta_proposal: bool,
+    l2_grandparent_header: Option<&Header>,
 ) -> bool {
     if is_first_shasta_proposal {
         if block_guest_inputs[0].block.header.base_fee_per_gas != Some(SHASTA_INITIAL_BASE_FEE) {
             return false;
         }
     } else {
-        let parent_block_time = block_guest_inputs[0]
-            .block
-            .header
-            .timestamp
-            .saturating_sub(block_guest_inputs[0].parent_header.timestamp);
+        // Calculate parent_block_time = parent.timestamp - grandparent.timestamp
+        // According to EIP-4396, we need the time between parent and grandparent
+        let parent_block_time = if let Some(grandparent) = l2_grandparent_header {
+            block_guest_inputs[0]
+                .parent_header
+                .timestamp
+                .saturating_sub(grandparent.timestamp)
+        } else {
+            // Fallback: if no parent's parent (e.g., first block ever), use default block time target
+            BLOCK_TIME_TARGET
+        };
         let first_block_base_fee = calc_next_shasta_base_fee(
             block_guest_inputs[0].parent_header.gas_limit,
             block_guest_inputs[0].parent_header.gas_used,
-            block_guest_inputs[0].block.header.base_fee_per_gas.unwrap(),
+            block_guest_inputs[0]
+                .parent_header
+                .base_fee_per_gas
+                .unwrap(),
             parent_block_time,
             DEFAULT_ELASTICITY_MULTIPLIER,
             DEFAULT_BASE_FEE_CHANGE_DENOMINATOR,
         );
         if first_block_base_fee != block_guest_inputs[0].block.header.base_fee_per_gas.unwrap() {
+            warn!(
+                "first_block_base_fee mismatch: expected {}, found {}",
+                first_block_base_fee,
+                block_guest_inputs[0].block.header.base_fee_per_gas.unwrap()
+            );
             return false;
         }
     }
@@ -376,34 +391,72 @@ pub fn validate_shasta_block_base_fee(
             .base_fee_per_gas
             .unwrap();
 
-        // If this is not the last block, check that the next block's base fee matches the calculated next base fee
-        if i + 1 < block_guest_inputs.len() {
-            let next_block = &block_guest_inputs[i + 1].block;
-            let parent_block_time = next_block
-                .header
-                .timestamp
-                .saturating_sub(block.header.timestamp);
+        // Calculate parent_block_time for this block
+        // parent = block[i-1], parent's parent = block[i-1].parent_header
+        // parent_block_time = parent.timestamp - parent(parent).timestamp
+        let parent_block_time = block_guest_inputs[i - 1]
+            .block
+            .header
+            .timestamp
+            .saturating_sub(block_guest_inputs[i - 1].parent_header.timestamp);
 
-            // Use the canonical calculator function for base fee
-            let expected_base_fee = calc_next_shasta_base_fee(
-                block.header.gas_limit,
-                block.header.gas_used,
-                prev_base_fee,
-                parent_block_time,
-                DEFAULT_ELASTICITY_MULTIPLIER,
-                DEFAULT_BASE_FEE_CHANGE_DENOMINATOR,
+        // Use the canonical calculator function for base fee
+        let expected_base_fee = calc_next_shasta_base_fee(
+            block_guest_inputs[i - 1].block.header.gas_limit,
+            block_guest_inputs[i - 1].block.header.gas_used,
+            prev_base_fee,
+            parent_block_time,
+            DEFAULT_ELASTICITY_MULTIPLIER,
+            DEFAULT_BASE_FEE_CHANGE_DENOMINATOR,
+        );
+
+        if expected_base_fee != actual_base_fee {
+            warn!(
+                "Block basefee mismatch at idx {}: expected {}, found {}",
+                i, expected_base_fee, actual_base_fee
             );
-
-            if expected_base_fee != actual_base_fee {
-                warn!(
-                    "Block basefee mismatch at idx {}: expected {}, found {}",
-                    i + 1,
-                    expected_base_fee,
-                    actual_base_fee
-                );
-                return false;
-            }
+            return false;
         }
     }
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::calc_next_shasta_base_fee;
+
+    #[test]
+    fn test_calc_next_shasta_base_fee() {
+        let parent_gas_limit = 16_000_000;
+        let parent_gas_used = 15_956_512;
+        let parent_base_fee = 5_000_000;
+        let parent_block_time = 240;
+        let elasticity_multiplier = 2;
+        let base_fee_change_denominator = 8;
+
+        let result = calc_next_shasta_base_fee(
+            parent_gas_limit,
+            parent_gas_used,
+            parent_base_fee,
+            parent_block_time,
+            elasticity_multiplier,
+            base_fee_change_denominator,
+        );
+
+        // Verify the result is within valid bounds
+        assert!(
+            result >= super::MIN_BASE_FEE_SHASTA,
+            "Result {} is below minimum base fee {}",
+            result,
+            super::MIN_BASE_FEE_SHASTA
+        );
+        assert!(
+            result <= super::MAX_BASE_FEE_SHASTA,
+            "Result {} exceeds maximum base fee {}",
+            result,
+            super::MAX_BASE_FEE_SHASTA
+        );
+
+        assert_eq!(result, 5_059_102);
+    }
 }

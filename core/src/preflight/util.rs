@@ -69,7 +69,7 @@ where
         };
         if db.fetch_data().await {
             clear_line();
-            info!("State data fetched in {num_iterations} iterations");
+            debug!("State data fetched in {num_iterations} iterations");
             break;
         }
     }
@@ -341,6 +341,7 @@ async fn prepare_pacaya_batch_input(
     prover_data: TaikoProverData,
     blob_proof_type: &BlobProofType,
     provider_l1: &RpcBlockDataProvider,
+    grandparent_header: Option<reth_primitives::Header>,
 ) -> RaikoResult<TaikoGuestBatchInput> {
     let batch_info = &batch_proposed.info;
     let blob_hashes = batch_info.blobHashes.clone();
@@ -384,6 +385,7 @@ async fn prepare_pacaya_batch_input(
         l1_ancestor_headers: Vec::new(),
         chain_spec: taiko_chain_spec.clone(),
         prover_data: prover_data,
+        l2_grandparent_header: grandparent_header,
         data_sources: vec![InputDataSource {
             tx_data_from_calldata,
             tx_data_from_blob: blob_tx_buffers_with_proofs
@@ -404,7 +406,7 @@ async fn prepare_pacaya_batch_input(
     })
 }
 
-/// Prepare Pacaya batch input
+/// Prepare Shasta batch input
 async fn prepare_shasta_batch_input(
     shasta_event_data: raiko_lib::input::shasta::ShastaEventData,
     batch_id: u64,
@@ -418,6 +420,7 @@ async fn prepare_shasta_batch_input(
     prover_data: TaikoProverData,
     blob_proof_type: &BlobProofType,
     _provider_l1: &RpcBlockDataProvider,
+    grandparent_header: Option<reth_primitives::Header>,
 ) -> RaikoResult<TaikoGuestBatchInput> {
     let mut data_sources = Vec::new();
     for derivation_source in shasta_event_data.proposal.sources.clone() {
@@ -473,6 +476,7 @@ async fn prepare_shasta_batch_input(
             .collect(),
         chain_spec: taiko_chain_spec.clone(),
         prover_data: prover_data,
+        l2_grandparent_header: grandparent_header,
         data_sources,
     })
 }
@@ -486,6 +490,7 @@ async fn prepare_taiko_chain_batch_input_pacaya(
     blob_proof_type: &BlobProofType,
     batch_anchor_tx_info: Vec<(u64, B256)>,
     batch_proposed: raiko_lib::input::pacaya::BatchProposed,
+    grandparent_header: Option<reth_primitives::Header>,
 ) -> RaikoResult<TaikoGuestBatchInput> {
     let (anchor_block_height, anchor_state_root) = batch_anchor_tx_info[0];
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
@@ -509,6 +514,7 @@ async fn prepare_taiko_chain_batch_input_pacaya(
         prover_data,
         blob_proof_type,
         &provider_l1,
+        grandparent_header,
     )
     .await
 }
@@ -522,6 +528,7 @@ async fn prepare_taiko_chain_batch_input_shasta(
     blob_proof_type: &BlobProofType,
     batch_anchor_tx_info: Vec<(u64, B256)>,
     shasta_event_data: raiko_lib::input::shasta::ShastaEventData,
+    grandparent_header: Option<reth_primitives::Header>,
 ) -> RaikoResult<TaikoGuestBatchInput> {
     let (anchor_block_height, _) = batch_anchor_tx_info[0];
     let provider_l1 = RpcBlockDataProvider::new(&l1_chain_spec.rpc, 0).await?;
@@ -562,6 +569,7 @@ async fn prepare_taiko_chain_batch_input_shasta(
         prover_data,
         blob_proof_type,
         &provider_l1,
+        grandparent_header,
     )
     .await
 }
@@ -576,6 +584,7 @@ pub async fn prepare_taiko_chain_batch_input(
     prover_data: TaikoProverData,
     blob_proof_type: &BlobProofType,
     cached_event_data: Option<BlockProposedFork>,
+    grandparent_header: Option<reth_primitives::Header>,
 ) -> RaikoResult<TaikoGuestBatchInput> {
     // Get the L1 block in which the L2 block was included so we can fetch the DA data.
     // Also get the L1 state block header so that we can prove the L1 state root.
@@ -628,6 +637,7 @@ pub async fn prepare_taiko_chain_batch_input(
                 blob_proof_type,
                 batch_anchor_tx_info,
                 batch_proposed,
+                grandparent_header,
             )
             .await
         }
@@ -652,6 +662,7 @@ pub async fn prepare_taiko_chain_batch_input(
                 blob_proof_type,
                 batch_anchor_tx_info,
                 shasta_event_data,
+                grandparent_header,
             )
             .await
         }
@@ -890,7 +901,6 @@ pub async fn filter_block_proposed_event(
                         RaikoError::Anyhow(anyhow!("Could not decode Shasta event data"))
                     })?;
 
-                // let timestamp = log.block_timestamp.unwrap();
                 let current_block_number = log.block_number.unwrap();
                 let current_block = provider
                     .get_block(
@@ -1066,14 +1076,28 @@ pub async fn get_batch_blocks_and_parent_data<BDP>(
 where
     BDP: BlockDataProvider,
 {
-    let target_blocks = iter::once(block_numbers[0] - 1)
-        .chain(block_numbers.iter().cloned())
-        .enumerate()
-        .map(|(i, block_number)| (block_number, i != 0))
-        .collect::<Vec<(u64, bool)>>();
+    let is_first_block = block_numbers[0] == 1;
+    let target_blocks = if is_first_block {
+        iter::once(block_numbers[0] - 1)
+            .chain(block_numbers.iter().cloned())
+            .enumerate()
+            .map(|(i, block_number)| (block_number, i != 0))
+            .collect::<Vec<(u64, bool)>>()
+    } else {
+        std::iter::once(block_numbers[0] - 2)
+            .chain(std::iter::once(block_numbers[0] - 1))
+            .chain(block_numbers.iter().cloned())
+            .enumerate()
+            .map(|(i, block_number)| (block_number, i != 0))
+            .collect::<Vec<(u64, bool)>>()
+    };
     // Get the block and the parent block
     let blocks = provider.get_blocks(&target_blocks).await?;
-    assert!(blocks.len() == block_numbers.len() + 1);
+    if is_first_block {
+        assert!(blocks.len() == block_numbers.len() + 1);
+    } else {
+        assert!(blocks.len() == block_numbers.len() + 2);
+    }
 
     info!(
         "Processing {} blocks with (num, hash) from:({:?}, {:?}) to ({:?}, {:?})",

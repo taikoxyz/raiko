@@ -127,8 +127,8 @@ impl Raiko {
 
         match result {
             Ok(header) => {
-                info!("Verifying final state using provider data ...");
-                info!(
+                debug!("Verifying final state using provider data ...");
+                debug!(
                     "Final block hash derived successfully. {}",
                     header.hash_slow()
                 );
@@ -205,11 +205,11 @@ impl Raiko {
         match result {
             Ok(block) => {
                 let header = block.header.clone();
-                info!(
+                debug!(
                     "Verifying final block {} state using provider data ...",
                     header.number
                 );
-                info!(
+                debug!(
                     "Final block {} hash derived successfully. {}",
                     header.number,
                     header.hash_slow()
@@ -537,6 +537,7 @@ mod tests {
 
         let aggregate_hash = shasta_pcd_aggregation_hash(
             &guest_input.proof_carry_data_vec,
+            Address::ZERO,
         )
         .expect("failed to get aggregate hash");
         let output = AggregationGuestOutput {

@@ -73,6 +73,8 @@ pub struct TaikoGuestBatchInput {
     pub chain_spec: ChainSpec,
     pub prover_data: TaikoProverData,
     pub data_sources: Vec<InputDataSource>,
+    /// L2 grandparent header for the first block in the batch (used for EIP-4396 base fee calculation)
+    pub l2_grandparent_header: Option<Header>,
 }
 
 /// External block input.
