@@ -778,8 +778,8 @@ mod tests {
                 .unwrap();
             let proof_request = ProofRequest {
                 block_number: 0,
-                batch_id: 1329350,
-                l1_inclusion_block_number: 23365352,
+                batch_id: 1350232,
+                l1_inclusion_block_number: 24216800,
                 l2_block_numbers: Vec::new(),
                 network,
                 graffiti: B256::ZERO,
