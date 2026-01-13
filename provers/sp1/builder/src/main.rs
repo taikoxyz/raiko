@@ -39,6 +39,7 @@ impl Pipeline for Sp1Pipeline {
                 "link-arg=-Ttext=0x00200800",
                 "panic=abort",
             ])
+            .rust_cfgs(&["getrandom_backend=\"unsupported\""])
             .cc_compiler("gcc".into())
             .c_flags(&[
                 "/opt/riscv/bin/riscv32-unknown-elf-gcc",

@@ -68,3 +68,6 @@ enable = [
 cuda = ["risc0-zkvm?/cuda"]
 metal = ["risc0-zkvm?/metal"]
 bench = []
+
+[dev-dependencies]
+env_logger = { workspace = true }

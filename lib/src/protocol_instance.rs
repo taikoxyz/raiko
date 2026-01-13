@@ -1151,7 +1151,6 @@ mod tests {
     fn test_validate_shasta_aggregate_proof_carry_data_basic() {
         use crate::{
             input::{RawProof, ShastaRawAggregationGuestInput},
-            libhash::hash_checkpoint,
             prover::{ProofCarryData, TransitionInputData},
         };
 
@@ -1172,7 +1171,7 @@ mod tests {
             blockHash: b256!("0000000000000000000000000000000000000000000000000000000000000003"),
             stateRoot: b256!("0000000000000000000000000000000000000000000000000000000000000004"),
         };
-        let cp0 = hash_checkpoint(&checkpoint0);
+        let cp0 = checkpoint0.clone().blockHash;
 
         let mk = |proposal_id: u64,
                   proposal_hash: B256,
