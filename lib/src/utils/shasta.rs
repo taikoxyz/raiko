@@ -4,6 +4,7 @@ use reth_evm_ethereum::taiko::ANCHOR_V4_GAS_LIMIT;
 use reth_primitives::revm_primitives::SpecId;
 use reth_primitives::TransactionSigned;
 
+use crate::consts::ForkCondition;
 use crate::input::GuestBatchInput;
 use crate::manifest::DerivationSourceManifest;
 #[cfg(not(feature = "std"))]
@@ -19,16 +20,40 @@ fn make_default_manifest(
 ) -> DerivationSourceManifest {
     let taiko_guest_batch_input = &guest_batch_input.taiko;
     let proposal_timestamp = taiko_guest_batch_input.batch_proposed.proposal_timestamp();
-    let timestamp = clamp_timestamp_lower_bound(last_parent_block_timestamp, proposal_timestamp);
+    let shasta_fork_timestamp = match guest_batch_input
+        .taiko
+        .chain_spec
+        .hard_forks
+        .get(&SpecId::SHASTA)
+    {
+        Some(ForkCondition::Timestamp(timestamp)) => *timestamp,
+        _ => unreachable!("shasta fork should be a timestamp fork"),
+    };
+    let timestamp = clamp_timestamp_lower_bound(
+        last_parent_block_timestamp,
+        proposal_timestamp,
+        shasta_fork_timestamp,
+    );
     let coinbase = taiko_guest_batch_input.batch_proposed.proposer();
     let anchor_block_number = last_anchor_block_number;
-    let gas_limit = last_parent_block_gas_limit;
+    let gas_limit = if guest_batch_input
+        .inputs
+        .first()
+        .unwrap()
+        .parent_header
+        .number
+        == 0
+    {
+        last_parent_block_gas_limit
+    } else {
+        last_parent_block_gas_limit - ANCHOR_V4_GAS_LIMIT
+    };
     let transactions = Vec::new();
     DerivationSourceManifest::default_block_manifest(
         timestamp,
         coinbase,
         anchor_block_number,
-        gas_limit - ANCHOR_V4_GAS_LIMIT,
+        gas_limit,
         transactions,
     )
 }
@@ -124,13 +149,17 @@ pub fn generate_transactions_for_shasta_blocks(
                         }
                     }
                     _ => {
-                        warn!("shasta block manifest is invalid, use default manifest");
-                        make_default_manifest(
+                        let manifest = make_default_manifest(
                             guest_batch_input,
                             last_parent_block_timestamp,
                             last_parent_block_gas_limit,
                             last_anchor_block_number,
-                        )
+                        );
+                        warn!(
+                            "shasta block manifest is invalid, use default manifest: {:?}",
+                            &manifest
+                        );
+                        manifest
                     }
                 };
 
@@ -172,6 +201,10 @@ pub fn generate_transactions_for_shasta_blocks(
                         );
                         // update last parent block timestamp
                         last_parent_block_timestamp = manifest.blocks[0].timestamp;
+                        warn!(
+                            "force inclusion block manifest is invalid, use default manifest: {:?}",
+                            &manifest
+                        );
                         manifest
                     }
                 };

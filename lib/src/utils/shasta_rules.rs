@@ -151,17 +151,21 @@ pub(crate) fn validate_input_block_param(
 
 const BLOCK_GAS_LIMIT_MAX_CHANGE: u64 = 200;
 const GAS_LIMIT_DENOMINATOR: u64 = 1_000_000;
-const MAX_BLOCK_GAS_LIMIT: u64 = 45_000_000 + ANCHOR_V4_GAS_LIMIT;
-const MIN_BLOCK_GAS_LIMIT: u64 = 10_000_000 + ANCHOR_V4_GAS_LIMIT;
+const MAX_BLOCK_GAS_LIMIT: u64 = 45_000_000;
+const MIN_BLOCK_GAS_LIMIT: u64 = 10_000_000;
 
 /// validate gas limit for each block
 pub fn validate_shasta_block_gas_limit(
     manifest_blocks: &[ProtocolBlockManifest],
     block_guest_inputs: &[GuestInput],
 ) -> bool {
-    let mut parent_gas_limit = block_guest_inputs[0].parent_header.gas_limit;
+    let mut parent_gas_limit = if block_guest_inputs[0].parent_header.number == 0 {
+        block_guest_inputs[0].parent_header.gas_limit
+    } else {
+        block_guest_inputs[0].parent_header.gas_limit - ANCHOR_V4_GAS_LIMIT
+    };
     for manifest_block in manifest_blocks.iter() {
-        let block_gas_limit: u64 = manifest_block.gas_limit + ANCHOR_V4_GAS_LIMIT;
+        let block_gas_limit: u64 = manifest_block.gas_limit;
         let upper_limit: u64 = min(
             MAX_BLOCK_GAS_LIMIT,
             parent_gas_limit * (GAS_LIMIT_DENOMINATOR + BLOCK_GAS_LIMIT_MAX_CHANGE)
@@ -175,6 +179,8 @@ pub fn validate_shasta_block_gas_limit(
             ),
             upper_limit,
         );
+        tracing::info!("validate_shasta_block_gas_limit, parent_gas_limit: {}, block_gas_limit: {}, upper_limit: {}, lower_limit: {}", parent_gas_limit, block_gas_limit, upper_limit, lower_limit);
+
         if block_gas_limit < lower_limit || block_gas_limit > upper_limit {
             warn!("block gas limit is out of bounds, block_gas_limit: {}, lower_limit: {}, upper_limit: {}", block_gas_limit, lower_limit, upper_limit);
             return false;
@@ -185,7 +191,7 @@ pub fn validate_shasta_block_gas_limit(
 }
 
 // Offset constant for lower bound, placeholder, adjust as needed for protocol.
-const TIMESTAMP_MAX_OFFSET: u64 = 12 * 32;
+const TIMESTAMP_MAX_OFFSET: u64 = 12 * 128;
 
 /// validate timestamp for each block
 // #### `timestamp` Validation
@@ -231,11 +237,21 @@ pub fn validate_shasta_manifest_block_timesatmp(
     true
 }
 
-pub(crate) fn clamp_timestamp_lower_bound(parent_block_ts: u64, proposal_ts: u64) -> u64 {
-    std_max(
+pub(crate) fn clamp_timestamp_lower_bound(
+    parent_block_ts: u64,
+    proposal_ts: u64,
+    shasta_fork_timestamp: u64,
+) -> u64 {
+    tracing::info!("clamp_timestamp_lower_bound, parent_block_ts: {}, proposal_ts: {}, shasta_fork_timestamp: {}", parent_block_ts, proposal_ts, shasta_fork_timestamp);
+    let lower_bound = std_max(
         parent_block_ts + 1,
         proposal_ts.saturating_sub(TIMESTAMP_MAX_OFFSET),
-    )
+    );
+    if lower_bound < shasta_fork_timestamp {
+        shasta_fork_timestamp
+    } else {
+        lower_bound
+    }
 }
 
 /// Block time target for EIP-4396 base fee calculation (2 seconds)

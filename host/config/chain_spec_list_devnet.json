@@ -31,7 +31,7 @@
                 "RISC0": null
             }
         },
-        "genesis_time": 1767751500,
+        "genesis_time": 1768276900,
         "seconds_per_slot": 12,
         "is_taiko": false
     },
@@ -69,16 +69,16 @@
         "beacon_rpc": null,
         "verifier_address_forks": {
             "PACAYA": {
-                "SGX": "0x6719d5825cbA8689214cEa2484b71703e9B1D484",
+                "SGX": "0xf0ebc67dB56A5687649fF2216e3826a52F8DBd7c",
                 "SP1": "0xCb2D625BF8C2187B180646aF4738AF5F1413Fb70",
                 "RISC0": "0x48940F7ab2C674Aa66C09eDa71614aD704E9d007",
-                "SGXGETH": "0xFbcc0b771018816463e71e3164C45eB432B09F2d"
+                "SGXGETH": "0xfE3EdF3e778a647c0955f2a5f79565E272E6AfdB"
             },
             "SHASTA": {
-                "SGX": "0x6719d5825cbA8689214cEa2484b71703e9B1D484",
+                "SGX": "0xf0ebc67dB56A5687649fF2216e3826a52F8DBd7c",
                 "SP1": "0xCb2D625BF8C2187B180646aF4738AF5F1413Fb70",
                 "RISC0": "0x48940F7ab2C674Aa66C09eDa71614aD704E9d007",
-                "SGXGETH": "0xFbcc0b771018816463e71e3164C45eB432B09F2d"
+                "SGXGETH": "0xfE3EdF3e778a647c0955f2a5f79565E272E6AfdB"
             }
         },
         "genesis_time": 0,
