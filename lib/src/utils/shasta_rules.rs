@@ -1,13 +1,13 @@
 use core::cmp::{max, min};
 use reth_evm_ethereum::taiko::ANCHOR_V4_GAS_LIMIT;
-use reth_primitives::{Block, Header};
 use reth_primitives::revm_primitives::SpecId;
+use reth_primitives::{Block, Header};
 use std::cmp::max as std_max;
 use tracing::warn;
 
+use crate::consts::ForkCondition;
 use crate::input::{GuestBatchInput, GuestInput};
 use crate::manifest::{DerivationSourceManifest, ProtocolBlockManifest, PROPOSAL_MAX_BLOCKS};
-use crate::consts::ForkCondition;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 
@@ -18,12 +18,12 @@ pub const ANCHOR_MAX_OFFSET: usize = 128;
 pub(crate) fn valid_anchor_in_normal_proposal(
     blocks: &[ProtocolBlockManifest],
     last_anchor_block_number: u64,
-    l1_header_number: u64,
+    l1_origin_block_number: u64,
 ) -> bool {
     // Check if anchor is within valid range [l1_header_number - ANCHOR_MAX_OFFSET, l1_header_number]
     // Use saturating_sub to avoid underflow when l1_header_number is small
-    let min_anchor = l1_header_number.saturating_sub(ANCHOR_MAX_OFFSET as u64);
-    let max_anchor = l1_header_number;
+    let min_anchor = l1_origin_block_number.saturating_sub(ANCHOR_MAX_OFFSET as u64);
+    let max_anchor = l1_origin_block_number;
 
     // Perform all checks in a single loop:
     // 1. Check if at least one anchor > last_anchor_block_number
@@ -94,7 +94,7 @@ pub(crate) fn validate_normal_proposal_manifest(
     if !valid_anchor_in_normal_proposal(
         &manifest.blocks,
         last_anchor_block_number,
-        input.taiko.batch_proposed.proposal_block_number(),
+        input.taiko.batch_proposed.proposal_block_number() - 1,
     ) {
         warn!(
             "valid_anchor_in_proposal failed, last_anchor_block_number: {}",
@@ -457,8 +457,8 @@ pub fn validate_shasta_block_base_fee(
 #[cfg(test)]
 mod tests {
     use super::{
-        validate_force_inc_proposal_manifest, validate_shasta_manifest_block_timesatmp,
-        valid_anchor_in_normal_proposal,
+        valid_anchor_in_normal_proposal, validate_force_inc_proposal_manifest,
+        validate_shasta_manifest_block_timesatmp,
     };
     use crate::consts::{ChainSpec, ForkCondition};
     use crate::input::{
@@ -467,8 +467,8 @@ mod tests {
     };
     use crate::manifest::{DerivationSourceManifest, ProtocolBlockManifest};
     use alloy_primitives::B256;
-    use reth_primitives::Header;
     use reth_primitives::revm_primitives::SpecId;
+    use reth_primitives::Header;
     use std::collections::BTreeMap;
 
     use super::calc_next_shasta_base_fee;
@@ -561,10 +561,7 @@ mod tests {
             Default::default(),
             true,
         );
-        chain_spec.hard_forks = BTreeMap::from([(
-            SpecId::SHASTA,
-            ForkCondition::Timestamp(150),
-        )]);
+        chain_spec.hard_forks = BTreeMap::from([(SpecId::SHASTA, ForkCondition::Timestamp(150))]);
 
         let proposal = Proposal {
             timestamp: 200,
@@ -601,6 +598,9 @@ mod tests {
             timestamp: 120, // above parent+1 but below SHASTA fork time
             ..Default::default()
         }];
-        assert!(!validate_shasta_manifest_block_timesatmp(&blocks, &batch_input));
+        assert!(!validate_shasta_manifest_block_timesatmp(
+            &blocks,
+            &batch_input
+        ));
     }
 }

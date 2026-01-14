@@ -188,9 +188,16 @@ pub fn generate_transactions_for_shasta_blocks(
             let force_inc_source =
                 match DerivationSourceManifest::decode(&mut force_inc_source_bytes.as_ref()) {
                     Ok(manifest) if validate_force_inc_proposal_manifest(&manifest) => {
-                        last_parent_block_timestamp = manifest.blocks[0].timestamp;
-                        last_parent_block_gas_limit = manifest.blocks[0].gas_limit;
-                        manifest
+                        // overwrite force inc manifest
+                        let mut force_inc_manifest = make_default_manifest(
+                            guest_batch_input,
+                            last_parent_block_timestamp,
+                            last_parent_block_gas_limit,
+                            last_anchor_block_number,
+                        );
+                        force_inc_manifest.blocks[0].transactions =
+                            manifest.blocks[0].transactions.clone();
+                        force_inc_manifest
                     }
                     _ => {
                         let manifest = make_default_manifest(
@@ -199,8 +206,6 @@ pub fn generate_transactions_for_shasta_blocks(
                             last_parent_block_gas_limit,
                             last_anchor_block_number,
                         );
-                        // update last parent block timestamp
-                        last_parent_block_timestamp = manifest.blocks[0].timestamp;
                         warn!(
                             "force inclusion block manifest is invalid, use default manifest: {:?}",
                             &manifest
@@ -208,8 +213,12 @@ pub fn generate_transactions_for_shasta_blocks(
                         manifest
                     }
                 };
+
             // force inc has only 1 block
             let force_inc_block_manifest = &force_inc_source.blocks[0];
+            // update last parent block timestamp for next iteration
+            last_parent_block_timestamp = force_inc_block_manifest.timestamp;
+            last_parent_block_gas_limit = force_inc_block_manifest.gas_limit;
             assert!(
                 validate_input_block_param(
                     force_inc_block_manifest,
