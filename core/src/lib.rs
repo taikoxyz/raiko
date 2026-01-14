@@ -623,9 +623,9 @@ mod tests {
         let l1_chain_spec = chain_specs.get_chain_spec(&l1_network).unwrap();
         let proof_request = ProofRequest {
             block_number: 0,
-            batch_id: 52,
-            l1_inclusion_block_number: 428,
-            l2_block_numbers: vec![52],
+            batch_id: 3,
+            l1_inclusion_block_number: 85,
+            l2_block_numbers: vec![3],
             network,
             graffiti: B256::ZERO,
             prover: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
@@ -635,7 +635,7 @@ mod tests {
             prover_args: test_proof_params(false),
             checkpoint: None,
             cached_event_data: None,
-            last_anchor_block_number: Some(421),
+            last_anchor_block_number: Some(78),
         };
 
         let proof =

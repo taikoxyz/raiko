@@ -350,7 +350,7 @@ impl BlockProposedFork {
         decoded_blob_data_concat: &[u8],
     ) -> Option<(usize, usize)> {
         const SHASTA_BLOB_DATA_PREFIX_SIZE: usize = 64;
-        const BLOB_BYTES: usize = 4096 * 32;
+        use crate::utils::blobs::BLOB_DATA_CAPACITY as BLOB_BYTES;
 
         let BlockProposedFork::Shasta(event_data) = self else {
             return None;

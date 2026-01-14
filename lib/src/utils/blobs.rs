@@ -7,7 +7,7 @@ use crate::no_std::*;
 
 const BLOB_FIELD_ELEMENT_NUM: usize = 4096;
 const BLOB_FIELD_ELEMENT_BYTES: usize = 32;
-const BLOB_DATA_CAPACITY: usize = BLOB_FIELD_ELEMENT_NUM * BLOB_FIELD_ELEMENT_BYTES;
+pub(crate) const BLOB_DATA_CAPACITY: usize = BLOB_FIELD_ELEMENT_NUM * BLOB_FIELD_ELEMENT_BYTES;
 // max call data bytes
 pub(crate) const CALL_DATA_CAPACITY: usize =
     BLOB_FIELD_ELEMENT_NUM * (BLOB_FIELD_ELEMENT_BYTES - 1);
