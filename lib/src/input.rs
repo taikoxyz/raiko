@@ -350,6 +350,7 @@ impl BlockProposedFork {
         decoded_blob_data_concat: &[u8],
     ) -> Option<(usize, usize)> {
         const SHASTA_BLOB_DATA_PREFIX_SIZE: usize = 64;
+        const BLOB_BYTES: usize = 4096 * 32;
 
         let BlockProposedFork::Shasta(event_data) = self else {
             return None;
@@ -361,6 +362,9 @@ impl BlockProposedFork {
         }
 
         let offset = source.blobSlice.offset as usize;
+        if offset > BLOB_BYTES.saturating_sub(SHASTA_BLOB_DATA_PREFIX_SIZE) {
+            return None;
+        }
         if offset + SHASTA_BLOB_DATA_PREFIX_SIZE > decoded_blob_data_concat.len() {
             return None;
         }
@@ -488,6 +492,8 @@ pub use hekla::*;
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::input::shasta::{BlobSlice, DerivationSource, Proposal, ShastaEventData};
+    use alloy_primitives::B256;
 
     #[test]
     fn test_guest_input_se_de() {
@@ -521,5 +527,35 @@ mod test {
         let input_ser = serde_json::to_value(&input).unwrap();
         let input_de: GuestInput = serde_json::from_value(input_ser).unwrap();
         print!("{:?}", input_de);
+    }
+
+    #[test]
+    fn test_shasta_blob_slice_offset_bounds() {
+        const BLOB_BYTES: usize = 4096 * 32;
+        const SHASTA_BLOB_DATA_PREFIX_SIZE: usize = 64;
+        let offset = (BLOB_BYTES - SHASTA_BLOB_DATA_PREFIX_SIZE + 1) as u32;
+
+        let proposal = Proposal {
+            sources: vec![DerivationSource {
+                isForcedInclusion: false,
+                blobSlice: BlobSlice {
+                    blobHashes: vec![B256::ZERO],
+                    offset,
+                    timestamp: 0,
+                },
+            }],
+            ..Default::default()
+        };
+        let event_data = ShastaEventData { proposal };
+        let fork = BlockProposedFork::Shasta(event_data);
+
+        let mut decoded = vec![0u8; (offset as usize) + SHASTA_BLOB_DATA_PREFIX_SIZE];
+        let version = B256::with_last_byte(1);
+        decoded[(offset as usize)..(offset as usize + 32)].copy_from_slice(version.as_slice());
+
+        assert!(
+            fork.blob_tx_slice_param_for_source(0, &decoded).is_none(),
+            "offset beyond blob prefix bound should be rejected"
+        );
     }
 }

@@ -1,17 +1,18 @@
 use core::cmp::{max, min};
 use reth_evm_ethereum::taiko::ANCHOR_V4_GAS_LIMIT;
-use reth_primitives::{Address, Block, Header};
+use reth_primitives::{Block, Header};
+use reth_primitives::revm_primitives::SpecId;
 use std::cmp::max as std_max;
 use tracing::warn;
 
 use crate::input::{GuestBatchInput, GuestInput};
 use crate::manifest::{DerivationSourceManifest, ProtocolBlockManifest, PROPOSAL_MAX_BLOCKS};
+use crate::consts::ForkCondition;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 
 pub const BOND_PROCESSING_DELAY: usize = 6;
 
-const ANCHOR_MIN_OFFSET: usize = 1;
 pub const ANCHOR_MAX_OFFSET: usize = 128;
 
 pub(crate) fn valid_anchor_in_normal_proposal(
@@ -19,10 +20,10 @@ pub(crate) fn valid_anchor_in_normal_proposal(
     last_anchor_block_number: u64,
     l1_header_number: u64,
 ) -> bool {
-    // Check if anchor is within valid range [l1_header_number - ANCHOR_MAX_OFFSET, l1_header_number - ANCHOR_MIN_OFFSET)
+    // Check if anchor is within valid range [l1_header_number - ANCHOR_MAX_OFFSET, l1_header_number]
     // Use saturating_sub to avoid underflow when l1_header_number is small
     let min_anchor = l1_header_number.saturating_sub(ANCHOR_MAX_OFFSET as u64);
-    let max_anchor = l1_header_number.saturating_sub(ANCHOR_MIN_OFFSET as u64);
+    let max_anchor = l1_header_number;
 
     // Perform all checks in a single loop:
     // 1. Check if at least one anchor > last_anchor_block_number
@@ -34,12 +35,21 @@ pub(crate) fn valid_anchor_in_normal_proposal(
     for block in blocks.iter() {
         let anchor = block.anchor_block_number;
 
-        // Check 1: at least one anchor should > last_anchor_block_number
+        // Check 1: no anchor should regress below last_anchor_block_number
+        if anchor < last_anchor_block_number {
+            warn!(
+                "anchor {} is below last_anchor_block_number {}",
+                anchor, last_anchor_block_number
+            );
+            return false;
+        }
+
+        // Check 2: at least one anchor should > last_anchor_block_number
         if anchor > last_anchor_block_number {
             has_anchor_grow = true;
         }
 
-        // Check 2: anchors should be in order (non-decreasing)
+        // Check 3: anchors should be in order (non-decreasing)
         if let Some(prev) = prev_anchor {
             if anchor < prev {
                 warn!("anchor is not in order, blocks: {:?}", blocks);
@@ -48,10 +58,10 @@ pub(crate) fn valid_anchor_in_normal_proposal(
         }
         prev_anchor = Some(anchor);
 
-        // Check 3: anchor should be within valid range
+        // Check 4: anchor should be within valid range
         if anchor < min_anchor || anchor > max_anchor {
             warn!(
-                "anchor {} is not in range, [{}, {})",
+                "anchor {} is not in range, [{}, {}]",
                 anchor, min_anchor, max_anchor
             );
             return false;
@@ -106,12 +116,7 @@ pub(crate) fn validate_normal_proposal_manifest(
 }
 
 pub(crate) fn validate_force_inc_proposal_manifest(manifest: &DerivationSourceManifest) -> bool {
-    if manifest.blocks.len() != 1
-        || manifest.blocks[0].timestamp != 0
-        || manifest.blocks[0].coinbase != Address::default()
-        || manifest.blocks[0].anchor_block_number != 0
-        || manifest.blocks[0].gas_limit != 0
-    {
+    if manifest.blocks.len() != 1 {
         warn!(
             "validate_force_inc_proposal_manifest failed, manifest: {:?}",
             manifest
@@ -206,6 +211,15 @@ pub fn validate_shasta_manifest_block_timesatmp(
 ) -> bool {
     let block_guest_inputs = &batch_guest_inputs.inputs;
     let proposal_timestamp = batch_guest_inputs.taiko.batch_proposed.proposal_timestamp();
+    let shasta_fork_timestamp = match batch_guest_inputs
+        .taiko
+        .chain_spec
+        .hard_forks
+        .get(&SpecId::SHASTA)
+    {
+        Some(ForkCondition::Timestamp(timestamp)) => *timestamp,
+        _ => 0,
+    };
     let mut parent_timestamp = block_guest_inputs[0].parent_header.timestamp;
     for manifest_block in blocks.iter() {
         let block_timestamp = manifest_block.timestamp;
@@ -222,8 +236,11 @@ pub fn validate_shasta_manifest_block_timesatmp(
         // Calculate lowerBound = max(parent.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)
         // Then validate: block.timestamp >= lowerBound
         let lower_bound = std_max(
-            parent_timestamp + 1,
-            proposal_timestamp.saturating_sub(TIMESTAMP_MAX_OFFSET),
+            std_max(
+                parent_timestamp + 1,
+                proposal_timestamp.saturating_sub(TIMESTAMP_MAX_OFFSET),
+            ),
+            shasta_fork_timestamp,
         );
         if block_timestamp < lower_bound {
             warn!(
@@ -439,6 +456,21 @@ pub fn validate_shasta_block_base_fee(
 
 #[cfg(test)]
 mod tests {
+    use super::{
+        validate_force_inc_proposal_manifest, validate_shasta_manifest_block_timesatmp,
+        valid_anchor_in_normal_proposal,
+    };
+    use crate::consts::{ChainSpec, ForkCondition};
+    use crate::input::{
+        shasta::{BlobSlice, DerivationSource, Proposal, ShastaEventData},
+        BlockProposedFork, GuestBatchInput, GuestInput, TaikoGuestBatchInput,
+    };
+    use crate::manifest::{DerivationSourceManifest, ProtocolBlockManifest};
+    use alloy_primitives::B256;
+    use reth_primitives::Header;
+    use reth_primitives::revm_primitives::SpecId;
+    use std::collections::BTreeMap;
+
     use super::calc_next_shasta_base_fee;
 
     #[test]
@@ -474,5 +506,101 @@ mod tests {
         );
 
         assert_eq!(result, 5_059_102);
+    }
+
+    #[test]
+    fn test_anchor_range_includes_max_offset() {
+        let l1_header_number = 1000u64;
+        let last_anchor_block_number = 871u64; // min_anchor - 1
+        let blocks = vec![ProtocolBlockManifest {
+            anchor_block_number: 872u64, // 1000 - 128
+            ..Default::default()
+        }];
+        assert!(valid_anchor_in_normal_proposal(
+            &blocks,
+            last_anchor_block_number,
+            l1_header_number
+        ));
+    }
+
+    #[test]
+    fn test_anchor_regression_is_invalid() {
+        let l1_header_number = 1000u64;
+        let last_anchor_block_number = 900u64;
+        let blocks = vec![ProtocolBlockManifest {
+            anchor_block_number: 899u64,
+            ..Default::default()
+        }];
+        assert!(!valid_anchor_in_normal_proposal(
+            &blocks,
+            last_anchor_block_number,
+            l1_header_number
+        ));
+    }
+
+    #[test]
+    fn test_force_inclusion_manifest_accepts_non_zero_fields() {
+        let manifest = DerivationSourceManifest {
+            blocks: vec![ProtocolBlockManifest {
+                timestamp: 123,
+                coinbase: Default::default(),
+                anchor_block_number: 456,
+                gas_limit: 789,
+                transactions: vec![],
+            }],
+        };
+        assert!(validate_force_inc_proposal_manifest(&manifest));
+    }
+
+    #[test]
+    fn test_timestamp_validation_enforces_shasta_fork_time() {
+        let mut chain_spec = ChainSpec::new_single(
+            "test".to_string(),
+            1u64.into(),
+            SpecId::SHASTA,
+            Default::default(),
+            true,
+        );
+        chain_spec.hard_forks = BTreeMap::from([(
+            SpecId::SHASTA,
+            ForkCondition::Timestamp(150),
+        )]);
+
+        let proposal = Proposal {
+            timestamp: 200,
+            originBlockNumber: 100,
+            sources: vec![DerivationSource {
+                isForcedInclusion: false,
+                blobSlice: BlobSlice {
+                    blobHashes: vec![B256::ZERO],
+                    offset: 0,
+                    timestamp: 0,
+                },
+            }],
+            ..Default::default()
+        };
+        let event_data = ShastaEventData { proposal };
+
+        let guest_input = GuestInput {
+            parent_header: Header {
+                timestamp: 90,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let batch_input = GuestBatchInput {
+            inputs: vec![guest_input],
+            taiko: TaikoGuestBatchInput {
+                batch_proposed: BlockProposedFork::Shasta(event_data),
+                chain_spec,
+                ..Default::default()
+            },
+        };
+
+        let blocks = vec![ProtocolBlockManifest {
+            timestamp: 120, // above parent+1 but below SHASTA fork time
+            ..Default::default()
+        }];
+        assert!(!validate_shasta_manifest_block_timesatmp(&blocks, &batch_input));
     }
 }
