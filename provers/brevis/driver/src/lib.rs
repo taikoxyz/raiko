@@ -150,7 +150,7 @@ struct BrevisPicoClient {
 
 impl BrevisPicoClient {
     fn from_config(config: &ProverConfig) -> ProverResult<Self> {
-        let params = match config.get("brevis_pico") {
+        let params = match config.get("brevis").or_else(|| config.get("brevis_pico")) {
             Some(value) => serde_json::from_value(value.clone()).map_err(ProverError::Param)?,
             None => BrevisPicoParam::default(),
         };
@@ -206,8 +206,9 @@ impl BrevisPicoClient {
         let path = path
         .ok_or_else(|| {
             ProverError::GuestError(format!(
-                "Missing Brevis {} ELF path; set brevis_pico.{} or {}",
+                "Missing Brevis {} ELF path; set brevis.{} (or brevis_pico.{}) or {}",
                 image_type.as_str(),
+                label,
                 label,
                 env_var
             ))
@@ -256,7 +257,7 @@ impl BrevisPicoClient {
     ) -> ProverResult<()> {
         let base_url = self.remote_prover_url.trim_end_matches("/proof");
         let upload_url = format!(
-            "{}/upload-image/brevis_pico/{}",
+            "{}/upload-image/brevis/{}",
             base_url,
             image_type.as_str()
         );
@@ -298,7 +299,7 @@ impl BrevisPicoClient {
 
     async fn submit_proof(&self, proof_type: &str, input: Vec<u8>) -> ProverResult<Vec<u8>> {
         let payload = serde_json::json!({
-            "prover_type": "brevis_pico",
+            "prover_type": "brevis",
             "input": input,
             "output": Vec::<u8>::new(),
             "proof_type": proof_type,

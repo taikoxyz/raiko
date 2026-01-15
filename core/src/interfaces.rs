@@ -685,6 +685,7 @@ pub struct ProverSpecificOpts {
     /// RISC0 prover specific options.
     pub risc0: Option<Value>,
     /// Brevis Pico prover specific options.
+    #[serde(alias = "brevis")]
     pub brevis_pico: Option<Value>,
 }
 
@@ -698,7 +699,7 @@ impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificO
             ("sgxgeth", value.sgxgeth.clone()),
             ("sp1", value.sp1.clone()),
             ("risc0", value.risc0.clone()),
-            ("brevis_pico", value.brevis_pico.clone()),
+            ("brevis", value.brevis_pico.clone()),
         ]
         .into_iter()
         .filter_map(|(name, value)| value.map(|v| (name.to_string(), v)))
