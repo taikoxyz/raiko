@@ -26,9 +26,10 @@ pub(crate) fn valid_anchor_in_normal_proposal(
     let max_anchor = l1_origin_block_number;
 
     // Perform all checks in a single loop:
-    // 1. Check if at least one anchor > last_anchor_block_number
-    // 2. Check if anchors are in order (non-decreasing)
-    // 3. Check if all anchors are within valid range
+    // 1. No anchor should regress below last_anchor_block_number
+    // 2. At least one anchor should be greater than last_anchor_block_number
+    // 3. Anchors should be in order (non-decreasing)
+    // 4. All anchors should be within valid range
     let mut has_anchor_grow = false;
     let mut prev_anchor = None;
 

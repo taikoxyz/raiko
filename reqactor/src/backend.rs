@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-
 use raiko_core::{
     interfaces::{aggregate_proofs, aggregate_shasta_proposals, ProofRequest},
     preflight::{
