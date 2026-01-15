@@ -21,6 +21,7 @@ base64 = { workspace = true }
 bincode = { workspace = true }
 
 [dev-dependencies]
+env_logger = { workspace = true }
 
 [features]
 default = []

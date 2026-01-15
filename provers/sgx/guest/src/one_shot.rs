@@ -9,10 +9,19 @@ use anyhow::{anyhow, bail, Context, Error, Result};
 use base64_serde::base64_serde_type;
 use raiko_lib::{
     builder::{calculate_batch_blocks_final_header, calculate_block_header},
-    input::{GuestBatchInput, GuestInput, RawAggregationGuestInput},
-    primitives::{keccak, Address, B256},
+    input::{
+        GuestBatchInput, GuestInput, RawAggregationGuestInput, ShastaRawAggregationGuestInput,
+    },
+    libhash::hash_shasta_subproof_input,
+    primitives::{
+        keccak::{self},
+        Address, B256,
+    },
     proof_type::ProofType,
-    protocol_instance::{aggregation_output_combine, ProtocolInstance},
+    protocol_instance::{
+        aggregation_output_combine, shasta_pcd_aggregation_hash,
+        validate_shasta_aggregate_proof_carry_data, ProtocolInstance,
+    },
 };
 use secp256k1::{Keypair, PublicKey, SecretKey};
 use serde::Serialize;
@@ -312,6 +321,78 @@ pub async fn aggregate(
         "quote": hex::encode(quote),
         "public_key": format!("0x{new_pubkey}"),
         "instance_address": new_instance.to_string(),
+        "input": B256::from(aggregation_hash).to_string(),
+    });
+    println!("{data}");
+
+    // Print out general SGX information
+    let _ = print_sgx_info();
+    Ok(data)
+}
+
+pub async fn shasta_aggregate(
+    global_opts: GlobalOpts,
+    args: OneShotArgs,
+    input: ShastaRawAggregationGuestInput,
+) -> Result<Value> {
+    // Make sure this SGX instance was bootstrapped
+    let prev_privkey = load_bootstrap(&global_opts.secrets_dir)
+        .or_else(|_| bail!("Application was not bootstrapped or has a deprecated bootstrap."))
+        .unwrap();
+
+    println!("Global options: {global_opts:?}, OneShot options: {args:?}");
+
+    let new_pubkey = public_key(&prev_privkey);
+    let sgx_instance = public_key_to_address(&new_pubkey);
+
+    // No key-rotation: every sub-proof must be signed by the same instance address and the
+    // embedded instance bytes must match the recovered signer.
+    let expected_instance = Address::from_slice(&input.proofs[0].proof.clone()[4..24]);
+    assert_eq!(expected_instance, sgx_instance);
+
+    assert!(validate_shasta_aggregate_proof_carry_data(&input));
+
+    // Verify the proofs
+    for (i, proof) in input.proofs.iter().enumerate() {
+        // TODO: verify protocol instance data so we can trust the old/new instance data
+        assert_eq!(
+            proof.input,
+            hash_shasta_subproof_input(&input.proof_carry_data_vec[i])
+        );
+        let instance = Address::from_slice(&proof.proof.clone()[4..24]);
+        assert_eq!(instance, expected_instance);
+        assert_eq!(
+            recover_signer_unchecked(proof.proof[24..].try_into().unwrap(), &proof.input,).unwrap(),
+            expected_instance,
+        );
+    }
+
+    let aggregation_hash =
+        shasta_pcd_aggregation_hash(&input.proof_carry_data_vec, sgx_instance)
+            .ok_or_else(|| anyhow!("invalid shasta proof carry data for aggregation"))?;
+
+    // Sign the public aggregation hash
+    let sig = sign_message(&prev_privkey, aggregation_hash.into())?;
+
+    // Create the proof for the onchain SGX verifier
+    const SHASTA_SGX_PROOF_LEN: usize = 89;
+    // 4(id) + 20(current) + 65(sig) = 89
+    let mut proof = Vec::with_capacity(SHASTA_SGX_PROOF_LEN);
+    proof.extend(args.sgx_instance_id.to_be_bytes());
+    proof.extend(sgx_instance);
+    proof.extend(sig);
+    let proof = hex::encode(proof);
+
+    // Store the public key address in the attestation data
+    save_attestation_user_report_data(sgx_instance)?;
+
+    // Print out the proof and updated public info
+    let quote = get_sgx_quote()?;
+    let data = serde_json::json!({
+        "proof": format!("0x{proof}"),
+        "quote": hex::encode(quote),
+        "public_key": format!("0x{new_pubkey}"),
+        "instance_address": sgx_instance.to_string(),
         "input": B256::from(aggregation_hash).to_string(),
     });
     println!("{data}");

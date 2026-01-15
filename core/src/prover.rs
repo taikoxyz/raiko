@@ -1,11 +1,15 @@
 use std::path::Path;
 
 use raiko_lib::{
-    input::{GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput},
+    input::{
+        GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput, RawProof,
+        ShastaRawAggregationGuestInput,
+    },
     proof_type::ProofType,
-    protocol_instance::ProtocolInstance,
+    protocol_instance::{shasta_pcd_aggregation_hash, ProtocolInstance},
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
 };
+use reth_primitives::Address;
 use serde::{de::Error, Deserialize, Serialize};
 use serde_with::serde_as;
 use tracing::trace;
@@ -64,6 +68,7 @@ impl Prover for NativeProver {
             quote: None,
             uuid: None,
             kzg_proof: None,
+            extra_data: None,
         })
     }
 
@@ -111,6 +116,7 @@ impl Prover for NativeProver {
             quote: None,
             uuid: None,
             kzg_proof: None,
+            extra_data: None,
         })
     }
 
@@ -128,6 +134,48 @@ impl Prover for NativeProver {
         Ok(Proof {
             ..Default::default()
         })
+    }
+
+    async fn shasta_aggregate(
+        &self,
+        input: raiko_lib::input::ShastaAggregationGuestInput,
+        output: &raiko_lib::input::AggregationGuestOutput,
+        _config: &ProverConfig,
+        _store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        tracing::info!("aggregating shasta proposals: input: {input:?} and output: {output:?}");
+        let raw_input = ShastaRawAggregationGuestInput {
+            proofs: input
+                .proofs
+                .iter()
+                .map(|proof| RawProof {
+                    input: proof.input.clone().unwrap(),
+                    proof: Default::default(),
+                })
+                .collect(),
+            proof_carry_data_vec: input
+                .proofs
+                .iter()
+                .map(|proof| proof.extra_data.clone().unwrap())
+                .collect(),
+        };
+
+        let aggregated_proving_hash =
+            shasta_pcd_aggregation_hash(&raw_input.proof_carry_data_vec, Address::ZERO)
+                .ok_or_else(|| {
+                    ProverError::GuestError(
+                        "invalid shasta proof carry data for aggregation".to_string(),
+                    )
+                })?;
+        tracing::info!("aggregated proving hash: {aggregated_proving_hash:?}");
+
+        Ok(Proof {
+            ..Default::default()
+        })
+    }
+
+    fn proof_type(&self) -> ProofType {
+        ProofType::Native
     }
 }
 

@@ -45,26 +45,53 @@ extract_risc0_image_id() {
     local build_output="$1"
     local binary_name="$2"
     
-    # Look for the pattern "risc0 elf image id: <hex_string>" before the binary path
     local image_id=""
-    
+
     # Find the image ID that appears before the specific binary path
-    if [ "$binary_name" = "risc0-aggregation" ]; then
-        # Get the image ID that appears before risc0-aggregation path
-        image_id=$(echo "$build_output" | grep -B1 "risc0-aggregation" | grep "risc0 elf image id:" | sed 's/.*risc0 elf image id: //' | head -1)
-    elif [ "$binary_name" = "risc0-batch" ]; then
-        # Get the image ID that appears before risc0-batch path  
-        image_id=$(echo "$build_output" | grep -B1 "risc0-batch" | grep "risc0 elf image id:" | sed 's/.*risc0 elf image id: //' | head -1)
-    fi
-    
-    # Fallback: if context search fails, try sequential search based on order
+    image_id=$(echo "$build_output" | awk -v name="$binary_name" '
+        /risc0 elf image id:/ {id=$NF}
+        $0 ~ name {if (id != "") {print id; exit}}
+    ')
+
+    # Fallback: if context search fails, try sequential search based on build order
     if [ -z "$image_id" ]; then
-        if [ "$binary_name" = "risc0-aggregation" ]; then
-            # Get first image ID for aggregation
-            image_id=$(echo "$build_output" | grep "risc0 elf image id:" | sed 's/.*risc0 elf image id: //' | head -1)
-        elif [ "$binary_name" = "risc0-batch" ]; then
-            # Get second image ID for batch
-            image_id=$(echo "$build_output" | grep "risc0 elf image id:" | sed 's/.*risc0 elf image id: //' | tail -1)
+        local all_ids
+        local id_count
+        all_ids=$(echo "$build_output" | grep "risc0 elf image id:" | sed 's/.*risc0 elf image id: //')
+        id_count=$(echo "$all_ids" | grep -c . || true)
+        if [ "$id_count" -ge 6 ]; then
+            case "$binary_name" in
+                risc0-aggregation)
+                    image_id=$(echo "$all_ids" | sed -n '1p')
+                    ;;
+                risc0-batch)
+                    image_id=$(echo "$all_ids" | sed -n '2p')
+                    ;;
+                boundless-aggregation)
+                    image_id=$(echo "$all_ids" | sed -n '3p')
+                    ;;
+                boundless-batch)
+                    image_id=$(echo "$all_ids" | sed -n '4p')
+                    ;;
+                risc0-shasta-aggregation)
+                    image_id=$(echo "$all_ids" | sed -n '5p')
+                    ;;
+                boundless-shasta-aggregation)
+                    image_id=$(echo "$all_ids" | sed -n '6p')
+                    ;;
+            esac
+        else
+            case "$binary_name" in
+                risc0-aggregation)
+                    image_id=$(echo "$all_ids" | sed -n '1p')
+                    ;;
+                risc0-batch)
+                    image_id=$(echo "$all_ids" | sed -n '2p')
+                    ;;
+                risc0-shasta-aggregation)
+                    image_id=$(echo "$all_ids" | sed -n '3p')
+                    ;;
+            esac
         fi
     fi
     
@@ -81,11 +108,13 @@ extract_sp1_vk_hash() {
     local build_output="$1"
     local binary_name="$2"
     
-    # Extract VK hash based on binary order (aggregation first, batch second)
+    # Extract VK hash based on binary order (aggregation first, batch second, shasta aggregation third)
     local vk_hash=""
     if [ "$binary_name" = "sp1-aggregation" ]; then
         vk_hash=$(echo "$build_output" | grep "sp1 elf vk hash_bytes is:" | sed 's/.*sp1 elf vk hash_bytes is: //' | head -1)
     elif [ "$binary_name" = "sp1-batch" ]; then
+        vk_hash=$(echo "$build_output" | grep "sp1 elf vk hash_bytes is:" | sed 's/.*sp1 elf vk hash_bytes is: //' | sed -n '2p')
+    elif [ "$binary_name" = "sp1-shasta-aggregation" ]; then
         vk_hash=$(echo "$build_output" | grep "sp1 elf vk hash_bytes is:" | sed 's/.*sp1 elf vk hash_bytes is: //' | tail -1)
     fi
     
@@ -248,22 +277,103 @@ update_env_file() {
     
     if [ -n "$RISC0_BATCH_ID" ]; then
         if grep -q "^RISC0_BATCH_ID=" "$env_file"; then
-            # Update existing entry
             sed -i "s/^RISC0_BATCH_ID=.*/RISC0_BATCH_ID=$RISC0_BATCH_ID/" "$env_file"
         else
-            # Add new entry
             echo "RISC0_BATCH_ID=$RISC0_BATCH_ID" >> "$env_file"
         fi
         print_status "Updated RISC0_BATCH_ID in $env_file: $RISC0_BATCH_ID"
+    fi
+
+    if [ -n "$RISC0_SHASTA_AGGREGATION_ID" ]; then
+        if grep -q "^RISC0_SHASTA_AGGREGATION_ID=" "$env_file"; then
+            sed -i "s/^RISC0_SHASTA_AGGREGATION_ID=.*/RISC0_SHASTA_AGGREGATION_ID=$RISC0_SHASTA_AGGREGATION_ID/" "$env_file"
+        elif grep -q "^RISC0_BATCH_ID=" "$env_file"; then
+            tmp_file=$(mktemp)
+            awk -v kv="RISC0_SHASTA_AGGREGATION_ID=$RISC0_SHASTA_AGGREGATION_ID" '
+                {print}
+                $0 ~ "^RISC0_BATCH_ID=" {print kv}
+            ' "$env_file" > "$tmp_file"
+            mv "$tmp_file" "$env_file"
+        else
+            echo "RISC0_SHASTA_AGGREGATION_ID=$RISC0_SHASTA_AGGREGATION_ID" >> "$env_file"
+        fi
+        print_status "Updated RISC0_SHASTA_AGGREGATION_ID in $env_file: $RISC0_SHASTA_AGGREGATION_ID"
+    fi
+
+    if [ -n "$BOUNDLESS_AGGREGATION_ID" ]; then
+        if grep -q "^BOUNDLESS_AGGREGATION_ID=" "$env_file"; then
+            sed -i "s/^BOUNDLESS_AGGREGATION_ID=.*/BOUNDLESS_AGGREGATION_ID=$BOUNDLESS_AGGREGATION_ID/" "$env_file"
+        elif grep -q "^RISC0_SHASTA_AGGREGATION_ID=" "$env_file"; then
+            tmp_file=$(mktemp)
+            awk -v kv="BOUNDLESS_AGGREGATION_ID=$BOUNDLESS_AGGREGATION_ID" '
+                {print}
+                $0 ~ "^RISC0_SHASTA_AGGREGATION_ID=" {print kv}
+            ' "$env_file" > "$tmp_file"
+            mv "$tmp_file" "$env_file"
+        elif grep -q "^RISC0_BATCH_ID=" "$env_file"; then
+            tmp_file=$(mktemp)
+            awk -v kv="BOUNDLESS_AGGREGATION_ID=$BOUNDLESS_AGGREGATION_ID" '
+                {print}
+                $0 ~ "^RISC0_BATCH_ID=" {print kv}
+            ' "$env_file" > "$tmp_file"
+            mv "$tmp_file" "$env_file"
+        else
+            echo "BOUNDLESS_AGGREGATION_ID=$BOUNDLESS_AGGREGATION_ID" >> "$env_file"
+        fi
+        print_status "Updated BOUNDLESS_AGGREGATION_ID in $env_file: $BOUNDLESS_AGGREGATION_ID"
+    fi
+
+    if [ -n "$BOUNDLESS_BATCH_ID" ]; then
+        if grep -q "^BOUNDLESS_BATCH_ID=" "$env_file"; then
+            sed -i "s/^BOUNDLESS_BATCH_ID=.*/BOUNDLESS_BATCH_ID=$BOUNDLESS_BATCH_ID/" "$env_file"
+        elif grep -q "^BOUNDLESS_AGGREGATION_ID=" "$env_file"; then
+            tmp_file=$(mktemp)
+            awk -v kv="BOUNDLESS_BATCH_ID=$BOUNDLESS_BATCH_ID" '
+                {print}
+                $0 ~ "^BOUNDLESS_AGGREGATION_ID=" {print kv}
+            ' "$env_file" > "$tmp_file"
+            mv "$tmp_file" "$env_file"
+        elif grep -q "^RISC0_SHASTA_AGGREGATION_ID=" "$env_file"; then
+            tmp_file=$(mktemp)
+            awk -v kv="BOUNDLESS_BATCH_ID=$BOUNDLESS_BATCH_ID" '
+                {print}
+                $0 ~ "^RISC0_SHASTA_AGGREGATION_ID=" {print kv}
+            ' "$env_file" > "$tmp_file"
+            mv "$tmp_file" "$env_file"
+        else
+            echo "BOUNDLESS_BATCH_ID=$BOUNDLESS_BATCH_ID" >> "$env_file"
+        fi
+        print_status "Updated BOUNDLESS_BATCH_ID in $env_file: $BOUNDLESS_BATCH_ID"
+    fi
+
+    if [ -n "$BOUNDLESS_SHASTA_AGGREGATION_ID" ]; then
+        if grep -q "^BOUNDLESS_SHASTA_AGGREGATION_ID=" "$env_file"; then
+            sed -i "s/^BOUNDLESS_SHASTA_AGGREGATION_ID=.*/BOUNDLESS_SHASTA_AGGREGATION_ID=$BOUNDLESS_SHASTA_AGGREGATION_ID/" "$env_file"
+        elif grep -q "^BOUNDLESS_BATCH_ID=" "$env_file"; then
+            tmp_file=$(mktemp)
+            awk -v kv="BOUNDLESS_SHASTA_AGGREGATION_ID=$BOUNDLESS_SHASTA_AGGREGATION_ID" '
+                {print}
+                $0 ~ "^BOUNDLESS_BATCH_ID=" {print kv}
+            ' "$env_file" > "$tmp_file"
+            mv "$tmp_file" "$env_file"
+        elif grep -q "^BOUNDLESS_AGGREGATION_ID=" "$env_file"; then
+            tmp_file=$(mktemp)
+            awk -v kv="BOUNDLESS_SHASTA_AGGREGATION_ID=$BOUNDLESS_SHASTA_AGGREGATION_ID" '
+                {print}
+                $0 ~ "^BOUNDLESS_AGGREGATION_ID=" {print kv}
+            ' "$env_file" > "$tmp_file"
+            mv "$tmp_file" "$env_file"
+        else
+            echo "BOUNDLESS_SHASTA_AGGREGATION_ID=$BOUNDLESS_SHASTA_AGGREGATION_ID" >> "$env_file"
+        fi
+        print_status "Updated BOUNDLESS_SHASTA_AGGREGATION_ID in $env_file: $BOUNDLESS_SHASTA_AGGREGATION_ID"
     fi
     
     # Update SP1 VK hashes if provided
     if [ -n "$SP1_AGGREGATION_VK_HASH" ]; then
         if grep -q "^SP1_AGGREGATION_VK_HASH=" "$env_file"; then
-            # Update existing entry
             sed -i "s/^SP1_AGGREGATION_VK_HASH=.*/SP1_AGGREGATION_VK_HASH=$SP1_AGGREGATION_VK_HASH/" "$env_file"
         else
-            # Add new entry
             echo "SP1_AGGREGATION_VK_HASH=$SP1_AGGREGATION_VK_HASH" >> "$env_file"
         fi
         print_status "Updated SP1_AGGREGATION_VK_HASH in $env_file: $SP1_AGGREGATION_VK_HASH"
@@ -271,13 +381,27 @@ update_env_file() {
     
     if [ -n "$SP1_BATCH_VK_HASH" ]; then
         if grep -q "^SP1_BATCH_VK_HASH=" "$env_file"; then
-            # Update existing entry
             sed -i "s/^SP1_BATCH_VK_HASH=.*/SP1_BATCH_VK_HASH=$SP1_BATCH_VK_HASH/" "$env_file"
         else
-            # Add new entry
             echo "SP1_BATCH_VK_HASH=$SP1_BATCH_VK_HASH" >> "$env_file"
         fi
         print_status "Updated SP1_BATCH_VK_HASH in $env_file: $SP1_BATCH_VK_HASH"
+    fi
+
+    if [ -n "$SP1_SHASTA_AGGREGATION_VK_HASH" ]; then
+        if grep -q "^SP1_SHASTA_AGGREGATION_VK_HASH=" "$env_file"; then
+            sed -i "s/^SP1_SHASTA_AGGREGATION_VK_HASH=.*/SP1_SHASTA_AGGREGATION_VK_HASH=$SP1_SHASTA_AGGREGATION_VK_HASH/" "$env_file"
+        elif grep -q "^SP1_BATCH_VK_HASH=" "$env_file"; then
+            tmp_file=$(mktemp)
+            awk -v kv="SP1_SHASTA_AGGREGATION_VK_HASH=$SP1_SHASTA_AGGREGATION_VK_HASH" '
+                {print}
+                $0 ~ "^SP1_BATCH_VK_HASH=" {print kv}
+            ' "$env_file" > "$tmp_file"
+            mv "$tmp_file" "$env_file"
+        else
+            echo "SP1_SHASTA_AGGREGATION_VK_HASH=$SP1_SHASTA_AGGREGATION_VK_HASH" >> "$env_file"
+        fi
+        print_status "Updated SP1_SHASTA_AGGREGATION_VK_HASH in $env_file: $SP1_SHASTA_AGGREGATION_VK_HASH"
     fi
     
     print_status "Successfully updated $env_file"
@@ -306,16 +430,35 @@ extract_risc0_ids_from_output() {
     # Extract image IDs
     local aggregation_id=$(extract_risc0_image_id "$build_output" "risc0-aggregation")
     local batch_id=$(extract_risc0_image_id "$build_output" "risc0-batch")
-    
-    if [ -n "$aggregation_id" ] && [ -n "$batch_id" ]; then
-        RISC0_AGGREGATION_ID="$aggregation_id"
-        RISC0_BATCH_ID="$batch_id"
-        print_status "Extracted RISC0 image IDs:"
-        print_status "  Aggregation: $aggregation_id"
-        print_status "  Batch: $batch_id"
-    else
+    local shasta_id=$(extract_risc0_image_id "$build_output" "risc0-shasta-aggregation")
+    local boundless_aggregation_id=$(extract_risc0_image_id "$build_output" "boundless-aggregation")
+    local boundless_batch_id=$(extract_risc0_image_id "$build_output" "boundless-batch")
+    local boundless_shasta_id=$(extract_risc0_image_id "$build_output" "boundless-shasta-aggregation")
+
+    if [ -z "$aggregation_id" ] || [ -z "$batch_id" ]; then
         print_error "Failed to extract RISC0 image IDs from build output"
         return 1
+    fi
+
+    RISC0_AGGREGATION_ID="$aggregation_id"
+    RISC0_BATCH_ID="$batch_id"
+    RISC0_SHASTA_AGGREGATION_ID="$shasta_id"
+    BOUNDLESS_AGGREGATION_ID="$boundless_aggregation_id"
+    BOUNDLESS_BATCH_ID="$boundless_batch_id"
+    BOUNDLESS_SHASTA_AGGREGATION_ID="$boundless_shasta_id"
+    print_status "Extracted RISC0 image IDs:"
+    print_status "  Aggregation: $aggregation_id"
+    if [ -n "$shasta_id" ]; then
+        print_status "  Shasta Aggregation: $shasta_id"
+    fi
+    print_status "  Batch: $batch_id"
+    if [ -n "$boundless_aggregation_id" ]; then
+        print_status "Extracted RISC0 boundless image IDs:"
+        print_status "  Aggregation: $boundless_aggregation_id"
+        if [ -n "$boundless_shasta_id" ]; then
+            print_status "  Shasta Aggregation: $boundless_shasta_id"
+        fi
+        print_status "  Batch: $boundless_batch_id"
     fi
 }
 
@@ -342,17 +485,22 @@ extract_sp1_hashes_from_output() {
     # Extract VK hashes
     local aggregation_vk_hash=$(extract_sp1_vk_hash "$build_output" "sp1-aggregation")
     local batch_vk_hash=$(extract_sp1_vk_hash "$build_output" "sp1-batch")
-    
-    if [ -n "$aggregation_vk_hash" ] && [ -n "$batch_vk_hash" ]; then
-        SP1_AGGREGATION_VK_HASH="$aggregation_vk_hash"
-        SP1_BATCH_VK_HASH="$batch_vk_hash"
-        print_status "Extracted SP1 VK hashes:"
-        print_status "  Aggregation: $aggregation_vk_hash"
-        print_status "  Batch: $batch_vk_hash"
-    else
+    local shasta_vk_hash=$(extract_sp1_vk_hash "$build_output" "sp1-shasta-aggregation")
+
+    if [ -z "$aggregation_vk_hash" ] || [ -z "$batch_vk_hash" ]; then
         print_error "Failed to extract SP1 VK hashes from build output"
         return 1
     fi
+
+    SP1_AGGREGATION_VK_HASH="$aggregation_vk_hash"
+    SP1_SHASTA_AGGREGATION_VK_HASH="$shasta_vk_hash"
+    SP1_BATCH_VK_HASH="$batch_vk_hash"
+    print_status "Extracted SP1 VK hashes:"
+    print_status "  Aggregation: $aggregation_vk_hash"
+    if [ -n "$shasta_vk_hash" ]; then
+        print_status "  Shasta Aggregation: $shasta_vk_hash"
+    fi
+    print_status "  Batch: $batch_vk_hash"
 }
 
 # Main function
@@ -362,8 +510,13 @@ main() {
     # Initialize variables
     RISC0_AGGREGATION_ID=""
     RISC0_BATCH_ID=""
+    RISC0_SHASTA_AGGREGATION_ID=""
+    BOUNDLESS_AGGREGATION_ID=""
+    BOUNDLESS_BATCH_ID=""
+    BOUNDLESS_SHASTA_AGGREGATION_ID=""
     SP1_AGGREGATION_VK_HASH=""
     SP1_BATCH_VK_HASH=""
+    SP1_SHASTA_AGGREGATION_VK_HASH=""
     
     # Check if we're in the right directory
     if [ ! -f "Cargo.toml" ]; then
@@ -422,7 +575,7 @@ main() {
             exit 1
         fi
     fi
-    
+
 
     # Extract SGX MRENCLAVE by calling tools directly on container
     if [ "$mode" = "sgx_direct" ]; then

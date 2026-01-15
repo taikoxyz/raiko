@@ -3,8 +3,10 @@ extern crate secp256k1;
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use one_shot::aggregate;
-use raiko_lib::input::{GuestBatchInput, GuestInput, RawAggregationGuestInput};
+use one_shot::{aggregate, shasta_aggregate};
+use raiko_lib::input::{
+    GuestBatchInput, GuestInput, RawAggregationGuestInput, ShastaRawAggregationGuestInput,
+};
 
 use crate::{
     app_args::{App, Command},
@@ -51,6 +53,12 @@ pub async fn main() -> Result<()> {
         Command::Serve(server_args) => {
             println!("Sgx proof server");
             sgx_server::serve(server_args, args.global_opts).await;
+        }
+        Command::ShastaAggregate(one_shot_args) => {
+            println!("Starting shasta aggregate prove");
+            let input: ShastaRawAggregationGuestInput =
+                bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize input");
+            shasta_aggregate(args.global_opts, one_shot_args, input).await?;
         }
     }
 

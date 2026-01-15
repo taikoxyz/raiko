@@ -3,8 +3,8 @@ use alloy_primitives::{Address, B256};
 use clap::Args;
 use raiko_lib::{
     input::{
-        AggregationGuestInput, AggregationGuestOutput, BlobProofType, GuestBatchInput,
-        GuestBatchOutput, GuestInput, GuestOutput,
+        shasta::Checkpoint, AggregationGuestInput, AggregationGuestOutput, BlobProofType,
+        GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput, ShastaAggregationGuestInput,
     },
     proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverError},
@@ -166,6 +166,49 @@ pub async fn run_batch_prover(
     }
 }
 
+/// Run the prover driver for Shasta proposals depending on the proof type.
+pub async fn run_shasta_proposal_prover(
+    proof_type: ProofType,
+    input: GuestBatchInput,
+    output: &GuestBatchOutput,
+    config: &Value,
+    store: Option<&mut dyn IdWrite>,
+) -> RaikoResult<Proof> {
+    match proof_type {
+        ProofType::Native => NativeProver
+            .proposal_run(input.clone(), output, config, store)
+            .await
+            .map_err(<ProverError as Into<RaikoError>>::into),
+        ProofType::Sp1 => {
+            #[cfg(feature = "sp1")]
+            return sp1_driver::Sp1Prover
+                .proposal_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "sp1"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Risc0 => {
+            #[cfg(feature = "risc0")]
+            return risc0_driver::Risc0Prover
+                .proposal_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "risc0"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Sgx | ProofType::SgxGeth => {
+            #[cfg(feature = "sgx")]
+            return sgx_prover::SgxProver::new(proof_type)
+                .proposal_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "sgx"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+    }
+}
+
 /// Run the prover driver depending on the proof type.
 pub async fn aggregate_proofs(
     proof_type: ProofType,
@@ -201,6 +244,50 @@ pub async fn aggregate_proofs(
             #[cfg(feature = "sgx")]
             return sgx_prover::SgxProver::new(proof_type)
                 .aggregate(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "sgx"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+    }?;
+
+    Ok(proof)
+}
+
+pub async fn aggregate_shasta_proposals(
+    proof_type: ProofType,
+    input: ShastaAggregationGuestInput,
+    output: &AggregationGuestOutput,
+    config: &Value,
+    store: Option<&mut dyn IdWrite>,
+) -> RaikoResult<Proof> {
+    let proof = match proof_type {
+        ProofType::Native => NativeProver
+            .shasta_aggregate(input.clone(), output, config, store)
+            .await
+            .map_err(<ProverError as Into<RaikoError>>::into),
+        ProofType::Sp1 => {
+            #[cfg(feature = "sp1")]
+            return sp1_driver::Sp1Prover
+                .shasta_aggregate(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "sp1"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Risc0 => {
+            #[cfg(feature = "risc0")]
+            return risc0_driver::Risc0Prover
+                .shasta_aggregate(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "risc0"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Sgx | ProofType::SgxGeth => {
+            #[cfg(feature = "sgx")]
+            return sgx_prover::SgxProver::new(proof_type)
+                .shasta_aggregate(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "sgx"))]
@@ -259,6 +346,7 @@ pub struct ProofRequest {
     /// The block number for the block to generate a proof for.
     pub block_number: u64,
     /// The block number for the block to generate a proof for.
+    /// in shasta, this is the proposal id
     pub batch_id: u64,
     /// The l1 block number of the l2 block be proposed.
     pub l1_inclusion_block_number: u64,
@@ -280,6 +368,14 @@ pub struct ProofRequest {
     #[serde(flatten)]
     /// Additional prover params.
     pub prover_args: HashMap<String, Value>,
+    /// checkpoint, if not provided, it will be set to the default value
+    /// in shasta, this is the checkpoint of the l2 block
+    pub checkpoint: Option<ShastaProposalCheckpoint>,
+    /// last anchor number
+    pub last_anchor_block_number: Option<u64>,
+    /// Cached block proposed event data to avoid duplicate RPC calls
+    #[serde(skip)]
+    pub cached_event_data: Option<raiko_lib::input::BlockProposedFork>,
 }
 
 #[serde_as]
@@ -404,6 +500,124 @@ impl TryFrom<BatchProofRequestOpt> for BatchProofRequest {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+pub struct ShastaProposalCheckpoint {
+    pub block_number: u64,
+    pub block_hash: B256,
+    pub state_root: B256,
+}
+
+impl From<ShastaProposalCheckpoint> for Checkpoint {
+    fn from(value: ShastaProposalCheckpoint) -> Self {
+        Checkpoint {
+            blockNumber: value.block_number.into(),
+            blockHash: value.block_hash,
+            stateRoot: value.state_root,
+        }
+    }
+}
+
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct ShastaProposal {
+    pub proposal_id: u64,
+    pub checkpoint: Option<ShastaProposalCheckpoint>,
+    pub l1_inclusion_block_number: u64,
+    pub l2_block_numbers: Vec<u64>,
+    pub last_anchor_block_number: u64,
+}
+
+impl std::fmt::Display for ShastaProposal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}:{:?}:{}",
+            self.proposal_id,
+            self.checkpoint,
+            self.l1_inclusion_block_number
+        )
+    }
+}
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct ShastaProofRequest {
+    pub proposals: Vec<ShastaProposal>,
+    pub aggregate: bool,
+    pub proof_type: ProofType,
+
+    pub network: String,
+    pub l1_network: String,
+    pub graffiti: B256,
+    #[serde_as(as = "DisplayFromStr")]
+    pub prover: Address,
+    pub blob_proof_type: BlobProofType,
+    #[serde(flatten)]
+    pub prover_args: ProverSpecificOpts,
+}
+
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct ShastaProofRequestOpt {
+    // Required fields
+    pub proposals: Vec<ShastaProposal>,
+    pub aggregate: Option<bool>,
+    pub proof_type: String,
+
+    // Optional fields, if not provided, the default values will be used
+    pub network: Option<String>,
+    pub l1_network: Option<String>,
+    pub graffiti: Option<String>,
+    pub prover: Option<String>,
+    pub blob_proof_type: Option<String>,
+    #[serde(flatten)]
+    pub prover_args: Option<ProverSpecificOpts>,
+}
+
+impl TryFrom<ShastaProofRequestOpt> for ShastaProofRequest {
+    type Error = RaikoError;
+
+    fn try_from(value: ShastaProofRequestOpt) -> Result<Self, Self::Error> {
+        Ok(Self {
+            proposals: value.proposals,
+            aggregate: value.aggregate.unwrap_or(false),
+            proof_type: value
+                .proof_type
+                .parse()
+                .map_err(|_| RaikoError::InvalidRequestConfig("Invalid proof_type".to_string()))?,
+
+            network: value.network.ok_or(RaikoError::InvalidRequestConfig(
+                "Missing network".to_string(),
+            ))?,
+            l1_network: value.l1_network.ok_or(RaikoError::InvalidRequestConfig(
+                "Missing l1_network".to_string(),
+            ))?,
+            graffiti: value
+                .graffiti
+                .map_or_else(|| B256::ZERO, |s| s.parse().unwrap_or(B256::ZERO)),
+            prover: value
+                .prover
+                .ok_or(RaikoError::InvalidRequestConfig(
+                    "Missing prover".to_string(),
+                ))?
+                .parse()
+                .map_err(|_| RaikoError::InvalidRequestConfig("Invalid prover".to_string()))?,
+            blob_proof_type: value
+                .blob_proof_type
+                .unwrap_or("proof_of_equivalence".to_string())
+                .parse()
+                .map_err(|_| {
+                    RaikoError::InvalidRequestConfig("Invalid blob_proof_type".to_string())
+                })?,
+            prover_args: value
+                .prover_args
+                .ok_or(RaikoError::InvalidRequestConfig(
+                    "Missing prover_args".to_string(),
+                ))?
+                .into(),
+        })
+    }
+}
+
 #[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args, PartialEq, Eq, Hash)]
 pub struct ProverSpecificOpts {
     /// Native prover specific options.
@@ -500,6 +714,9 @@ impl TryFrom<ProofRequestOpt> for ProofRequest {
                     RaikoError::InvalidRequestConfig("Invalid blob_proof_type".to_string())
                 })?,
             prover_args: value.prover_args.into(),
+            checkpoint: None,
+            cached_event_data: None,
+            last_anchor_block_number: None,
         })
     }
 }
@@ -646,7 +863,7 @@ impl From<ProofRequestOpt> for AggregationRequest {
     }
 }
 
-#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, PartialEq)]
 #[serde(default)]
 /// A request for proof aggregation of multiple proofs.
 pub struct AggregationOnlyRequest {

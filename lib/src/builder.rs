@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::primitives::keccak::keccak;
 use crate::primitives::mpt::StateAccount;
-use crate::utils::{generate_transactions, generate_transactions_for_batch_blocks};
+use crate::utils::txs::{generate_transactions, generate_transactions_for_batch_blocks};
 use crate::{
     consts::{ChainSpec, MAX_BLOCK_HASH_AGE},
     guest_mem_forget,
@@ -19,7 +19,7 @@ use reth_evm::execute::{BlockExecutionOutput, BlockValidationError, Executor, Pr
 use reth_evm_ethereum::execute::{
     validate_block_post_execution, Consensus, EthBeaconConsensus, EthExecutorProvider,
 };
-use reth_evm_ethereum::taiko::TaikoData;
+use reth_evm_ethereum::taiko::{ShastaData, TaikoData};
 use reth_primitives::revm_primitives::db::{Database, DatabaseCommit};
 use reth_primitives::revm_primitives::{
     Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap, SpecId,
@@ -56,16 +56,17 @@ pub fn calculate_block_header(input: &GuestInput) -> Header {
 }
 
 pub fn calculate_batch_blocks_final_header(input: &GuestBatchInput) -> Vec<Block> {
-    let pool_txs_list = generate_transactions_for_batch_blocks(&input.taiko);
+    let pool_txs_list = generate_transactions_for_batch_blocks(&input);
     let mut final_blocks = Vec::new();
     for (i, pool_txs) in pool_txs_list.iter().enumerate() {
         let mut builder = RethBlockBuilder::new(
             &input.inputs[i],
             create_mem_db(&mut input.inputs[i].clone()).unwrap(),
-        );
+        )
+        .set_is_first_block_in_proposal(i == 0);
 
         let mut execute_tx = vec![input.inputs[i].taiko.anchor_tx.clone().unwrap()];
-        execute_tx.extend_from_slice(&pool_txs);
+        execute_tx.extend_from_slice(&pool_txs.0);
         builder
             .execute_transactions(execute_tx.clone(), false)
             .expect("execute");
@@ -76,6 +77,7 @@ pub fn calculate_batch_blocks_final_header(input: &GuestBatchInput) -> Vec<Block
         );
     }
     validate_final_batch_blocks(input, &final_blocks);
+
     final_blocks
 }
 
@@ -131,18 +133,29 @@ pub struct RethBlockBuilder<DB> {
     pub chain_spec: ChainSpec,
     pub input: GuestInput,
     pub db: Option<DB>,
+    /// Whether this is the first block in a proposal batch (for Shasta)
+    pub is_first_block_in_proposal: bool,
 }
 
 impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
     RethBlockBuilder<DB>
 {
     /// Creates a new block builder.
+    /// For single block execution, `is_first_block_in_proposal` defaults to `true`.
+    /// For batch execution, it should be set explicitly using `set_is_first_block_in_proposal`.
     pub fn new(input: &GuestInput, db: DB) -> RethBlockBuilder<DB> {
         RethBlockBuilder {
             chain_spec: input.chain_spec.clone(),
             db: Some(db),
             input: input.clone(),
+            is_first_block_in_proposal: true, // Default to true for single block execution
         }
+    }
+
+    /// Sets whether this is the first block in a proposal batch.
+    pub fn set_is_first_block_in_proposal(mut self, is_first: bool) -> Self {
+        self.is_first_block_in_proposal = is_first;
+        self
     }
 
     /// Executes all input transactions.
@@ -174,14 +187,12 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             _ => unimplemented!(),
         };
 
+        // todo: shasta has decouple the connection between proposal & block id.
+        // need constraint for it.
+        let block_num = self.input.block.number;
+        let block_ts = self.input.block.timestamp;
+        let taiko_fork = self.input.chain_spec.spec_id(block_num, block_ts).unwrap();
         if reth_chain_spec.is_taiko() {
-            let block_num = self.input.taiko.block_proposed.block_number();
-            let block_timestamp = 0u64; // self.input.taiko.block_proposed.block_timestamp();
-            let taiko_fork = self
-                .input
-                .chain_spec
-                .spec_id(block_num, block_timestamp)
-                .unwrap();
             match taiko_fork {
                 SpecId::HEKLA => {
                     assert!(
@@ -208,10 +219,11 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                     );
                 }
                 SpecId::SHASTA => {
+                    // shasta is activated by timestamp, not block number
                     assert!(
                         reth_chain_spec
                             .fork(Hardfork::Shasta)
-                            .active_at_block(block_num),
+                            .active_at_timestamp(block_ts),
                         "evm fork SHASTA is not active, please update the chain spec"
                     );
                 }
@@ -227,6 +239,22 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             .with_recovered_senders()
             .ok_or(BlockValidationError::SenderRecoveryError)?;
 
+        let shasta_data_opt = if let Some(is_force_inclusion) = &self.input.taiko.extra_data {
+            let last_anchor_block_number_opt =
+                self.input.taiko.prover_data.last_anchor_block_number;
+            assert!(
+                last_anchor_block_number_opt.is_some(),
+                "last_anchor_block_number is not set in shasta request"
+            );
+            Some(ShastaData {
+                last_anchor_block_number: last_anchor_block_number_opt.unwrap(),
+                is_force_inclusion: *is_force_inclusion,
+                is_first_block_in_proposal: self.is_first_block_in_proposal,
+            })
+        } else {
+            None
+        };
+
         // Execute transactions
         let executor = EthExecutorProvider::ethereum(reth_chain_spec.clone())
             .eth_executor(self.db.take().unwrap())
@@ -235,8 +263,12 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 parent_header: self.input.parent_header.clone(),
                 l2_contract: self.input.chain_spec.l2_contract.unwrap_or_default(),
                 base_fee_config: self.input.taiko.block_proposed.base_fee_config(),
-                gas_limit: self.input.taiko.block_proposed.gas_limit_with_anchor(),
-                shasta_data: None,
+                gas_limit: if taiko_fork == SpecId::SHASTA {
+                    block.gas_limit
+                } else {
+                    self.input.taiko.block_proposed.gas_limit_with_anchor()
+                },
+                shasta_data: shasta_data_opt.clone(),
             })
             .optimistic(optimistic);
         let BlockExecutionOutput {
@@ -306,6 +338,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 (address, account)
             })
             .collect();
+
         self.db.as_mut().unwrap().commit(changes);
 
         Ok(())
@@ -323,6 +356,7 @@ impl RethBlockBuilder<MemDb> {
     /// Finalizes the block building and returns the header
     pub fn finalize_block(&mut self) -> Result<Block> {
         let state_root = self.calculate_state_root()?;
+        assert_eq!(self.input.block.state_root, state_root);
         ensure!(self.input.block.state_root == state_root);
         Ok(self.input.block.clone())
     }

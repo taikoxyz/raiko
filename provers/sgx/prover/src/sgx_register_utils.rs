@@ -318,7 +318,7 @@ pub async fn register_sgx_instance(
         .gas(gas_limit);
 
     // query tx for any error
-    let query_call_return = call_builder.call().await?;
+    let query_call_return = call_builder.call().await;
     println!("query call return: {query_call_return:?}");
 
     // send tx & wait the result

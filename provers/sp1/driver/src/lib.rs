@@ -5,10 +5,16 @@ use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
         AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, ZkAggregationGuestInput,
+        GuestInput, GuestOutput, ShastaAggregationGuestInput, ShastaSp1AggregationGuestInput,
+        ZkAggregationGuestInput,
     },
+    libhash::hash_shasta_subproof_input,
     proof_type::ProofType,
-    prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverConfig, ProverError, ProverResult},
+    prover::{
+        IdStore, IdWrite, Proof, ProofCarryData, ProofKey, Prover, ProverConfig, ProverError,
+        ProverResult,
+    },
+    protocol_instance::validate_shasta_proof_carry_data_vec,
     Measurement,
 };
 use reth_primitives::B256;
@@ -28,6 +34,7 @@ use proof_verify::remote_contract_verify::verify_sol_by_contract_call;
 
 pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-aggregation");
 pub const BATCH_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-batch");
+pub const SHASTA_AGG_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-shasta-aggregation");
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -85,6 +92,7 @@ impl From<Sp1Response> for Proof {
                 .map(|p| B256::from_slice(p.public_values.as_slice())),
             uuid: value.vkey.map(|v| serde_json::to_string(&v).unwrap()),
             kzg_proof: None,
+            extra_data: None,
         }
     }
 }
@@ -109,6 +117,7 @@ struct Sp1ProverClient {
 
 //TODO: use prover object to save such local storage members.
 static AGGREGATION_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
+static SHASTA_AGG_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
 static BATCH_PROOF_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
 
 impl Prover for Sp1Prover {
@@ -123,27 +132,6 @@ impl Prover for Sp1Prover {
     }
 
     async fn cancel(&self, key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
-        // let proof_id = match id_store.read_id(key).await {
-        //     Ok(proof_id) => proof_id,
-        //     Err(e) => {
-        //         if e.to_string().contains("No data for query") {
-        //             return Ok(());
-        //         } else {
-        //             return Err(ProverError::GuestError(e.to_string()));
-        //         }
-        //     }
-        // };
-        // let private_key = env::var("SP1_PRIVATE_KEY").map_err(|_| {
-        //     ProverError::GuestError("SP1_PRIVATE_KEY must be set for remote proving".to_owned())
-        // })?;
-        // let rpc_url = env::var("SP1_RPC_URL").map_err(|_| {
-        //     ProverError::GuestError("SP1_RPC_URL must be set for remote proving".to_owned())
-        // })?;
-        // let network_client = NetworkClient::new(&private_key, &rpc_url);
-        // network_client
-        //     .unclaim_proof(proof_id, UnclaimReason::Abandoned, "".to_owned())
-        //     .await
-        //     .map_err(|_| ProverError::GuestError("Sp1: couldn't unclaim proof".to_owned()))?;
         id_store.remove_id(key).await?;
         Ok(())
     }
@@ -466,6 +454,196 @@ impl Prover for Sp1Prover {
             .into(),
         )
     }
+
+    async fn shasta_aggregate(
+        &self,
+        input: ShastaAggregationGuestInput,
+        _output: &AggregationGuestOutput,
+        config: &ProverConfig,
+        _store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        let mut param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
+        param.recursion = RecursionMode::Plonk;
+
+        let mode = param.prover.clone().unwrap_or_else(get_env_mock);
+        let first_proof = input.proofs.first().ok_or_else(|| {
+            ProverError::GuestError("empty shasta aggregation request".to_string())
+        })?;
+        let vk_str = first_proof.uuid.clone().ok_or_else(|| {
+            ProverError::GuestError("missing verifying key for shasta aggregation".to_string())
+        })?;
+        let block_proof_vk: SP1VerifyingKey = serde_json::from_str(&vk_str)
+            .map_err(|e| ProverError::GuestError(format!("Failed to parse SP1 vk: {e}")))?;
+        let stark_vk = block_proof_vk.vk.clone();
+        let image_id = block_proof_vk.hash_u32();
+
+        let proof_carry_data_vec: Vec<ProofCarryData> = input
+            .proofs
+            .iter()
+            .map(|proof| {
+                proof.extra_data
+                    .clone()
+                    .ok_or_else(|| ProverError::GuestError("missing shasta proof carry data".into()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let block_inputs = build_shasta_block_inputs(&input.proofs, &proof_carry_data_vec)?;
+
+        let shasta_input = ShastaSp1AggregationGuestInput {
+            image_id,
+            block_inputs,
+            proof_carry_data_vec,
+        };
+
+        let mut stdin = SP1Stdin::new();
+        stdin.write(&shasta_input);
+        for proof in input.proofs.iter() {
+            let quote = proof.quote.as_ref().ok_or_else(|| {
+                ProverError::GuestError("missing quote for shasta aggregation proof".to_string())
+            })?;
+            let sp1_proof = serde_json::from_str::<SP1Proof>(quote)
+                .map_err(|e| ProverError::GuestError(format!("Failed to parse SP1 proof: {e}")))?;
+            match sp1_proof {
+                SP1Proof::Compressed(block_proof) => {
+                    stdin.write_proof(*block_proof, stark_vk.clone());
+                }
+                _ => {
+                    return Err(ProverError::GuestError(
+                        "unsupported proof type for shasta aggregation".to_string(),
+                    ))
+                }
+            }
+        }
+
+        let Sp1ProverClient {
+            client,
+            pk,
+            vk,
+            network_client,
+        } = SHASTA_AGG_CLIENT
+            .entry(mode.clone())
+            .or_insert_with(|| {
+                let network_client = Arc::new(ProverClient::builder().network().build());
+                let base_client: Box<dyn SP1ProverTrait<CpuProverComponents>> = param
+                    .prover
+                    .map(|mode| {
+                        let prover: Box<dyn SP1ProverTrait<CpuProverComponents>> = match mode {
+                            ProverMode::Mock => Box::new(ProverClient::builder().mock().build()),
+                            ProverMode::Local => Box::new(ProverClient::builder().cpu().build()),
+                            ProverMode::Network => {
+                                Box::new(ProverClient::builder().network().build())
+                            }
+                        };
+                        prover
+                    })
+                    .unwrap_or_else(|| Box::new(ProverClient::from_env()));
+                let client = Arc::new(base_client);
+                let (pk, vk) = client.setup(SHASTA_AGG_ELF);
+                info!("new client and setup() for shasta aggregation");
+                Sp1ProverClient {
+                    client,
+                    pk,
+                    vk,
+                    network_client,
+                }
+            })
+            .clone();
+        info!(
+            "Sp1 Shasta aggregation: {} proofs with vk {:?}",
+            input.proofs.len(),
+            vk.bytes32()
+        );
+
+        let prove_result = if !matches!(mode, ProverMode::Network) {
+            client
+                .prove(&pk, &stdin, SP1ProofMode::Plonk)
+                .map_err(|e| ProverError::GuestError(format!("Sp1: proving failed: {e}")))?
+        } else {
+            let proof_id = network_client
+                .prove(&pk, &stdin)
+                .mode(param.recursion.clone().into())
+                .cycle_limit(1_000_000_000_000)
+                .skip_simulation(true)
+                .strategy(FulfillmentStrategy::Reserved)
+                .request_async()
+                .await
+                .map_err(|e| {
+                    ProverError::GuestError(format!("Sp1: network proving failed: {e}"))
+                })?;
+            info!("Sp1: network proof id: {proof_id:?} for shasta aggregation");
+            network_client
+                .wait_proof(proof_id.clone(), Some(Duration::from_secs(3600)))
+                .await
+                .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
+        };
+
+        let proof_bytes = prove_result.bytes();
+        if param.verify && !proof_bytes.is_empty() {
+            let time = Measurement::start("verify", false);
+            let aggregation_pi = prove_result.clone().borrow_mut().public_values.raw();
+            let fixture = RaikoProofFixture {
+                vkey: vk.bytes32().to_string(),
+                public_values: aggregation_pi,
+                proof: proof_bytes.clone(),
+            };
+
+            verify_sol_by_contract_call(&fixture).await?;
+            time.stop_with("==> Shasta aggregation verification complete");
+        }
+
+        let proof = (!proof_bytes.is_empty()).then_some(format!(
+            "{}{}{}",
+            vk.bytes32(),
+            reth_primitives::hex::encode(stark_vk.hash_bytes()),
+            reth_primitives::hex::encode(proof_bytes)
+        ));
+
+        Ok::<_, ProverError>(
+            Sp1Response {
+                proof,
+                sp1_proof: Some(prove_result),
+                vkey: Some(vk.clone()),
+            }
+            .into(),
+        )
+    }
+
+    fn proof_type(&self) -> ProofType {
+        ProofType::Sp1
+    }
+}
+
+fn build_shasta_block_inputs(
+    proofs: &[Proof],
+    proof_carry_data_vec: &[ProofCarryData],
+) -> ProverResult<Vec<B256>> {
+    if proofs.len() != proof_carry_data_vec.len() {
+        return Err(ProverError::GuestError(
+            "shasta proofs length mismatch with carry data".to_string(),
+        ));
+    }
+    if !validate_shasta_proof_carry_data_vec(proof_carry_data_vec) {
+        return Err(ProverError::GuestError(
+            "invalid shasta proof carry data".to_string(),
+        ));
+    }
+
+    let mut block_inputs = Vec::with_capacity(proofs.len());
+    for (idx, (proof, carry)) in proofs.iter().zip(proof_carry_data_vec).enumerate() {
+        let proof_input = proof.input.ok_or_else(|| {
+            ProverError::GuestError(
+                "missing public input for shasta aggregation proof".to_string(),
+            )
+        })?;
+        let expected = hash_shasta_subproof_input(carry);
+        if proof_input != expected {
+            return Err(ProverError::GuestError(format!(
+                "shasta proof input mismatch at index {idx}"
+            )));
+        }
+        block_inputs.push(proof_input);
+    }
+
+    Ok(block_inputs)
 }
 
 fn get_env_mock() -> ProverMode {

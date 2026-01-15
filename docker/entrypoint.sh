@@ -167,6 +167,20 @@ function update_raiko_sgx_instance_id() {
             >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
         echo "Update pacaya sgxgeth instance id to $SGXGETH_PACAYA_INSTANCE_ID"
     fi
+    if [[ -n $SGX_SHASTA_INSTANCE_ID ]]; then
+        jq \
+            --arg update_value "$SGX_SHASTA_INSTANCE_ID" \
+            '.sgx.instance_ids.SHASTA = ($update_value | tonumber)' $CONFIG_FILE \
+            >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
+        echo "Update shasta sgx instance id to $SGX_SHASTA_INSTANCE_ID"
+    fi
+    if [[ -n $SGXGETH_SHASTA_INSTANCE_ID ]]; then
+        jq \
+            --arg update_value "$SGXGETH_SHASTA_INSTANCE_ID" \
+            '.sgxgeth.instance_ids.SHASTA = ($update_value | tonumber)' $CONFIG_FILE \
+            >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
+        echo "Update shasta sgxgeth instance id to $SGXGETH_SHASTA_INSTANCE_ID"
+    fi
 }
 
 # merge devnet & product chain spec here
@@ -272,15 +286,23 @@ if [[ -n $SGX_SERVER ]]; then
         # keep it now for future refactory
         bootstrap
     else
-        if [[ -z $SGX_PACAYA_INSTANCE_ID || -z $SGXGETH_PACAYA_INSTANCE_ID ]]; then 
+        if [[ -z $SGX_PACAYA_INSTANCE_ID || -z $SGXGETH_PACAYA_INSTANCE_ID ]]; then
             echo "SGX_PACAYA_INSTANCE_ID and SGXGETH_PACAYA_INSTANCE_ID must be presented, please check."
             exit 1
         fi
 
-        echo "start sgx-guest --sgx-instance-id $SGX_PACAYA_INSTANCE_ID --address 0.0.0.0 --port 9090"
-        gramine-sgx /opt/raiko/bin/sgx-guest serve --sgx-instance-id $SGX_PACAYA_INSTANCE_ID --address 0.0.0.0 --port 9090 | sed 's/^/[raiko] /' &
-        echo "start gaiko serve --sgx-instance-id $SGXGETH_PACAYA_INSTANCE_ID --port 8080"
-        /opt/raiko/bin/gaiko --verbosity $GAIKO_GUEST_APP_VERBOSE_LEVEL serve --sgx-instance-id $SGXGETH_PACAYA_INSTANCE_ID --port 8090 | sed 's/^/[gaiko] /' &
+        if [[ -z $SGX_SHASTA_INSTANCE_ID || -z $SGXGETH_SHASTA_INSTANCE_ID ]]; then
+            echo "SGX_SHASTA_INSTANCE_ID and SGXGETH_SHASTA_INSTANCE_ID must be presented, please check."
+            exit 1
+        fi
+
+        echo "Expanded instance IDs: {\"PACAYA\": ${SGX_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGX_SHASTA_INSTANCE_ID}}"
+        echo "start sgx-guest --sgx-instance-ids='{\"PACAYA\": ${SGX_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGX_SHASTA_INSTANCE_ID}}' --address 0.0.0.0 --port 9090"
+        gramine-sgx /opt/raiko/bin/sgx-guest serve --sgx-instance-ids="{\"PACAYA\": ${SGX_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGX_SHASTA_INSTANCE_ID}}" --address 0.0.0.0 --port 9090 | sed 's/^/[raiko] /' &
+
+        echo "Expanded geth instance IDs: {\"PACAYA\": ${SGXGETH_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGXGETH_SHASTA_INSTANCE_ID}}"
+        echo "start gaiko serve --sgx-instance-ids='{\"PACAYA\": ${SGXGETH_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGXGETH_SHASTA_INSTANCE_ID}}' --port 8090"
+        /opt/raiko/bin/gaiko --verbosity $GAIKO_GUEST_APP_VERBOSE_LEVEL serve --sgx-instance-ids="{\"PACAYA\": ${SGXGETH_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGXGETH_SHASTA_INSTANCE_ID}}" --port 8090 | sed 's/^/[gaiko] /' &
         wait
     fi
 fi

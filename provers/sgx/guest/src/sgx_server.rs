@@ -1,20 +1,52 @@
 use crate::{
     app_args::{GlobalOpts, OneShotArgs, ServerArgs},
-    one_shot::{aggregate, bootstrap, one_shot, one_shot_batch},
+    one_shot::{aggregate, bootstrap, one_shot, one_shot_batch, shasta_aggregate},
 };
 use anyhow::Context;
 use axum::{
     extract::{DefaultBodyLimit, State},
-    Json,
+    routing::{get, post},
+    Json, Router,
 };
-use axum::{routing::post, Router};
 use raiko_lib::{
-    input::{GuestBatchInput, GuestInput, RawAggregationGuestInput},
+    consts::SpecId,
+    input::{
+        GuestBatchInput, GuestInput, RawAggregationGuestInput, ShastaRawAggregationGuestInput,
+    },
     primitives::B256,
 };
 use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, str::FromStr};
 use tokio::net::TcpListener;
+
+#[derive(Debug, thiserror::Error)]
+pub enum SgxServerError {
+    // Instance Ids config error
+    #[error("Instance Ids config error")]
+    InvalidInstanceIds(String),
+}
+
+pub fn get_instance_id_from_params(
+    input: &GuestInput,
+    state: &ServerStateConfig,
+) -> Result<u32, SgxServerError> {
+    let spec_id = input
+        .chain_spec
+        .active_fork(input.block.number, input.block.timestamp)
+        .map_err(|e| SgxServerError::InvalidInstanceIds(e.to_string()))?;
+
+    state
+        .server_args
+        .sgx_instance_ids
+        .get(&spec_id)
+        .cloned()
+        .ok_or_else(|| {
+            SgxServerError::InvalidInstanceIds(format!(
+                "No instance id found for spec id: {:?}",
+                spec_id
+            ))
+        })
+}
 
 pub async fn serve(server_args: ServerArgs, global_opts: GlobalOpts) {
     let state = ServerStateConfig {
@@ -26,8 +58,10 @@ pub async fn serve(server_args: ServerArgs, global_opts: GlobalOpts) {
         .route("/prove/block", post(prove_block))
         .route("/prove/batch", post(prove_batch))
         .route("/prove/aggregate", post(prove_aggregation))
+        .route("/prove/shasta-aggregate", post(prove_shasta_aggregation))
         .route("/check", post(check_server))
         .route("/bootstrap", post(bootstrap_server))
+        .route("/health", get(health_check))
         .layer(DefaultBodyLimit::max(10000 * 1024 * 1024)) // max 10G
         .with_state(state.clone());
 
@@ -69,18 +103,25 @@ async fn prove_block(
     State(state): State<ServerStateConfig>,
     Json(input): Json<GuestInput>,
 ) -> Json<ServerResponse> {
-    let args = OneShotArgs {
-        sgx_instance_id: state.server_args.sgx_instance_id,
-    };
-    match one_shot(state.global_opts, args, input).await {
-        Ok(sgx_proof) => {
-            let sgx_response: SgxResponse =
-                serde_json::from_value(sgx_proof).expect("deserialize proof to response");
-            Json(ServerResponse {
-                status: "success".to_owned(),
-                message: "".to_owned(),
-                proof: sgx_response,
-            })
+    match get_instance_id_from_params(&input, &state) {
+        Ok(sgx_instance_id) => {
+            let args = OneShotArgs { sgx_instance_id };
+            match one_shot(state.global_opts, args, input).await {
+                Ok(sgx_proof) => {
+                    let sgx_response: SgxResponse =
+                        serde_json::from_value(sgx_proof).expect("deserialize proof to response");
+                    Json(ServerResponse {
+                        status: "success".to_owned(),
+                        message: "".to_owned(),
+                        proof: sgx_response,
+                    })
+                }
+                Err(e) => Json(ServerResponse {
+                    status: "error".to_owned(),
+                    message: e.to_string(),
+                    ..Default::default()
+                }),
+            }
         }
         Err(e) => Json(ServerResponse {
             status: "error".to_owned(),
@@ -94,10 +135,56 @@ async fn prove_batch(
     State(state): State<ServerStateConfig>,
     Json(batch_input): Json<GuestBatchInput>,
 ) -> Json<ServerResponse> {
-    let args = OneShotArgs {
-        sgx_instance_id: state.server_args.sgx_instance_id,
+    match get_instance_id_from_params(&batch_input.inputs[0], &state) {
+        Ok(sgx_instance_id) => {
+            let args = OneShotArgs { sgx_instance_id };
+            match one_shot_batch(state.global_opts, args, batch_input).await {
+                Ok(sgx_proof) => {
+                    let sgx_response: SgxResponse =
+                        serde_json::from_value(sgx_proof).expect("deserialize proof to response");
+                    Json(ServerResponse {
+                        status: "success".to_owned(),
+                        message: "".to_owned(),
+                        proof: sgx_response,
+                    })
+                }
+                Err(e) => Json(ServerResponse {
+                    status: "error".to_owned(),
+                    message: e.to_string(),
+                    ..Default::default()
+                }),
+            }
+        }
+        Err(e) => Json(ServerResponse {
+            status: "error".to_owned(),
+            message: e.to_string(),
+            ..Default::default()
+        }),
+    }
+}
+
+async fn prove_aggregation(
+    State(state): State<ServerStateConfig>,
+    Json(input): Json<RawAggregationGuestInput>,
+) -> Json<ServerResponse> {
+    let sgx_instance_id = match state
+        .server_args
+        .sgx_instance_ids
+        .get(&SpecId::PACAYA)
+        .copied()
+    {
+        Some(id) => id,
+        None => {
+            return Json(ServerResponse {
+                status: "error".to_owned(),
+                message: "No instance id found for PACAYA fork".to_owned(),
+                ..Default::default()
+            })
+        }
     };
-    match one_shot_batch(state.global_opts, args, batch_input).await {
+
+    let args = OneShotArgs { sgx_instance_id };
+    match aggregate(state.global_opts, args, input).await {
         Ok(sgx_proof) => {
             let sgx_response: SgxResponse =
                 serde_json::from_value(sgx_proof).expect("deserialize proof to response");
@@ -115,14 +202,28 @@ async fn prove_batch(
     }
 }
 
-async fn prove_aggregation(
+async fn prove_shasta_aggregation(
     State(state): State<ServerStateConfig>,
-    Json(input): Json<RawAggregationGuestInput>,
+    Json(input): Json<ShastaRawAggregationGuestInput>,
 ) -> Json<ServerResponse> {
-    let args = OneShotArgs {
-        sgx_instance_id: state.server_args.sgx_instance_id,
+    let sgx_instance_id = match state
+        .server_args
+        .sgx_instance_ids
+        .get(&SpecId::SHASTA)
+        .copied()
+    {
+        Some(id) => id,
+        None => {
+            return Json(ServerResponse {
+                status: "error".to_owned(),
+                message: "No instance id found for SHASTA fork".to_owned(),
+                ..Default::default()
+            })
+        }
     };
-    match aggregate(state.global_opts, args, input).await {
+
+    let args = OneShotArgs { sgx_instance_id };
+    match shasta_aggregate(state.global_opts, args, input).await {
         Ok(sgx_proof) => {
             let sgx_response: SgxResponse =
                 serde_json::from_value(sgx_proof).expect("deserialize proof to response");
@@ -150,4 +251,8 @@ async fn check_server(
     Json(_proofs): Json<GuestBatchInput>,
 ) -> String {
     todo!();
+}
+
+async fn health_check() -> &'static str {
+    "OK"
 }
