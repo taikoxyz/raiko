@@ -1,24 +1,29 @@
 use std::sync::Arc;
 
-use base64::{engine::general_purpose, Engine as _};
-use bincode;
-
 use raiko_core::{
-    interfaces::{aggregate_proofs, ProofRequest},
-    preflight::parse_l1_batch_proposal_tx_for_pacaya_fork,
+    interfaces::{aggregate_proofs, aggregate_shasta_proposals, ProofRequest},
+    preflight::{
+        parse_l1_batch_proposal_tx_for_pacaya_fork, parse_l1_batch_proposal_tx_for_shasta_fork,
+    },
     provider::rpc::RpcBlockDataProvider,
     Raiko,
 };
 use raiko_lib::{
     consts::SupportedChainSpecs,
-    input::{AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestInput},
+    input::{
+        AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestInput,
+        ShastaAggregationGuestInput,
+    },
     prover::{IdWrite, Proof},
-    utils::{zlib_compress_data, zlib_decompress_data},
+    utils::shasta_guest_input::{
+        decode_guest_input_from_prover_arg_value, encode_guest_input_to_compress_b64_str,
+        PROVER_ARG_SHASTA_GUEST_INPUT,
+    },
 };
 use raiko_reqpool::{
     AggregationRequestEntity, BatchGuestInputRequestEntity, BatchProofRequestEntity,
-    GuestInputRequestEntity, RequestEntity, RequestKey, SingleProofRequestEntity, Status,
-    StatusWithContext,
+    GuestInputRequestEntity, RequestEntity, RequestKey, ShastaInputRequestEntity,
+    ShastaProofRequestEntity, SingleProofRequestEntity, Status, StatusWithContext,
 };
 use reth_primitives::B256;
 use tokio::sync::{mpsc, Mutex, Notify, Semaphore};
@@ -123,6 +128,27 @@ impl Backend {
                         )
                         .await
                     }
+                    RequestEntity::ShastaGuestInput(entity) => {
+                        do_generate_shasta_proposal_guest_input(
+                            &mut pool_,
+                            &chain_specs,
+                            request_key_.clone(),
+                            entity,
+                        )
+                        .await
+                    }
+                    RequestEntity::ShastaProof(entity) => {
+                        do_prove_shasta_proposal(
+                            &mut pool_,
+                            &chain_specs,
+                            request_key_.clone(),
+                            entity,
+                        )
+                        .await
+                    }
+                    RequestEntity::ShastaAggregation(entity) => {
+                        do_shasta_aggregation(&mut pool_, request_key_.clone(), entity).await
+                    }
                 };
                 let status = match result {
                     Ok(proof) => {
@@ -198,6 +224,9 @@ pub async fn do_generate_guest_input(
         prover_args: request_entity.prover_args().clone(),
         batch_id: 0,
         l2_block_numbers: Vec::new(),
+        checkpoint: Default::default(),
+        cached_event_data: None,
+        last_anchor_block_number: None,
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
     let provider = RpcBlockDataProvider::new(
@@ -259,6 +288,9 @@ pub async fn do_prove_single(
         prover_args: request_entity.prover_args().clone(),
         batch_id: 0,
         l2_block_numbers: Vec::new(),
+        checkpoint: Default::default(),
+        cached_event_data: None,
+        last_anchor_block_number: None,
     };
     let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec.clone(), proof_request);
     let provider = RpcBlockDataProvider::new(
@@ -278,11 +310,12 @@ pub async fn do_prove_single(
             // update missing fields
             let prover_data = &input.taiko.prover_data;
             if !(prover_data.graffiti.eq(request_entity.graffiti())
-                && prover_data.prover.eq(request_entity.prover()))
+                && prover_data.actual_prover.eq(request_entity.prover()))
             {
                 input.taiko.prover_data = raiko_lib::input::TaikoProverData {
                     graffiti: request_entity.graffiti().clone(),
-                    prover: request_entity.prover().clone(),
+                    actual_prover: request_entity.prover().clone(),
+                    ..Default::default()
                 }
             }
             input
@@ -328,6 +361,26 @@ async fn do_prove_aggregation(
     Ok(proof)
 }
 
+async fn do_shasta_aggregation(
+    pool: &mut dyn IdWrite,
+    request_key: RequestKey,
+    request_entity: AggregationRequestEntity,
+) -> Result<Proof, String> {
+    let proof_type = request_key.proof_type().clone();
+    let proofs = request_entity.proofs().clone();
+
+    let input = ShastaAggregationGuestInput { proofs };
+    let output = AggregationGuestOutput { hash: B256::ZERO };
+    let config = serde_json::to_value(request_entity.prover_args())
+        .map_err(|err| format!("failed to serialize prover args: {err:?}"))?;
+
+    let proof = aggregate_shasta_proposals(proof_type, input, &output, &config, Some(pool))
+        .await
+        .map_err(|err| format!("failed to generate aggregation proof: {err:?}"))?;
+
+    Ok(proof)
+}
+
 async fn new_raiko_for_batch_request(
     chain_specs: &SupportedChainSpecs,
     request_entity: BatchProofRequestEntity,
@@ -343,14 +396,14 @@ async fn new_raiko_for_batch_request(
         .guest_input_entity()
         .l1_inclusion_block_number();
     // parse the batch proposal tx to get all prove blocks
-    let all_prove_blocks = parse_l1_batch_proposal_tx_for_pacaya_fork(
+    let (all_prove_blocks, cached_event_data) = parse_l1_batch_proposal_tx_for_pacaya_fork(
         &l1_chain_spec,
         &taiko_chain_spec,
         *l1_include_block_number,
         *batch_id,
     )
     .await
-    .map_err(|err| format!("Could not parse L1 batch proposal tx: {err:?}"))?;
+    .map_err(|err| format!("Could not parse pacaya L1 batch proposal tx: {err:?}"))?;
 
     let proof_request = ProofRequest {
         block_number: 0,
@@ -369,6 +422,9 @@ async fn new_raiko_for_batch_request(
             .clone(),
         prover_args: request_entity.prover_args().clone(),
         l2_block_numbers: all_prove_blocks.clone(),
+        checkpoint: Default::default(),
+        cached_event_data: Some(cached_event_data),
+        last_anchor_block_number: None,
     };
 
     Ok(Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request))
@@ -408,13 +464,9 @@ pub async fn do_generate_batch_guest_input(
     let input = generate_input_for_batch(&raiko)
         .await
         .map_err(|err| format!("failed to generate batch guest input: {err:?}"))?;
-    let input_proof = bincode::serialize(&input)
-        .map_err(|err| format!("failed to serialize input to bincode: {err:?}"))?;
-    let compressed_bytes = zlib_compress_data(&input_proof).unwrap();
-    let compressed_b64: String = general_purpose::STANDARD.encode(&compressed_bytes);
+    let compressed_b64 = encode_guest_input_to_compress_b64_str(&input)?;
     tracing::debug!(
-        "compress redis input: input_proof {} bytes to compressed_b64 {} bytes.",
-        input_proof.len(),
+        "redis guest input: compressed_b64 {} bytes.",
         compressed_b64.len()
     );
     Ok(Proof {
@@ -438,18 +490,7 @@ async fn do_prove_batch(
         // so it's a base64 string(in Proof).
         // after we get it from db somewhere before, we need to pass it down here, but there is no known
         // string carrier in key / entity, so we call deser twice, value -> string -> struct.
-        let b64_encoded_string: String = serde_json::from_value(batch_guest_input.clone())
-            .map_err(|err| {
-                format!("failed to deserialize batch_guest_input from value: {err:?}")
-            })?;
-        let compressed_bytes = general_purpose::STANDARD
-            .decode(&b64_encoded_string)
-            .unwrap();
-        let decompressed_bytes = zlib_decompress_data(&compressed_bytes)
-            .map_err(|err| format!("failed to decompress batch_guest_input: {err:?}"))?;
-        let guest_input: GuestBatchInput = bincode::deserialize(&decompressed_bytes)
-            .map_err(|err| format!("failed to deserialize bincode batch_guest_input: {err:?}"))?;
-        guest_input
+        decode_guest_input_from_prover_arg_value(batch_guest_input)?
     } else {
         tracing::warn!("rebuild batch guest input for request: {request_key:?}");
         generate_input_for_batch(&raiko)
@@ -465,6 +506,129 @@ async fn do_prove_batch(
         .batch_prove(input, &output, Some(pool))
         .await
         .map_err(|e| format!("failed to generate batch proof: {e:?}"))?;
+    Ok(proof)
+}
+
+pub async fn do_generate_shasta_proposal_guest_input(
+    _pool: &mut Pool,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: ShastaInputRequestEntity,
+) -> Result<Proof, String> {
+    trace!("generate shasta guest input for: {request_key:?}");
+    let shasta_proposal_request_entity: ShastaProofRequestEntity =
+        ShastaProofRequestEntity::new_with_guest_input_entity(
+            request_entity.clone(),
+            Default::default(),
+            Default::default(),
+        );
+    let raiko = new_raiko_for_shasta_proposal_request(chain_specs, shasta_proposal_request_entity)
+        .await
+        .map_err(|err| format!("failed to create raiko: {err:?}"))?;
+    let input = generate_input_for_batch(&raiko)
+        .await
+        .map_err(|err| format!("failed to generate batch guest input: {err:?}"))?;
+    let compressed_b64 = encode_guest_input_to_compress_b64_str(&input)?;
+    tracing::debug!(
+        "redis guest input: compressed_b64 {} bytes.",
+        compressed_b64.len()
+    );
+    Ok(Proof {
+        proof: Some(compressed_b64),
+        ..Default::default()
+    })
+}
+
+//for shasta proposal request
+async fn new_raiko_for_shasta_proposal_request(
+    chain_specs: &SupportedChainSpecs,
+    request_entity: ShastaProofRequestEntity,
+) -> Result<Raiko, String> {
+    let l1_chain_spec = chain_specs
+        .get_chain_spec(&request_entity.guest_input_entity().l1_network())
+        .expect("unsupported l1 network");
+    let taiko_chain_spec = chain_specs
+        .get_chain_spec(&request_entity.guest_input_entity().network())
+        .expect("unsupported taiko network");
+    let proposal_id = request_entity.guest_input_entity().proposal_id();
+    let l1_include_block_number = request_entity
+        .guest_input_entity()
+        .l1_inclusion_block_number();
+
+    // parse & verify proposal event and cache it to avoid duplicate RPC calls
+    let (_block_numbers, cached_event_data) = parse_l1_batch_proposal_tx_for_shasta_fork(
+        &l1_chain_spec,
+        &taiko_chain_spec,
+        *l1_include_block_number,
+        *proposal_id,
+    )
+    .await
+    .map_err(|err| format!("Could not parse L1 shasta proposal tx: {err:?}"))?;
+
+    let proof_request = ProofRequest {
+        block_number: 0,
+        batch_id: *request_entity.guest_input_entity().proposal_id(),
+        l1_inclusion_block_number: *request_entity
+            .guest_input_entity()
+            .l1_inclusion_block_number(),
+        network: request_entity.guest_input_entity().network().clone(),
+        l1_network: request_entity.guest_input_entity().l1_network().clone(),
+        graffiti: Default::default(),
+        prover: request_entity.guest_input_entity().actual_prover().clone(),
+        proof_type: request_entity.proof_type().clone(),
+        blob_proof_type: request_entity
+            .guest_input_entity()
+            .blob_proof_type()
+            .clone(),
+        prover_args: request_entity.prover_args().clone(),
+        l2_block_numbers: request_entity.guest_input_entity().l2_blocks().clone(),
+        checkpoint: request_entity.guest_input_entity().checkpoint().clone(),
+        last_anchor_block_number: Some(
+            request_entity
+                .guest_input_entity()
+                .last_anchor_block_number()
+                .clone(),
+        ),
+        cached_event_data: Some(cached_event_data),
+    };
+
+    Ok(Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request))
+}
+
+pub async fn do_prove_shasta_proposal(
+    _pool: &mut Pool,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: ShastaProofRequestEntity,
+) -> Result<Proof, String> {
+    tracing::info!("generate shasta proposal proof for: {request_key:?}");
+
+    let raiko = new_raiko_for_shasta_proposal_request(chain_specs, request_entity.clone())
+        .await
+        .map_err(|err| format!("failed to create raiko: {err:?}"))?;
+
+    let input = if let Some(shasta_guest_input) =
+        raiko.request.prover_args.get(PROVER_ARG_SHASTA_GUEST_INPUT)
+    {
+        decode_guest_input_from_prover_arg_value(shasta_guest_input)?
+    } else {
+        tracing::warn!("rebuild shasta guest input for request: {request_key:?}");
+        generate_input_for_batch(&raiko)
+            .await
+            .map_err(|err| format!("failed to generate shasta guest input: {err:?}"))?
+    };
+
+    // Generate the output for the batch
+    let output = raiko
+        .get_batch_output(&input)
+        .map_err(|err| format!("failed to generate output: {err:?}"))?;
+
+    // Run the Shasta proposal prover
+    let proof = raiko
+        .shasta_proposal_prove(input, &output, None)
+        .await
+        .map_err(|err| format!("failed to run shasta proposal prover: {err:?}"))?;
+
     Ok(proof)
 }
 

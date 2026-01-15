@@ -1,6 +1,7 @@
-use std::path::PathBuf;
+use std::{collections::BTreeMap, path::PathBuf};
 
 use clap::{Args, Parser, Subcommand};
+use raiko_lib::consts::SpecId;
 
 const DEFAULT_RAIKO_USER_CONFIG_SUBDIR_PATH: &str = ".config/raiko";
 
@@ -29,6 +30,8 @@ pub enum Command {
     Check,
     /// Sgx server to process incoming
     Serve(ServerArgs),
+    /// Shasta aggregate proofs
+    ShastaAggregate(OneShotArgs),
 }
 
 #[derive(Debug, Args)]
@@ -39,12 +42,16 @@ pub struct OneShotArgs {
 
 #[derive(Debug, Args, Clone)]
 pub struct ServerArgs {
-    #[clap(long)]
-    pub sgx_instance_id: u32,
+    #[clap(long, value_parser = parse_specid_map)]
+    pub sgx_instance_ids: BTreeMap<SpecId, u32>,
     #[clap(long)]
     pub address: String,
     #[clap(long)]
     pub port: u32,
+}
+
+fn parse_specid_map(s: &str) -> Result<BTreeMap<SpecId, u32>, String> {
+    serde_json::from_str(s).map_err(|e| e.to_string())
 }
 
 fn get_default_raiko_user_config_path(subdir: &str) -> PathBuf {

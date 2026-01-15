@@ -1,10 +1,13 @@
-use reth_primitives::{ChainId, B256};
+use reth_primitives::{Address, ChainId, B256};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::input::{
-    AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput,
-    GuestOutput,
+use crate::{
+    input::{
+        shasta::Checkpoint, AggregationGuestInput, AggregationGuestOutput, GuestBatchInput,
+        GuestBatchOutput, GuestInput, GuestOutput, ShastaAggregationGuestInput,
+    },
+    proof_type::ProofType,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -29,9 +32,34 @@ pub type ProverResult<T, E = ProverError> = core::result::Result<T, E>;
 pub type ProverConfig = serde_json::Value;
 pub type ProofKey = (ChainId, u64, B256, u8);
 
-#[derive(
-    Clone, Debug, Serialize, ToSchema, Deserialize, Default, PartialEq, Eq, PartialOrd, Ord, Hash,
-)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[allow(non_snake_case)]
+// In Shasta, each sub proposal signs this structure to prove the proposal's transition.
+// We keep ABI-compatible field names.
+pub struct ShastaTransitionInput {
+    pub proposer: Address,
+    pub timestamp: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct TransitionInputData {
+    pub proposal_id: u64,
+    pub proposal_hash: B256,
+    pub parent_proposal_hash: B256,
+    pub parent_block_hash: B256,
+    pub actual_prover: Address,
+    pub transition: ShastaTransitionInput,
+    pub checkpoint: Checkpoint,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct ProofCarryData {
+    pub chain_id: ChainId,
+    pub verifier: Address,
+    pub transition_input: TransitionInputData,
+}
+
+#[derive(Clone, Debug, Serialize, ToSchema, Deserialize, Default, PartialEq, Eq)]
 /// The response body of a proof request.
 pub struct Proof {
     /// The proof either TEE or ZK.
@@ -44,6 +72,8 @@ pub struct Proof {
     pub uuid: Option<String>,
     /// The kzg proof.
     pub kzg_proof: Option<String>,
+    /// the extra data of Proof
+    pub extra_data: Option<ProofCarryData>,
 }
 
 // impl display for proof to easy read log
@@ -113,5 +143,59 @@ pub trait Prover {
         store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof>;
 
+    /// Run the prover for Shasta proposals (delegates to batch_run for now)
+    async fn proposal_run(
+        &self,
+        input: GuestBatchInput,
+        output: &GuestBatchOutput,
+        config: &ProverConfig,
+        store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        // Default implementation delegates to batch_run
+        let mut proof = self.batch_run(input.clone(), output, config, store).await?;
+        let proof_type = self.proof_type();
+        let chain_id = input.taiko.chain_spec.chain_id;
+        let first_block = &input.inputs.first().unwrap().block;
+        let proposal_block_number = first_block.number;
+        let first_block_timestamp = first_block.header.timestamp;
+        let verifier_address = input
+            .taiko
+            .chain_spec
+            .get_fork_verifier_address(proposal_block_number, first_block_timestamp, proof_type)
+            .unwrap_or_default();
+        let last_checkpoint = Checkpoint {
+            blockNumber: input.inputs.last().unwrap().block.number,
+            blockHash: input.inputs.last().unwrap().block.hash_slow(),
+            stateRoot: input.inputs.last().unwrap().block.state_root,
+        };
+        proof.extra_data = Some(ProofCarryData {
+            chain_id,
+            verifier: verifier_address,
+            transition_input: TransitionInputData {
+                proposal_id: input.taiko.batch_id,
+                proposal_hash: input.taiko.batch_proposed.proposal_hash(),
+                parent_proposal_hash: input.taiko.batch_proposed.parent_proposal_hash(),
+                parent_block_hash: input.inputs.first().unwrap().parent_header.hash_slow(),
+                actual_prover: input.taiko.prover_data.actual_prover,
+                transition: ShastaTransitionInput {
+                    proposer: input.taiko.batch_proposed.proposer(),
+                    timestamp: input.taiko.batch_proposed.proposal_timestamp(),
+                },
+                checkpoint: last_checkpoint,
+            },
+        });
+        Ok(proof)
+    }
+
+    async fn shasta_aggregate(
+        &self,
+        input: ShastaAggregationGuestInput,
+        output: &AggregationGuestOutput,
+        config: &ProverConfig,
+        store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof>;
+
     async fn cancel(&self, proof_key: ProofKey, read: Box<&mut dyn IdStore>) -> ProverResult<()>;
+
+    fn proof_type(&self) -> ProofType;
 }

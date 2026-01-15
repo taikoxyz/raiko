@@ -4,7 +4,7 @@
 // This is already reflected in the code below and should be used for all tracing in this file.
 
 use crate::metrics;
-use raiko_core::interfaces::BatchProofRequest;
+use raiko_core::interfaces::{BatchProofRequest, ShastaProofRequest};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -165,6 +165,56 @@ pub fn record_batch_request_out(
         metrics::accumulate_single_proof_gen_time(
             batch_request.aggregate,
             &batch_request.proof_type,
+            &batch_desc,
+            duration_inc,
+        );
+    }
+}
+
+/// Generate a unique request ID
+pub fn generate_shasta_request_id(api_key: &str, batch_request: &ShastaProofRequest) -> String {
+    let request = format!(
+        "{}_{}_proposal_{}+{}",
+        if batch_request.aggregate {
+            "aggregate"
+        } else {
+            "single"
+        },
+        batch_request.proof_type,
+        batch_request.proposals.first().unwrap().proposal_id,
+        batch_request.proposals.len(),
+    );
+
+    format!("{}_request_{}", api_key, request)
+}
+
+/// Convenience function: record request start
+pub fn record_shasta_request_in(api_key_owner: &str, shasta_request: &ShastaProofRequest) {
+    let request_id = generate_shasta_request_id(api_key_owner, shasta_request);
+    METRICS_COLLECTOR.record_request_in(&request_id, api_key_owner);
+}
+
+/// Convenience function: record request end
+pub fn record_shasta_request_out(
+    api_key_owner: &str,
+    shasta_request: &ShastaProofRequest,
+    has_proof: bool,
+) {
+    let request_id = generate_shasta_request_id(api_key_owner, shasta_request);
+    // record the increment of the request duration for prometheus counter metrics
+    if let Some(duration_inc) = METRICS_COLLECTOR.record_request_out(&request_id, has_proof) {
+        let batch_desc = format!(
+            "{}+{}",
+            shasta_request.proposals.first().unwrap().proposal_id,
+            shasta_request.proposals.len(),
+        );
+
+        // record accumulated preconfimer proof generation increment
+        metrics::accumulate_caller_proof_time_cost(api_key_owner, duration_inc);
+        // record current proof generation increment, see if this task can not be done in time
+        metrics::accumulate_single_proof_gen_time(
+            shasta_request.aggregate,
+            &shasta_request.proof_type,
             &batch_desc,
             duration_inc,
         );

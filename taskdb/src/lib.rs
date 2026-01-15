@@ -156,12 +156,32 @@ pub struct BatchProofTaskDescriptor {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A request for Shasta guest input generation.
+pub struct ShastaGuestInputTaskDescriptor {
+    pub proposal_id: u64,
+    pub l1_network: String,
+    pub l2_network: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A request for Shasta proof generation.
+pub struct ShastaProofTaskDescriptor {
+    pub proposal_id: u64,
+    pub l1_network: String,
+    pub l2_network: String,
+    pub proof_system: ProofType,
+    pub prover: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TaskDescriptor {
     GuestInput(GuestInputTaskDescriptor),
     SingleProof(ProofTaskDescriptor),
     Aggregation(AggregationTaskDescriptor),
     BatchProof(BatchProofTaskDescriptor),
     BatchGuestInput(BatchGuestInputTaskDescriptor),
+    ShastaGuestInput(ShastaGuestInputTaskDescriptor),
+    ShastaProof(ShastaProofTaskDescriptor),
 }
 
 pub type TaskReport = (TaskDescriptor, TaskStatus);

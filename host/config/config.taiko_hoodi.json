@@ -1,20 +1,23 @@
 {
-  "network": "taiko_a7",
-  "l1_network": "holesky",
+  "network": "taiko_hoodi",
+  "l1_network": "hoodi",
   "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
   "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
   "sgx": {
     "instance_ids": {
       "HEKLA": 123456,
       "ONTAKE": 123456,
-      "PACAYA": 123456
+      "PACAYA": 123456,
+      "SHASTA": 123456
     }
   },
   "risc0": {
-    "bonsai": true,
-    "snark": true,
-    "profile": false,
-    "execution_po2": 20
+        "boundless": true,
+        "bonsai": false,
+        "snark": true,
+        "profile": false,
+        "execution_po2": 20,
+        "verify": true
   },
   "sp1": {
     "prover": "network",
@@ -22,7 +25,8 @@
   },
   "sgxgeth": {
     "instance_ids": {
-      "PACAYA": 0
+      "PACAYA": 0,
+      "SHASTA": 0
     },
     "setup": false,
     "bootstrap": false,

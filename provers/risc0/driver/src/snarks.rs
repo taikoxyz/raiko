@@ -17,6 +17,7 @@ use std::{str::FromStr, sync::Arc};
 use alloy_primitives::B256;
 use alloy_sol_types::{sol, SolValue};
 use anyhow::Result;
+use hex;
 use bonsai_sdk::blocking::Client;
 use ethers_contract::abigen;
 use ethers_core::types::H160;
@@ -81,6 +82,67 @@ pub fn encode(seal: Vec<u8>) -> Result<Vec<u8>> {
     selector_seal.extend_from_slice(&seal);
 
     Ok(selector_seal)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SealEncoding {
+    /// Seal bytes are the raw Groth16 seal and must be prefixed with the verifier-parameter selector.
+    RawNeedsSelector,
+    /// Seal bytes already include the verifier-parameter selector prefix.
+    AlreadyEncoded,
+}
+
+fn normalize_seal(seal: Vec<u8>, encoding: SealEncoding) -> Result<Vec<u8>> {
+    match encoding {
+        SealEncoding::RawNeedsSelector => encode(seal),
+        SealEncoding::AlreadyEncoded => Ok(seal),
+    }
+}
+
+async fn verify_groth16_onchain(
+    image_id: Digest,
+    seal: Vec<u8>,
+    journal_digest: Digest,
+    post_state_digest: Option<Digest>,
+) -> Result<Vec<u8>> {
+    let verifier_rpc_url =
+        std::env::var("GROTH16_VERIFIER_RPC_URL").expect("env GROTH16_VERIFIER_RPC_URL");
+    let groth16_verifier_addr = {
+        let addr = std::env::var("GROTH16_VERIFIER_ADDRESS").expect("env GROTH16_VERIFIER_RPC_URL");
+        H160::from_str(&addr).unwrap()
+    };
+
+    let http_client = Arc::new(Provider::<RetryClient<Http>>::new_client(
+        &verifier_rpc_url,
+        3,
+        500,
+    )?);
+
+    tracing_info!("Verifying SNARK:");
+    tracing_info!("Seal: {}", hex::encode(&seal));
+    tracing_info!("Image ID: {}", hex::encode(image_id.as_bytes()));
+    if let Some(post_state_digest) = post_state_digest {
+        tracing_info!("Post State Digest: {}", hex::encode(post_state_digest));
+    }
+    tracing_info!("Journal Digest: {}", hex::encode(journal_digest));
+
+    let verify_call_res = IRiscZeroVerifier::new(groth16_verifier_addr, http_client)
+        .verify(
+            seal.clone().into(),
+            image_id.as_bytes().try_into().unwrap(),
+            journal_digest.into(),
+        )
+        .await;
+
+    if verify_call_res.is_ok() {
+        tracing_info!("SNARK verified successfully using {groth16_verifier_addr:?}!");
+    } else {
+        tracing_err!(
+            "SNARK verification call to {groth16_verifier_addr:?} failed: {verify_call_res:?}!"
+        );
+    }
+
+    Ok(seal)
 }
 
 pub async fn stark2snark(
@@ -233,40 +295,18 @@ pub async fn verify_groth16_snark_impl(
     journal_digest: Digest,
     post_state_digest: Digest,
 ) -> Result<Vec<u8>> {
-    let verifier_rpc_url =
-        std::env::var("GROTH16_VERIFIER_RPC_URL").expect("env GROTH16_VERIFIER_RPC_URL");
-    let groth16_verifier_addr = {
-        let addr = std::env::var("GROTH16_VERIFIER_ADDRESS").expect("env GROTH16_VERIFIER_RPC_URL");
-        H160::from_str(&addr).unwrap()
-    };
+    let enc_seal = normalize_seal(seal, SealEncoding::RawNeedsSelector)?;
+    verify_groth16_onchain(image_id, enc_seal, journal_digest, Some(post_state_digest)).await
+}
 
-    let http_client = Arc::new(Provider::<RetryClient<Http>>::new_client(
-        &verifier_rpc_url,
-        3,
-        500,
-    )?);
-
-    let enc_seal = encode(seal)?;
-    tracing_info!("Verifying SNARK:");
-    tracing_info!("Seal: {}", hex::encode(&enc_seal));
-    tracing_info!("Image ID: {}", hex::encode(image_id.as_bytes()));
-    tracing_info!("Post State Digest: {}", hex::encode(post_state_digest));
-    tracing_info!("Journal Digest: {}", hex::encode(journal_digest));
-    let verify_call_res = IRiscZeroVerifier::new(groth16_verifier_addr, http_client)
-        .verify(
-            enc_seal.clone().into(),
-            image_id.as_bytes().try_into().unwrap(),
-            journal_digest.into(),
-        )
-        .await;
-
-    if verify_call_res.is_ok() {
-        tracing_info!("SNARK verified successfully using {groth16_verifier_addr:?}!");
-    } else {
-        tracing_err!(
-            "SNARK verification to  {groth16_verifier_addr:?} failed: {verify_call_res:?}!"
-        );
-    }
-
-    Ok(enc_seal)
+/// Verify a boundless Groth16 seal (already encoded) against the on-chain verifier.
+/// Unlike the standard flow, the post-state digest is not required because the seal
+/// already contains the verifier parameters selector.
+pub async fn verify_boundless_groth16_snark_impl(
+    image_id: Digest,
+    seal: Vec<u8>,
+    journal_digest: Digest,
+) -> Result<Vec<u8>> {
+    let enc_seal = normalize_seal(seal, SealEncoding::AlreadyEncoded)?;
+    verify_groth16_onchain(image_id, enc_seal, journal_digest, None).await
 }

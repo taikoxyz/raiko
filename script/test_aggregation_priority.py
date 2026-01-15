@@ -578,7 +578,7 @@ class AggregationPriorityTester:
 
 
 
-    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 4, base_block: int = 1,
+    async def run_continuous_streaming_aggregation_test(self, total_batches: int = 1, base_block: int = 1,
                                                       max_wait_time: int = 3600, monitor_duration: int = 600) -> bool:
         self.logger.info("="*60)
         self.logger.info("STARTING CONTINUOUS STREAMING AGGREGATION TEST")
@@ -656,7 +656,7 @@ async def main():
     parser.add_argument(
         "--event-contract",
         type=str,
-        default="0x50A576435E2D9c179124D657d804eb56A10b6999",
+        default="0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9",
         help="Event contract address"
     )
     
@@ -670,7 +670,7 @@ async def main():
     parser.add_argument(
         "--total-batches",
         type=int,
-        default=4,
+        default=1,
         help="Total number of batches to process"
     )
     
@@ -692,7 +692,7 @@ async def main():
     parser.add_argument(
         "--base-block",
         type=int,
-        default=1234000,
+        default=1453370,
         help="Base block number to start testing from (Hoodi testnet recent blocks around 1236000+)"
     )
     

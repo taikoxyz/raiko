@@ -196,11 +196,12 @@ mod tests {
     use super::*;
     use alloy_primitives::Address;
     use raiko_ballot::Ballot;
-    use raiko_core::interfaces::ProofRequestOpt;
+    use raiko_core::interfaces::{ProofRequestOpt, ShastaProposalCheckpoint};
     use raiko_lib::input::BlobProofType;
     use raiko_lib::{consts::SupportedChainSpecs, proof_type::ProofType};
     use raiko_reqpool::{
-        Pool, RedisPoolConfig, RequestEntity, RequestKey, SingleProofRequestEntity,
+        Pool, RedisPoolConfig, RequestEntity, RequestKey, ShastaInputRequestKey,
+        ShastaProofRequestEntity, ShastaProofRequestKey, SingleProofRequestEntity,
         SingleProofRequestKey, Status,
     };
     use reth_primitives::{BlockHash, B256};
@@ -257,6 +258,63 @@ mod tests {
             HashMap::new(),
         );
         RequestEntity::SingleProof(single_proof_entity)
+    }
+
+    /// Helper function to create a test request key
+    fn create_test_request_shasta_key() -> RequestKey {
+        let shasta_input_key =
+            ShastaInputRequestKey::new(1u64, "ethereum".to_string(), "ethereum".to_string());
+        let actual_prover_address = "test_actual_prover".to_string();
+        let shasta_proof_key = ShastaProofRequestKey::new_with_input_key(
+            shasta_input_key,
+            ProofType::Native,
+            actual_prover_address,
+        );
+        RequestKey::ShastaProof(shasta_proof_key)
+    }
+
+    /// Helper function to create a test request entity
+    fn create_test_request_shasta_entity() -> RequestEntity {
+        let shasta_proof_entity = ShastaProofRequestEntity::new(
+            1234u64,
+            5678u64,
+            "ethereum".to_string(),
+            "ethereum".to_string(),
+            Address::ZERO,
+            ProofType::Native,
+            BlobProofType::ProofOfEquivalence,
+            vec![1234u64],
+            HashMap::new(),
+            Some(ShastaProposalCheckpoint {
+                block_number: 1234u64,
+                block_hash: B256::from([0u8; 32]),
+                state_root: B256::from([0u8; 32]),
+            }),
+            0,
+        );
+        RequestEntity::ShastaProof(shasta_proof_entity)
+    }
+
+    #[tokio::test]
+    async fn test_act_with_existing_request() {
+        // Initialize logger for test output. This is safe to call multiple times in tests.
+        let _ = env_logger::builder().is_test(true).try_init();
+        let actor = create_test_actor_with_id("test_act_with_existing_request");
+        let request_key = create_test_request_shasta_key();
+        let request_entity = create_test_request_shasta_entity();
+        let start_time = chrono::Utc::now();
+
+        let mut pool = actor.pool.lock().await;
+        pool.add(
+            request_key.clone(),
+            request_entity.clone(),
+            StatusWithContext::new(Status::Registered, start_time),
+        )
+        .unwrap();
+
+        let ser_entity = serde_json::to_string(&request_entity).unwrap();
+        let de_entity = serde_json::from_str(&ser_entity).unwrap();
+        assert_eq!(request_entity, de_entity);
     }
 
     #[tokio::test]

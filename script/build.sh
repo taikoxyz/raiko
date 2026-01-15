@@ -84,12 +84,14 @@ if [ "$1" == "sgx" ]; then
             
             # Extract MRENCLAVE after successful build
             echo "Extracting MRENCLAVE from SGX build..."
-            # Check multiple indicators that we're in a container/CI environment
-            if [ -f "/.dockerenv" ] || [ -n "${DOCKER_BUILDKIT}" ] || [ -n "${CI}" ] || [ ! -f ".env" ] || grep -q docker /proc/1/cgroup 2>/dev/null; then
-                echo "Container/CI build detected, skipping MRENCLAVE .env update (will be handled by publish-image.sh)"
-            else
-                ./script/update_imageid.sh sgx
-            fi
+            # The legacy .env update step called an unsupported 'sgx' mode in update_imageid.sh;
+            # disable it for now so TARGET=sgx builds can complete without an error.
+            # # Check multiple indicators that we're in a container/CI environment
+            # if [ -f "/.dockerenv" ] || [ -n "${DOCKER_BUILDKIT}" ] || [ -n "${CI}" ] || [ ! -f ".env" ] || grep -q docker /proc/1/cgroup 2>/dev/null; then
+            #     echo "Container/CI build detected, skipping MRENCLAVE .env update (will be handled by publish-image.sh)"
+            # else
+            #     ./script/update_imageid.sh sgx
+            # fi
         else
             echo "Building SGX tests"
             cargo ${TOOLCHAIN_SGX} test ${FLAGS} -p raiko-host -p sgx-prover --features "sgx enable" --no-run

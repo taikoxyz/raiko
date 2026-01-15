@@ -136,7 +136,7 @@ pub struct ChainSpec {
     pub max_spec_id: SpecId,
     pub hard_forks: BTreeMap<SpecId, ForkCondition>,
     pub eip_1559_constants: Eip1559Constants,
-    pub l1_contract: Option<Address>,
+    pub l1_contract: BTreeMap<SpecId, Address>,
     pub l2_contract: Option<Address>,
     pub rpc: String,
     pub beacon_rpc: Option<String>,
@@ -161,7 +161,7 @@ impl ChainSpec {
             max_spec_id: spec_id,
             hard_forks: BTreeMap::from([(spec_id, ForkCondition::Block(0))]),
             eip_1559_constants,
-            l1_contract: None,
+            l1_contract: BTreeMap::new(),
             l2_contract: None,
             rpc: "".to_string(),
             beacon_rpc: None,
@@ -208,11 +208,12 @@ impl ChainSpec {
     pub fn get_fork_verifier_address(
         &self,
         block_num: u64,
+        block_timestamp: u64,
         proof_type: ProofType,
     ) -> Result<Address> {
         // fall down to the first fork that is active as default
         for (spec_id, fork) in self.hard_forks.iter().rev() {
-            if fork.active(block_num, 0u64) {
+            if fork.active(block_num, block_timestamp) {
                 if let Some(fork_verifier) = self.verifier_address_forks.get(spec_id) {
                     return fork_verifier
                         .get(&proof_type)
@@ -225,6 +226,19 @@ impl ChainSpec {
         }
 
         Err(anyhow!("fork verifier is not active"))
+    }
+
+    pub fn get_fork_l1_contract_address(&self, block_num: u64) -> Result<Address> {
+        // fall down to the first fork that is active as default
+        for (spec_id, fork) in self.hard_forks.iter().rev() {
+            if fork.active(block_num, 0u64) {
+                if let Some(l1_address) = self.l1_contract.get(spec_id) {
+                    return Ok(*l1_address);
+                }
+            }
+        }
+
+        Err(anyhow!("fork l1 contract is not active"))
     }
 
     pub fn is_taiko(&self) -> bool {
@@ -323,7 +337,7 @@ mod tests {
             .get_chain_spec(&Network::Ethereum.to_string())
             .unwrap();
         let verifier_address = eth_mainnet_spec
-            .get_fork_verifier_address(15_537_394, ProofType::Sgx)
+            .get_fork_verifier_address(15_537_394, 0u64, ProofType::Sgx)
             .unwrap();
         assert_eq!(
             verifier_address,
@@ -333,10 +347,11 @@ mod tests {
         let hekla_mainnet_spec = SupportedChainSpecs::default()
             .get_chain_spec(&Network::TaikoA7.to_string())
             .unwrap();
-        let verifier_address = hekla_mainnet_spec.get_fork_verifier_address(12345, ProofType::Sgx);
+        let verifier_address =
+            hekla_mainnet_spec.get_fork_verifier_address(12345, 0u64, ProofType::Sgx);
         assert!(verifier_address.is_err()); // deprecated fork has no verifier address
         let verifier_address = hekla_mainnet_spec
-            .get_fork_verifier_address(15_537_394, ProofType::Sgx)
+            .get_fork_verifier_address(15_537_394, 0u64, ProofType::Sgx)
             .unwrap();
         assert_eq!(
             verifier_address,
@@ -350,9 +365,50 @@ mod tests {
             .get_chain_spec(&Network::Ethereum.to_string())
             .unwrap();
         let verifier_address = eth_mainnet_spec
-            .get_fork_verifier_address(15_537_394, ProofType::Native)
+            .get_fork_verifier_address(15_537_394, 0u64, ProofType::Native)
             .unwrap_or_default();
         assert_eq!(verifier_address, Address::ZERO);
+    }
+
+    #[ignore = "devnet spec changes frequently"]
+    #[test]
+    fn forked_dev_verifier_address() {
+        let devnet_spec = SupportedChainSpecs::merge_from_file(
+            "../host/config/chain_spec_list_devnet.json".into(),
+        )
+        .unwrap();
+        let verifier_address = devnet_spec
+            .get_chain_spec("taiko_dev")
+            .unwrap()
+            .get_fork_verifier_address(0, 0, ProofType::Sgx)
+            .unwrap_or_default();
+        assert_eq!(
+            verifier_address,
+            Address::ZERO,
+            "should be zero for before PACAYA fork"
+        );
+
+        let verifier_address = devnet_spec
+            .get_chain_spec("taiko_dev")
+            .unwrap()
+            .get_fork_verifier_address(5, 1762068931u64, ProofType::Sgx)
+            .unwrap_or_default();
+        assert_eq!(
+            verifier_address,
+            address!("0Cf58F3E8514d993cAC87Ca8FC142b83575cC4D3"),
+            "should be the verifier address for PACAYA fork"
+        );
+
+        let verifier_address = devnet_spec
+            .get_chain_spec("taiko_dev")
+            .unwrap()
+            .get_fork_verifier_address(0, 1762068933u64, ProofType::Sgx)
+            .unwrap_or_default();
+        assert_eq!(
+            verifier_address,
+            address!("3B36ba4B3B3A0303001161B53BAe0c3AcD6ef212"),
+            "should be the verifier address for SHASTA fork"
+        );
     }
 
     #[ignore]
@@ -374,7 +430,7 @@ mod tests {
                 base_fee_max_decrease_denominator: uint!(8_U256),
                 elasticity_multiplier: uint!(2_U256),
             },
-            l1_contract: None,
+            l1_contract: BTreeMap::new(),
             l2_contract: None,
             rpc: "".to_string(),
             beacon_rpc: None,

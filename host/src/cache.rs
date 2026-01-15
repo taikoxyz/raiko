@@ -110,6 +110,9 @@ mod test {
             prover_args: Default::default(),
             l1_inclusion_block_number: 0,
             l2_block_numbers: Default::default(),
+            checkpoint: None,
+            cached_event_data: None,
+            last_anchor_block_number: None,
         };
         let raiko = Raiko::new(
             l1_chain_spec.clone(),

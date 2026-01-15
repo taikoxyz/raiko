@@ -20,7 +20,7 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": null,
+        "l1_contract": {},
         "l2_contract": null,
         "rpc": "https://l1rpc.internal.taiko.xyz",
         "beacon_rpc": "https://l1beacon.internal.taiko.xyz/",
@@ -31,14 +31,14 @@
                 "RISC0": null
             }
         },
-        "genesis_time": 1744256500,
+        "genesis_time": 1768276900,
         "seconds_per_slot": 12,
         "is_taiko": false
     },
     {
         "name": "taiko_dev",
         "chain_id": 167001,
-        "max_spec_id": "PACAYA",
+        "max_spec_id": "SHASTA",
         "hard_forks": {
             "HEKLA": {
                 "Block": 0
@@ -49,6 +49,9 @@
             "PACAYA": {
                 "Block": 0
             },
+            "SHASTA": {
+                "Timestamp": 0
+            },
             "CANCUN": "TBD"
         },
         "eip_1559_constants": {
@@ -57,16 +60,25 @@
             "base_fee_max_decrease_denominator": "0x8",
             "elasticity_multiplier": "0x2"
         },
-        "l1_contract": "0x6d2D299fEe48F3490Ed74d581bbDF4AD7b5Aa275",
+        "l1_contract": {
+            "PACAYA": "0x3b37a799290950fef954dfF547608baC52A12571",
+            "SHASTA": "0x12100faa7b157e9947340B44409fC7E27EC0ABef"
+        },
         "l2_contract": "0x1670010000000000000000000000000000010001",
         "rpc": "https://rpc.internal.taiko.xyz",
         "beacon_rpc": null,
         "verifier_address_forks": {
             "PACAYA": {
-                "SGX": "0x0Cf58F3E8514d993cAC87Ca8FC142b83575cC4D3",
-                "SP1": "0xF3152569f2f74ec0f3fd0f57C09aCe07adDA7c5D",
-                "RISC0": "0x9C53004a840bbF58bF5C7084addD50498E12E9A9",
-                "SGXGETH": "0x698ceB7EF2E001347B1672389d6ca6aCE04b13C8"
+                "SGX": "0xf0ebc67dB56A5687649fF2216e3826a52F8DBd7c",
+                "SP1": "0xCb2D625BF8C2187B180646aF4738AF5F1413Fb70",
+                "RISC0": "0x48940F7ab2C674Aa66C09eDa71614aD704E9d007",
+                "SGXGETH": "0xfE3EdF3e778a647c0955f2a5f79565E272E6AfdB"
+            },
+            "SHASTA": {
+                "SGX": "0xf0ebc67dB56A5687649fF2216e3826a52F8DBd7c",
+                "SP1": "0xCb2D625BF8C2187B180646aF4738AF5F1413Fb70",
+                "RISC0": "0x48940F7ab2C674Aa66C09eDa71614aD704E9d007",
+                "SGXGETH": "0xfE3EdF3e778a647c0955f2a5f79565E272E6AfdB"
             }
         },
         "genesis_time": 0,

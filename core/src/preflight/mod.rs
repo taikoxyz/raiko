@@ -9,9 +9,12 @@ use futures::future::join_all;
 use raiko_lib::{
     builder::RethBlockBuilder,
     consts::ChainSpec,
-    input::{BlobProofType, GuestBatchInput, GuestInput, TaikoGuestInput, TaikoProverData},
+    input::{
+        BlobProofType, BlockProposedFork, GuestBatchInput, GuestInput, TaikoGuestInput,
+        TaikoProverData,
+    },
     primitives::mpt::proofs_to_tries,
-    utils::{generate_transactions, generate_transactions_for_batch_blocks},
+    utils::txs::{generate_transactions, generate_transactions_for_batch_blocks},
     Measurement,
 };
 use reth_primitives::TransactionSigned;
@@ -22,7 +25,9 @@ use util::{
     prepare_taiko_chain_batch_input, prepare_taiko_chain_input,
 };
 
-pub use util::parse_l1_batch_proposal_tx_for_pacaya_fork;
+pub use util::{
+    parse_l1_batch_proposal_tx_for_pacaya_fork, parse_l1_batch_proposal_tx_for_shasta_fork,
+};
 
 #[cfg(feature = "statedb_lru")]
 use lru::{load_state_db, save_state_db};
@@ -48,6 +53,8 @@ pub struct BatchPreflightData {
     pub taiko_chain_spec: ChainSpec,
     pub prover_data: TaikoProverData,
     pub blob_proof_type: BlobProofType,
+    /// Cached event data to avoid duplicate RPC calls
+    pub cached_event_data: Option<raiko_lib::input::BlockProposedFork>,
 }
 
 impl PreflightData {
@@ -217,11 +224,26 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         prover_data,
         blob_proof_type,
         l1_inclusion_block_number,
+        cached_event_data,
     }: BatchPreflightData,
 ) -> RaikoResult<GuestBatchInput> {
     let measurement = Measurement::start("Fetching block data...", false);
 
-    let block_parent_pairs = get_batch_blocks_and_parent_data(&provider, &block_numbers).await?;
+    let all_block_parent_pairs =
+        get_batch_blocks_and_parent_data(&provider, &block_numbers).await?;
+    let (l2_grandparent_header, block_parent_pairs) = if block_numbers[0] == 1 {
+        (None, all_block_parent_pairs)
+    } else {
+        // The first pair's parent is the grandparent (first block's parent's parent)
+        // Extract it and remove the first pair since we don't need it for subsequent processing
+        debug!("all_block_parent_pairs: {:?}", all_block_parent_pairs);
+        (
+            all_block_parent_pairs
+                .first()
+                .map(|(_, parent_block)| parent_block.header.clone().try_into().unwrap()),
+            all_block_parent_pairs.into_iter().skip(1).collect(),
+        )
+    };
 
     let l2_block_numbers: Vec<(u64, Option<u64>)> = block_numbers
         .iter()
@@ -246,6 +268,8 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
             &all_prove_blocks,
             prover_data,
             &blob_proof_type,
+            cached_event_data,
+            l2_grandparent_header,
         )
         .await?
     } else {
@@ -257,9 +281,22 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
 
     debug!("proven (block, parent) pairs: {:?}", block_parent_pairs);
 
+    let mock_guest_batch_input = GuestBatchInput {
+        inputs: block_parent_pairs
+            .iter()
+            .map(|(block, parent_block)| GuestInput {
+                block: block.clone(),
+                parent_header: parent_block.header.clone().try_into().unwrap(),
+                chain_spec: taiko_chain_spec.clone(),
+                ..Default::default()
+            })
+            .collect(),
+        taiko: taiko_guest_batch_input.clone(),
+    };
+
     // distribute txs to each block
-    let pool_txs_list: Vec<Vec<TransactionSigned>> =
-        generate_transactions_for_batch_blocks(&taiko_guest_batch_input);
+    let pool_txs_list: Vec<(Vec<TransactionSigned>, bool)> =
+        generate_transactions_for_batch_blocks(&mock_guest_batch_input);
 
     assert_eq!(block_parent_pairs.len(), pool_txs_list.len());
 
@@ -270,7 +307,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         .unwrap_or(10);
     let tasks: Vec<(
         (reth_primitives::Block, alloy_rpc_types::Block),
-        Vec<TransactionSigned>,
+        (Vec<TransactionSigned>, bool),
     )> = block_parent_pairs
         .iter()
         .cloned()
@@ -282,7 +319,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         let taiko_chain_spec = taiko_chain_spec.clone();
         let handle = tokio::spawn(async move {
             let mut chunk_guest_input = Vec::new();
-            for ((prove_block, parent_block), pure_pool_txs) in task_batch_vec {
+            for ((prove_block, parent_block), txs_with_force_inc_flag) in task_batch_vec {
                 let taiko_chain_spec = taiko_chain_spec.clone();
                 let taiko_guest_batch_input = taiko_guest_batch_input.clone();
 
@@ -297,6 +334,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                 #[cfg(not(feature = "statedb_lru"))]
                 let initial_db = None;
 
+                let (pure_pool_txs, is_force_inclusion) = txs_with_force_inc_flag;
                 let anchor_tx = prove_block.body.first().unwrap().clone();
                 let taiko_input = TaikoGuestInput {
                     l1_header: taiko_guest_batch_input.l1_header.clone(),
@@ -306,7 +344,13 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                     prover_data: taiko_guest_batch_input.prover_data.clone(),
                     blob_commitment: None,
                     blob_proof: None,
-                    blob_proof_type: taiko_guest_batch_input.blob_proof_type.clone(),
+                    blob_proof_type: taiko_guest_batch_input.data_sources[0]
+                        .blob_proof_type
+                        .clone(),
+                    extra_data: match taiko_guest_batch_input.batch_proposed {
+                        BlockProposedFork::Shasta(_) => Some(is_force_inclusion),
+                        _ => None,
+                    },
                 };
 
                 // Create the guest input
@@ -438,7 +482,7 @@ mod test {
     use ethers_core::types::Transaction;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
-        utils::decode_transactions,
+        utils::txs::decode_transactions,
     };
 
     use crate::preflight::util::{blob_to_bytes, block_time_to_block_slot};
