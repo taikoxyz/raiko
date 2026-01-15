@@ -8,8 +8,11 @@ if [ -n "$CI" ]; then
 	source ./script/ci-env-check.sh
 fi
 
-# toolchain necessary to compile c-kzg in SP1/risc0
-if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ]; then
+# toolchain necessary to compile c-kzg in SP1/risc0/Brevis
+if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ] || [ "$1" == "brevis" ]; then
+	RISCV_GCC_DIR_DEFAULT="/opt/riscv"
+	RISCV_GCC_DIR_ENV="${RISCV_GCC_DIR:-}"
+	RISCV_GCC_DIR="${RISCV_GCC_DIR_ENV:-$RISCV_GCC_DIR_DEFAULT}"
 	# Check if the RISC-V GCC prebuilt binary archive already exists
 	if [ -f /tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz ]; then
 		echo "riscv-gcc-prebuilt existed, please check the file manually"
@@ -21,12 +24,21 @@ if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ]; then
 			echo "Failed to download riscv-gcc-prebuilt"
 			exit 1
 		fi
-		# Create the directory if it doesn't exist
-		if [ ! -d /opt/riscv ]; then
-			mkdir /opt/riscv
+		# Create the directory if it doesn't exist (fallback to $HOME if /opt is not writable)
+		if [ ! -d "$RISCV_GCC_DIR" ]; then
+			if ! mkdir -p "$RISCV_GCC_DIR"; then
+				if [ -z "$RISCV_GCC_DIR_ENV" ] && [ "$RISCV_GCC_DIR" = "$RISCV_GCC_DIR_DEFAULT" ]; then
+					RISCV_GCC_DIR="$HOME/.riscv"
+					mkdir -p "$RISCV_GCC_DIR"
+					echo "Install RISC-V GCC into $RISCV_GCC_DIR (set RISCV_GCC_DIR to override)."
+				else
+					echo "Failed to create $RISCV_GCC_DIR. Set RISCV_GCC_DIR to a writable path or use sudo."
+					exit 1
+				fi
+			fi
 		fi
 		# Extract the downloaded archive
-		tar -xzf /tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz -C /opt/riscv/
+		tar -xzf /tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz -C "$RISCV_GCC_DIR"
 		# Check if tar succeeded
 		if [ $? -ne 0 ]; then
 			echo "Failed to extract riscv-gcc-prebuilt"
@@ -111,12 +123,12 @@ fi
 
 # Brevis Pico
 if [ -z "$1" ] || [ "$1" == "brevis" ]; then
+	# Ensure the toolchain used by cargo-pico exists
+	rustup toolchain install nightly-2025-08-04
 	if ! command -v cargo-pico >/dev/null 2>&1; then
 		echo "cargo-pico not installed, installing..."
-		cargo install --git https://github.com/brevis-network/pico --locked -p pico-cli
+		cargo +nightly-2025-08-04 install --git https://github.com/brevis-network/pico --locked pico-cli
 	else
 		echo "cargo-pico already installed"
 	fi
-	# Ensure the toolchain used by cargo-pico exists
-	rustup install nightly-2025-08-04
 fi

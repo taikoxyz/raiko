@@ -1,5 +1,8 @@
 #![no_main]
 
+#[path = "../mem.rs"]
+pub mod mem;
+
 use pico_sdk::io::{commit_bytes, read_as};
 use raiko_lib::{
     builder::calculate_batch_blocks_final_header, input::GuestBatchInput,

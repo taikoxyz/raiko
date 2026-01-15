@@ -1,6 +1,9 @@
 //! Aggregates Shasta proposal proofs for Brevis Pico
 #![no_main]
 
+#[path = "../mem.rs"]
+pub mod mem;
+
 use pico_sdk::{
     io::{commit_bytes, read_as},
     verify::verify_pico_proof,

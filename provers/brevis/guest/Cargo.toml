@@ -21,3 +21,10 @@ path = "src/bin/brevis_shasta_aggregation.rs"
 raiko-lib = { path = "../../../lib" }
 pico-sdk = { git = "https://github.com/brevis-network/pico", package = "pico-sdk", default-features = false, features = ["kb"] }
 sha2 = "0.10"
+
+[patch.crates-io]
+revm = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-shasta" }
+revm-primitives = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-shasta" }
+revm-precompile = { git = "https://github.com/taikoxyz/revm.git", branch = "v36-taiko-shasta" }
+blst = { git = "https://github.com/smtmfft/blst.git", branch = "v0.3.15-serialize" }
+c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7" }

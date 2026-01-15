@@ -1,22 +1,26 @@
 #!/usr/bin/env bash
 
-# Script to automatically update RISC0 image IDs, SP1 VK hashes, SGX MRENCLAVE, and SGXGETH MRENCLAVE in .env file
+# Script to automatically update RISC0 image IDs, SP1 VK hashes, Brevis VKEYs,
+# SGX MRENCLAVE, and SGXGETH MRENCLAVE in .env file
 # by reading from build output or extracting MRENCLAVE directly
 #
 # Usage:
 #   ./script/update_imageid.sh risc0 [output_file]    # Update RISC0 image IDs from file or temp
 #   ./script/update_imageid.sh sp1 [output_file]      # Update SP1 VK hashes from file or temp
+#   ./script/update_imageid.sh brevis [elf_dir]       # Update Brevis VKEYs from built ELFs
 #   ./script/update_imageid.sh sgx_direct <image>     # Extract SGX MRENCLAVE by calling gramine tools directly on container
 #   ./script/update_imageid.sh sgxgeth_direct <image> # Extract SGXGETH MRENCLAVE from container (reads from pre-generated file)
 #   ./script/update_imageid.sh update_sgx_mrenclave <value>     # Update SGX MRENCLAVE with provided value
 #   ./script/update_imageid.sh update_sgxgeth_mrenclave <value> # Update SGXGETH MRENCLAVE with provided value
 #
-# This script is automatically called by build.sh after building RISC0 or SP1 provers,
+# This script is automatically called by build.sh after building RISC0, SP1, or Brevis provers,
 # or can be used to extract MRENCLAVE values directly from Docker containers.
 #
 # If no output_file is provided for RISC0/SP1 modes, it will look for temp files:
 #   /tmp/risc0_build_output.txt for RISC0
 #   /tmp/sp1_build_output.txt for SP1
+# If no elf_dir is provided for Brevis mode, it will look for:
+#   ./provers/brevis/guest/elf
 # For MRENCLAVE extraction, it calls tools directly on Docker containers.
 
 set -e
@@ -37,7 +41,7 @@ print_warning() {
 }
 
 print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
 # Function to extract RISC0 image ID from build output
@@ -124,6 +128,40 @@ extract_sp1_vk_hash() {
     fi
     
     echo "$vk_hash"
+}
+
+# Function to extract Brevis VKEY from an ELF binary.
+extract_brevis_pico_vkey() {
+    local elf_path="$1"
+    local manifest_path="./provers/brevis/vkey/Cargo.toml"
+
+    if [ -z "$elf_path" ] || [ ! -f "$elf_path" ]; then
+        print_error "Brevis ELF not found: $elf_path"
+        return 1
+    fi
+
+    if [ ! -f "$manifest_path" ]; then
+        print_error "Brevis vkey tool not found at $manifest_path"
+        return 1
+    fi
+
+    local vkey
+    if ! vkey=$(
+        cargo +nightly-2025-08-04 run --quiet --release \
+            --manifest-path "$manifest_path" \
+            --target-dir "./provers/brevis/vkey/target" \
+            -- "$elf_path"
+    ); then
+        print_error "Failed to compute Brevis VKEY for: $elf_path"
+        return 1
+    fi
+
+    if ! echo "$vkey" | grep -Eq '^[0-9a-fA-F]{64}$'; then
+        print_error "Invalid Brevis VKEY produced for $elf_path: $vkey"
+        return 1
+    fi
+
+    echo "$vkey"
 }
 
 # Function to check if Gramine tools are available
@@ -403,6 +441,38 @@ update_env_file() {
         fi
         print_status "Updated SP1_SHASTA_AGGREGATION_VK_HASH in $env_file: $SP1_SHASTA_AGGREGATION_VK_HASH"
     fi
+
+    # Remove deprecated BREVIS_PICO_* variables (renamed to BREVIS_*)
+    sed -i '/^BREVIS_PICO_.*_VKEY=/d' "$env_file"
+    sed -i '/^BREVIS_PICO_VKEY=/d' "$env_file"
+
+    # Update Brevis VKEYs if provided
+    if [ -n "$BREVIS_AGGREGATION_VKEY" ]; then
+        if grep -q "^BREVIS_AGGREGATION_VKEY=" "$env_file"; then
+            sed -i "s/^BREVIS_AGGREGATION_VKEY=.*/BREVIS_AGGREGATION_VKEY=$BREVIS_AGGREGATION_VKEY/" "$env_file"
+        else
+            echo "BREVIS_AGGREGATION_VKEY=$BREVIS_AGGREGATION_VKEY" >> "$env_file"
+        fi
+        print_status "Updated BREVIS_AGGREGATION_VKEY in $env_file: $BREVIS_AGGREGATION_VKEY"
+    fi
+
+    if [ -n "$BREVIS_BATCH_VKEY" ]; then
+        if grep -q "^BREVIS_BATCH_VKEY=" "$env_file"; then
+            sed -i "s/^BREVIS_BATCH_VKEY=.*/BREVIS_BATCH_VKEY=$BREVIS_BATCH_VKEY/" "$env_file"
+        else
+            echo "BREVIS_BATCH_VKEY=$BREVIS_BATCH_VKEY" >> "$env_file"
+        fi
+        print_status "Updated BREVIS_BATCH_VKEY in $env_file: $BREVIS_BATCH_VKEY"
+    fi
+
+    if [ -n "$BREVIS_SHASTA_AGGREGATION_VKEY" ]; then
+        if grep -q "^BREVIS_SHASTA_AGGREGATION_VKEY=" "$env_file"; then
+            sed -i "s/^BREVIS_SHASTA_AGGREGATION_VKEY=.*/BREVIS_SHASTA_AGGREGATION_VKEY=$BREVIS_SHASTA_AGGREGATION_VKEY/" "$env_file"
+        else
+            echo "BREVIS_SHASTA_AGGREGATION_VKEY=$BREVIS_SHASTA_AGGREGATION_VKEY" >> "$env_file"
+        fi
+        print_status "Updated BREVIS_SHASTA_AGGREGATION_VKEY in $env_file: $BREVIS_SHASTA_AGGREGATION_VKEY"
+    fi
     
     print_status "Successfully updated $env_file"
 }
@@ -503,6 +573,41 @@ extract_sp1_hashes_from_output() {
     print_status "  Batch: $batch_vk_hash"
 }
 
+# Function to extract Brevis VKEYs from built ELFs.
+extract_brevis_vkeys_from_elf_dir() {
+    local elf_dir="$1"
+
+    if [ -z "$elf_dir" ]; then
+        elf_dir="./provers/brevis/guest/elf"
+    fi
+
+    if [ ! -d "$elf_dir" ]; then
+        print_error "Brevis ELF directory not found: $elf_dir"
+        return 1
+    fi
+
+    local batch_elf="${elf_dir}/brevis-batch"
+    local aggregation_elf="${elf_dir}/brevis-aggregation"
+    local shasta_aggregation_elf="${elf_dir}/brevis-shasta-aggregation"
+
+    local batch_vkey
+    local aggregation_vkey
+    local shasta_aggregation_vkey
+
+    batch_vkey=$(extract_brevis_pico_vkey "$batch_elf") || return 1
+    aggregation_vkey=$(extract_brevis_pico_vkey "$aggregation_elf") || return 1
+    shasta_aggregation_vkey=$(extract_brevis_pico_vkey "$shasta_aggregation_elf") || return 1
+
+    BREVIS_BATCH_VKEY="$batch_vkey"
+    BREVIS_AGGREGATION_VKEY="$aggregation_vkey"
+    BREVIS_SHASTA_AGGREGATION_VKEY="$shasta_aggregation_vkey"
+
+    print_status "Extracted Brevis VKEYs:"
+    print_status "  Aggregation: $BREVIS_AGGREGATION_VKEY"
+    print_status "  Shasta Aggregation: $BREVIS_SHASTA_AGGREGATION_VKEY"
+    print_status "  Batch: $BREVIS_BATCH_VKEY"
+}
+
 # Main function
 main() {
     print_status "Starting automatic environment update..."
@@ -517,6 +622,9 @@ main() {
     SP1_AGGREGATION_VK_HASH=""
     SP1_BATCH_VK_HASH=""
     SP1_SHASTA_AGGREGATION_VK_HASH=""
+    BREVIS_AGGREGATION_VKEY=""
+    BREVIS_BATCH_VKEY=""
+    BREVIS_SHASTA_AGGREGATION_VKEY=""
     
     # Check if we're in the right directory
     if [ ! -f "Cargo.toml" ]; then
@@ -534,6 +642,9 @@ main() {
             "sp1")
                 mode="sp1"
                 ;;
+            "brevis")
+                mode="brevis"
+                ;;
             "sgx_direct")
                 mode="sgx_direct"
                 ;;
@@ -547,12 +658,12 @@ main() {
                 mode="update_sgxgeth_mrenclave"
                 ;;
             *)
-                print_error "Unknown mode: $1. Use 'risc0', 'sp1', 'sgx_direct', 'sgxgeth_direct', 'update_sgx_mrenclave', or 'update_sgxgeth_mrenclave'"
+                print_error "Unknown mode: $1. Use 'risc0', 'sp1', 'brevis', 'sgx_direct', 'sgxgeth_direct', 'update_sgx_mrenclave', or 'update_sgxgeth_mrenclave'"
                 exit 1
                 ;;
         esac
     else
-        print_error "Mode must be specified. Use 'risc0', 'sp1', 'sgx_direct', 'sgxgeth_direct', 'update_sgx_mrenclave', or 'update_sgxgeth_mrenclave'"
+        print_error "Mode must be specified. Use 'risc0', 'sp1', 'brevis', 'sgx_direct', 'sgxgeth_direct', 'update_sgx_mrenclave', or 'update_sgxgeth_mrenclave'"
         exit 1
     fi
     
@@ -572,6 +683,16 @@ main() {
             print_status "SP1 VK hashes extracted successfully"
         else
             print_error "Failed to extract SP1 VK hashes"
+            exit 1
+        fi
+    fi
+
+    # Extract Brevis VKEYs from built ELFs
+    if [ "$mode" = "brevis" ]; then
+        if extract_brevis_vkeys_from_elf_dir "$2"; then
+            print_status "Brevis VKEYs extracted successfully"
+        else
+            print_error "Failed to extract Brevis VKEYs"
             exit 1
         fi
     fi
@@ -619,8 +740,8 @@ main() {
         fi
     fi
     
-    # Update .env file (only for risc0 and sp1 modes, other modes handle their own .env updates)
-    if [ "$mode" = "risc0" ] || [ "$mode" = "sp1" ]; then
+    # Update .env file (only for risc0/sp1/brevis modes, other modes handle their own .env updates)
+    if [ "$mode" = "risc0" ] || [ "$mode" = "sp1" ] || [ "$mode" = "brevis" ]; then
         if update_env_file; then
             print_status "Environment file updated successfully"
         else

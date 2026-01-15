@@ -5,10 +5,10 @@ edition = "2021"
 
 [dependencies]
 # reth
-reth-primitives = { workspace = true }
-reth-evm-ethereum = { workspace = true }
-reth-evm = { workspace = true }
-reth-chainspec = { workspace = true }
+reth-primitives = { workspace = true, default-features = false, features = ["alloy-compat", "taiko", "k256"] }
+reth-evm-ethereum = { workspace = true, default-features = false }
+reth-evm = { workspace = true, default-features = false }
+reth-chainspec = { workspace = true, default-features = false, features = ["taiko"] }
 
 # alloy
 alloy-rlp = { workspace = true }

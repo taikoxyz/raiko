@@ -72,27 +72,27 @@ impl BrevisPicoProverConfig {
     pub fn from_env() -> Self {
         let defaults = Self::default();
         Self {
-            status_poll_interval_secs: env::var("BREVIS_PICO_STATUS_POLL_INTERVAL_SECS")
+            status_poll_interval_secs: env::var("BREVIS_STATUS_POLL_INTERVAL_SECS")
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(defaults.status_poll_interval_secs),
-            max_proof_timeout_secs: env::var("BREVIS_PICO_MAX_PROOF_TIMEOUT_SECS")
+            max_proof_timeout_secs: env::var("BREVIS_MAX_PROOF_TIMEOUT_SECS")
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(defaults.max_proof_timeout_secs),
-            max_status_retries: env::var("BREVIS_PICO_MAX_STATUS_RETRIES")
+            max_status_retries: env::var("BREVIS_MAX_STATUS_RETRIES")
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(defaults.max_status_retries),
-            status_retry_delay_secs: env::var("BREVIS_PICO_STATUS_RETRY_DELAY_SECS")
+            status_retry_delay_secs: env::var("BREVIS_STATUS_RETRY_DELAY_SECS")
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(defaults.status_retry_delay_secs),
-            http_connect_timeout_secs: env::var("BREVIS_PICO_HTTP_CONNECT_TIMEOUT_SECS")
+            http_connect_timeout_secs: env::var("BREVIS_HTTP_CONNECT_TIMEOUT_SECS")
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(defaults.http_connect_timeout_secs),
-            http_timeout_secs: env::var("BREVIS_PICO_HTTP_TIMEOUT_SECS")
+            http_timeout_secs: env::var("BREVIS_HTTP_TIMEOUT_SECS")
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(defaults.http_timeout_secs),
@@ -178,27 +178,27 @@ impl BrevisPicoClient {
     fn resolve_elf_path(&self, image_type: ImageType) -> ProverResult<PathBuf> {
         let (env_var, path, label) = match image_type {
             ImageType::Batch => (
-                "BREVIS_PICO_BATCH_ELF",
+                "BREVIS_BATCH_ELF",
                 self.params
                     .batch_elf_path
                     .clone()
-                    .or_else(|| env::var("BREVIS_PICO_BATCH_ELF").ok()),
+                    .or_else(|| env::var("BREVIS_BATCH_ELF").ok()),
                 "batch_elf_path",
             ),
             ImageType::Aggregation(AggType::Base) => (
-                "BREVIS_PICO_AGG_ELF",
+                "BREVIS_AGG_ELF",
                 self.params
                     .aggregation_elf_path
                     .clone()
-                    .or_else(|| env::var("BREVIS_PICO_AGG_ELF").ok()),
+                    .or_else(|| env::var("BREVIS_AGG_ELF").ok()),
                 "aggregation_elf_path",
             ),
             ImageType::Aggregation(AggType::Shasta) => (
-                "BREVIS_PICO_SHASTA_AGG_ELF",
+                "BREVIS_SHASTA_AGG_ELF",
                 self.params
                     .shasta_aggregation_elf_path
                     .clone()
-                    .or_else(|| env::var("BREVIS_PICO_SHASTA_AGG_ELF").ok()),
+                    .or_else(|| env::var("BREVIS_SHASTA_AGG_ELF").ok()),
                 "shasta_aggregation_elf_path",
             ),
         };
@@ -206,7 +206,7 @@ impl BrevisPicoClient {
         let path = path
         .ok_or_else(|| {
             ProverError::GuestError(format!(
-                "Missing Brevis Pico {} ELF path; set brevis_pico.{} or {}",
+                "Missing Brevis {} ELF path; set brevis_pico.{} or {}",
                 image_type.as_str(),
                 label,
                 env_var
@@ -233,7 +233,7 @@ impl BrevisPicoClient {
         let elf_bytes = fs::read(&elf_path)?;
 
         tracing::info!(
-            "Uploading Brevis Pico {} ELF from {}",
+            "Uploading Brevis {} ELF from {}",
             image_type.as_str(),
             elf_path.display()
         );

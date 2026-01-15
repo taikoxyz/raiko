@@ -203,6 +203,35 @@ fi
 # BREVIS PICO
 if [ "$1" == "brevis" ]; then
     check_toolchain $TOOLCHAIN_BREVIS
+    rustup component add rust-src --toolchain "${TOOLCHAIN_BREVIS#+}"
+    if [ -z "${RISCV_GCC_DIR}" ]; then
+        if [ -x "/opt/riscv/bin/riscv32-unknown-elf-gcc" ]; then
+            RISCV_GCC_DIR="/opt/riscv"
+        elif [ -x "${HOME}/.riscv/bin/riscv32-unknown-elf-gcc" ]; then
+            RISCV_GCC_DIR="${HOME}/.riscv"
+        fi
+    fi
+    if [ -n "${RISCV_GCC_DIR}" ] && [ -x "${RISCV_GCC_DIR}/bin/riscv32-unknown-elf-gcc" ]; then
+        if [ -z "${TARGET_CC}" ]; then
+            export TARGET_CC="${RISCV_GCC_DIR}/bin/riscv32-unknown-elf-gcc"
+        fi
+        if [ -z "${CC_riscv32im_risc0_zkvm_elf}" ]; then
+            export CC_riscv32im_risc0_zkvm_elf="${RISCV_GCC_DIR}/bin/riscv32-unknown-elf-gcc"
+        fi
+        if [ -z "${AR_riscv32im_risc0_zkvm_elf}" ]; then
+            export AR_riscv32im_risc0_zkvm_elf="${RISCV_GCC_DIR}/bin/riscv32-unknown-elf-ar"
+        fi
+    elif command -v riscv32-unknown-elf-gcc >/dev/null 2>&1; then
+        if [ -z "${TARGET_CC}" ]; then
+            export TARGET_CC="$(command -v riscv32-unknown-elf-gcc)"
+        fi
+        if [ -z "${CC_riscv32im_risc0_zkvm_elf}" ]; then
+            export CC_riscv32im_risc0_zkvm_elf="$(command -v riscv32-unknown-elf-gcc)"
+        fi
+        if [ -z "${AR_riscv32im_risc0_zkvm_elf}" ] && command -v riscv32-unknown-elf-ar >/dev/null 2>&1; then
+            export AR_riscv32im_risc0_zkvm_elf="$(command -v riscv32-unknown-elf-ar)"
+        fi
+    fi
 
     if ! command -v cargo-pico >/dev/null 2>&1; then
         echo "cargo-pico not found. Run ./script/install.sh brevis first."
@@ -211,18 +240,49 @@ if [ "$1" == "brevis" ]; then
 
     BREVIS_GUEST_DIR="./provers/brevis/guest"
     BREVIS_ELF_DIR="${BREVIS_GUEST_DIR}/elf"
-    BREVIS_BATCH_ELF="${BREVIS_ELF_DIR}/brevis-batch"
-    BREVIS_AGG_ELF="${BREVIS_ELF_DIR}/brevis-aggregation"
-    BREVIS_SHASTA_AGG_ELF="${BREVIS_ELF_DIR}/brevis-shasta-aggregation"
+    BREVIS_BATCH_ELF_DEFAULT="${BREVIS_ELF_DIR}/brevis-batch"
+    BREVIS_AGG_ELF_DEFAULT="${BREVIS_ELF_DIR}/brevis-aggregation"
+    BREVIS_SHASTA_AGG_ELF_DEFAULT="${BREVIS_ELF_DIR}/brevis-shasta-aggregation"
 
     if [ -n "${CLIPPY}" ]; then
         cargo ${TOOLCHAIN_BREVIS} clippy -p raiko-host -p brevis-pico-driver --features "brevis_pico,enable" -- -D warnings
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building Brevis Pico guest ELFs"
-            (cd "${BREVIS_GUEST_DIR}" && cargo pico build --bin brevis-batch)
-            (cd "${BREVIS_GUEST_DIR}" && cargo pico build --bin brevis-aggregation)
-            (cd "${BREVIS_GUEST_DIR}" && cargo pico build --bin brevis-shasta-aggregation)
+            BREVIS_CARGO_ENCODED_RUSTFLAGS=$(
+                printf "%s\x1f%s\x1f%s\x1f%s\x1f%s\x1f%s\x1f%s\x1f%s" \
+                    "-C" "passes=lower-atomic" \
+                    "-C" "link-arg=-Ttext=0x00200800" \
+                    "-C" "link-arg=--fatal-warnings" \
+                    "-C" "panic=abort"
+            )
+
+            build_brevis_elf() {
+                local BIN_NAME="$1"
+
+                (cd "${BREVIS_GUEST_DIR}" && CARGO_ENCODED_RUSTFLAGS="${BREVIS_CARGO_ENCODED_RUSTFLAGS}" \
+                    cargo ${TOOLCHAIN_BREVIS} build --release \
+                        --bin "${BIN_NAME}" \
+                        --target riscv32im-risc0-zkvm-elf \
+                        -Z build-std=alloc,core,proc_macro,panic_abort,std \
+                        -Z build-std-features=compiler-builtins-mem \
+                        --target-dir "${BREVIS_GUEST_DIR}/target")
+
+                mkdir -p "${BREVIS_ELF_DIR}"
+                cp "${BREVIS_GUEST_DIR}/target/riscv32im-risc0-zkvm-elf/release/${BIN_NAME}" "${BREVIS_ELF_DIR}/${BIN_NAME}"
+            }
+
+            build_brevis_elf "brevis-batch"
+            build_brevis_elf "brevis-aggregation"
+            build_brevis_elf "brevis-shasta-aggregation"
+
+            # Keep .env in sync with the latest Brevis VKEYs when building locally.
+            if [ -f "/.dockerenv" ] || [ -n "${DOCKER_BUILDKIT}" ] || [ -n "${CI}" ] || [ ! -f ".env" ] || grep -q docker /proc/1/cgroup 2>/dev/null; then
+                echo "Container/CI build detected, skipping Brevis VKEY .env update (will be handled by publish-image.sh)"
+            else
+                echo "Updating environment with new Brevis VKEYs..."
+                ./script/update_imageid.sh brevis "${BREVIS_ELF_DIR}"
+            fi
 
             if [ -z "${GUEST}" ]; then
                 echo "Building Brevis Pico prover host"
@@ -235,10 +295,10 @@ if [ "$1" == "brevis" ]; then
     else
         if [ -z "${TEST}" ]; then
             echo "Running Brevis Pico prover"
-            : "${BREVIS_PICO_BATCH_ELF:=${BREVIS_BATCH_ELF}}"
-            : "${BREVIS_PICO_AGG_ELF:=${BREVIS_AGG_ELF}}"
-            : "${BREVIS_PICO_SHASTA_AGG_ELF:=${BREVIS_SHASTA_AGG_ELF}}"
-            export BREVIS_PICO_BATCH_ELF BREVIS_PICO_AGG_ELF BREVIS_PICO_SHASTA_AGG_ELF
+            : "${BREVIS_BATCH_ELF:=${BREVIS_BATCH_ELF_DEFAULT}}"
+            : "${BREVIS_AGG_ELF:=${BREVIS_AGG_ELF_DEFAULT}}"
+            : "${BREVIS_SHASTA_AGG_ELF:=${BREVIS_SHASTA_AGG_ELF_DEFAULT}}"
+            export BREVIS_BATCH_ELF BREVIS_AGG_ELF BREVIS_SHASTA_AGG_ELF
             cargo ${TOOLCHAIN_BREVIS} run ${FLAGS} --features brevis_pico
         else
             echo "Running Brevis Pico tests"

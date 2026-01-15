@@ -970,7 +970,7 @@ impl ImageIdReader for ProofType {
             ProofType::Sp1 => "SP1_BATCH_VK_HASH",
             ProofType::Sgx => "SGX_MRENCLAVE",
             ProofType::SgxGeth => "SGXGETH_MRENCLAVE",
-            ProofType::BrevisPico => "BREVIS_PICO_VKEY",
+            ProofType::BrevisPico => "BREVIS_BATCH_VKEY",
             _ => panic!("Unsupported proof type for image ID: {:?}", self),
         }
     }
