@@ -6719,7 +6719,6 @@ dependencies = [
  "alloy-sol-types",
  "alloy-transport-http",
  "anyhow",
- "assert_cmd",
  "bincode",
  "clap 4.5.48",
  "env_logger",
