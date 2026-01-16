@@ -153,7 +153,7 @@ pub struct ShastaSp1AggregationGuestInput {
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct ShastaBrevisAggregationGuestInput {
-    /// Verifier image id for the Brevis Pico proofs being aggregated
+    /// Verifier image id for the Brevis proofs being aggregated
     pub image_id: [u32; 8],
     /// Public inputs associated with each underlying proof
     pub block_inputs: Vec<B256>,

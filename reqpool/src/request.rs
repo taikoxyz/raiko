@@ -970,7 +970,7 @@ impl ImageIdReader for ProofType {
             ProofType::Sp1 => "SP1_BATCH_VK_HASH",
             ProofType::Sgx => "SGX_MRENCLAVE",
             ProofType::SgxGeth => "SGXGETH_MRENCLAVE",
-            ProofType::BrevisPico => "BREVIS_BATCH_VKEY",
+            ProofType::Brevis => "BREVIS_BATCH_VKEY",
             _ => panic!("Unsupported proof type for image ID: {:?}", self),
         }
     }
@@ -980,7 +980,7 @@ impl ImageIdReader for ProofType {
             ProofType::Risc0 | ProofType::Sp1 | ProofType::Sgx | ProofType::SgxGeth => {
                 "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
             }
-            ProofType::BrevisPico => {
+            ProofType::Brevis => {
                 "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
             }
             _ => panic!("Unsupported proof type for default value: {:?}", self),
@@ -1038,8 +1038,8 @@ impl ImageId {
                     image_id.sgxgeth_enclave = Some(mrenclave);
                 }
             }
-            ProofType::BrevisPico => {
-                // Brevis Pico doesn't have a stable image ID available at request time.
+            ProofType::Brevis => {
+                // Brevis doesn't have a stable image ID available at request time.
                 // Leave the image ID empty to avoid incorrect cache keys.
             }
             _ => {

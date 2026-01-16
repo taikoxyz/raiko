@@ -111,13 +111,13 @@ pub async fn run_prover(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::BrevisPico => {
-            #[cfg(feature = "brevis_pico")]
-            return brevis_pico_driver::BrevisPicoProver
+        ProofType::Brevis => {
+            #[cfg(feature = "brevis")]
+            return brevis_driver::BrevisProver
                 .run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
-            #[cfg(not(feature = "brevis_pico"))]
+            #[cfg(not(feature = "brevis"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
         ProofType::Sgx | ProofType::SgxGeth => {
@@ -163,13 +163,13 @@ pub async fn run_batch_prover(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::BrevisPico => {
-            #[cfg(feature = "brevis_pico")]
-            return brevis_pico_driver::BrevisPicoProver
+        ProofType::Brevis => {
+            #[cfg(feature = "brevis")]
+            return brevis_driver::BrevisProver
                 .batch_run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
-            #[cfg(not(feature = "brevis_pico"))]
+            #[cfg(not(feature = "brevis"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
         ProofType::Sgx | ProofType::SgxGeth => {
@@ -215,13 +215,13 @@ pub async fn run_shasta_proposal_prover(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::BrevisPico => {
-            #[cfg(feature = "brevis_pico")]
-            return brevis_pico_driver::BrevisPicoProver
+        ProofType::Brevis => {
+            #[cfg(feature = "brevis")]
+            return brevis_driver::BrevisProver
                 .proposal_run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
-            #[cfg(not(feature = "brevis_pico"))]
+            #[cfg(not(feature = "brevis"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
         ProofType::Sgx | ProofType::SgxGeth => {
@@ -267,13 +267,13 @@ pub async fn aggregate_proofs(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::BrevisPico => {
-            #[cfg(feature = "brevis_pico")]
-            return brevis_pico_driver::BrevisPicoProver
+        ProofType::Brevis => {
+            #[cfg(feature = "brevis")]
+            return brevis_driver::BrevisProver
                 .aggregate(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
-            #[cfg(not(feature = "brevis_pico"))]
+            #[cfg(not(feature = "brevis"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
         ProofType::Sgx | ProofType::SgxGeth => {
@@ -320,13 +320,13 @@ pub async fn aggregate_shasta_proposals(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::BrevisPico => {
-            #[cfg(feature = "brevis_pico")]
-            return brevis_pico_driver::BrevisPicoProver
+        ProofType::Brevis => {
+            #[cfg(feature = "brevis")]
+            return brevis_driver::BrevisProver
                 .shasta_aggregate(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
-            #[cfg(not(feature = "brevis_pico"))]
+            #[cfg(not(feature = "brevis"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
         ProofType::Sgx | ProofType::SgxGeth => {
@@ -371,13 +371,13 @@ pub async fn cancel_proof(
             #[cfg(not(feature = "risc0"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::BrevisPico => {
-            #[cfg(feature = "brevis_pico")]
-            return brevis_pico_driver::BrevisPicoProver
+        ProofType::Brevis => {
+            #[cfg(feature = "brevis")]
+            return brevis_driver::BrevisProver
                 .cancel(proof_key, read)
                 .await
                 .map_err(|e| e.into());
-            #[cfg(not(feature = "brevis_pico"))]
+            #[cfg(not(feature = "brevis"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
         ProofType::Sgx | ProofType::SgxGeth => {
@@ -684,9 +684,9 @@ pub struct ProverSpecificOpts {
     pub sp1: Option<Value>,
     /// RISC0 prover specific options.
     pub risc0: Option<Value>,
-    /// Brevis Pico prover specific options.
-    #[serde(alias = "brevis")]
-    pub brevis_pico: Option<Value>,
+    /// Brevis prover specific options.
+    #[serde(alias = "brevis_pico")]
+    pub brevis: Option<Value>,
 }
 
 impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificOpts>
@@ -699,7 +699,7 @@ impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificO
             ("sgxgeth", value.sgxgeth.clone()),
             ("sp1", value.sp1.clone()),
             ("risc0", value.risc0.clone()),
-            ("brevis", value.brevis_pico.clone()),
+            ("brevis", value.brevis.clone()),
         ]
         .into_iter()
         .filter_map(|(name, value)| value.map(|v| (name.to_string(), v)))

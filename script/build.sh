@@ -245,10 +245,10 @@ if [ "$1" == "brevis" ]; then
     BREVIS_SHASTA_AGG_ELF_DEFAULT="${BREVIS_ELF_DIR}/brevis-shasta-aggregation"
 
     if [ -n "${CLIPPY}" ]; then
-        cargo ${TOOLCHAIN_BREVIS} clippy -p raiko-host -p brevis-pico-driver --features "brevis_pico,enable" -- -D warnings
+        cargo ${TOOLCHAIN_BREVIS} clippy -p raiko-host -p brevis-driver --features "brevis,enable" -- -D warnings
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
-            echo "Building Brevis Pico guest ELFs"
+                echo "Building Brevis guest ELFs"
             BREVIS_CARGO_ENCODED_RUSTFLAGS=$(
                 printf "%s\x1f%s\x1f%s\x1f%s\x1f%s\x1f%s\x1f%s\x1f%s" \
                     "-C" "passes=lower-atomic" \
@@ -285,24 +285,24 @@ if [ "$1" == "brevis" ]; then
             fi
 
             if [ -z "${GUEST}" ]; then
-                echo "Building Brevis Pico prover host"
-                cargo ${TOOLCHAIN_BREVIS} build ${FLAGS} --features brevis_pico
+                echo "Building Brevis prover host"
+                cargo ${TOOLCHAIN_BREVIS} build ${FLAGS} --features brevis
             fi
         else
-            echo "Building Brevis Pico tests"
-            cargo ${TOOLCHAIN_BREVIS} test ${FLAGS} --features brevis_pico --no-run
+            echo "Building Brevis tests"
+            cargo ${TOOLCHAIN_BREVIS} test ${FLAGS} --features brevis --no-run
         fi
     else
         if [ -z "${TEST}" ]; then
-            echo "Running Brevis Pico prover"
+            echo "Running Brevis prover"
             : "${BREVIS_BATCH_ELF:=${BREVIS_BATCH_ELF_DEFAULT}}"
             : "${BREVIS_AGG_ELF:=${BREVIS_AGG_ELF_DEFAULT}}"
             : "${BREVIS_SHASTA_AGG_ELF:=${BREVIS_SHASTA_AGG_ELF_DEFAULT}}"
             export BREVIS_BATCH_ELF BREVIS_AGG_ELF BREVIS_SHASTA_AGG_ELF
-            cargo ${TOOLCHAIN_BREVIS} run ${FLAGS} --features brevis_pico
+            cargo ${TOOLCHAIN_BREVIS} run ${FLAGS} --features brevis
         else
-            echo "Running Brevis Pico tests"
-            cargo ${TOOLCHAIN_BREVIS} test ${FLAGS} --features brevis_pico
+            echo "Running Brevis tests"
+            cargo ${TOOLCHAIN_BREVIS} test ${FLAGS} --features brevis
         fi
     fi
 fi

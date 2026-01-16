@@ -1,4 +1,4 @@
-//! Aggregates Shasta proposal proofs for Brevis Pico
+//! Aggregates Shasta proposal proofs for Brevis
 #![no_main]
 
 #[path = "../mem.rs"]

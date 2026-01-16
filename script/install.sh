@@ -121,8 +121,8 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	# fi
 fi
 
-# Brevis Pico
-if [ -z "$1" ] || [ "$1" == "brevis" ]; then
+	# Brevis
+	if [ -z "$1" ] || [ "$1" == "brevis" ]; then
 	# Ensure the toolchain used by cargo-pico exists
 	rustup toolchain install nightly-2025-08-04
 	if ! command -v cargo-pico >/dev/null 2>&1; then

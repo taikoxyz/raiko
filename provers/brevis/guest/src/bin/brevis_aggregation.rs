@@ -1,4 +1,4 @@
-//! Aggregates multiple block proofs for Brevis Pico
+//! Aggregates multiple block proofs for Brevis
 #![no_main]
 
 #[path = "../mem.rs"]

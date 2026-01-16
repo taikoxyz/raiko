@@ -22,7 +22,7 @@ use std::{env, fs, path::PathBuf, time::Duration};
 use tokio::sync::RwLock;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BrevisPicoProofBundle {
+pub struct BrevisProofBundle {
     pub riscv_vkey: [u8; 32],
     pub public_values: Vec<u8>,
     pub proof: [U256; 8],
@@ -30,14 +30,14 @@ pub struct BrevisPicoProofBundle {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct BrevisPicoAggregationInput {
+struct BrevisAggregationInput {
     guest_input: Vec<u8>,
     pico_proofs: Vec<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
-pub struct BrevisPicoParam {
+pub struct BrevisParam {
     pub agent_url: Option<String>,
     pub api_key: Option<String>,
     pub batch_elf_path: Option<String>,
@@ -46,7 +46,7 @@ pub struct BrevisPicoParam {
 }
 
 #[derive(Debug, Clone)]
-pub struct BrevisPicoProverConfig {
+pub struct BrevisProverConfig {
     pub status_poll_interval_secs: u64,
     pub max_proof_timeout_secs: u64,
     pub max_status_retries: u32,
@@ -55,7 +55,7 @@ pub struct BrevisPicoProverConfig {
     pub http_timeout_secs: u64,
 }
 
-impl Default for BrevisPicoProverConfig {
+impl Default for BrevisProverConfig {
     fn default() -> Self {
         Self {
             status_poll_interval_secs: 15,
@@ -68,7 +68,7 @@ impl Default for BrevisPicoProverConfig {
     }
 }
 
-impl BrevisPicoProverConfig {
+impl BrevisProverConfig {
     pub fn from_env() -> Self {
         let defaults = Self::default();
         Self {
@@ -141,18 +141,18 @@ fn agent_auth_error(status: reqwest::StatusCode) -> Option<String> {
     }
 }
 
-struct BrevisPicoClient {
+struct BrevisClient {
     remote_prover_url: String,
     api_key: Option<String>,
-    config: BrevisPicoProverConfig,
-    params: BrevisPicoParam,
+    config: BrevisProverConfig,
+    params: BrevisParam,
 }
 
-impl BrevisPicoClient {
+impl BrevisClient {
     fn from_config(config: &ProverConfig) -> ProverResult<Self> {
         let params = match config.get("brevis").or_else(|| config.get("brevis_pico")) {
             Some(value) => serde_json::from_value(value.clone()).map_err(ProverError::Param)?,
-            None => BrevisPicoParam::default(),
+            None => BrevisParam::default(),
         };
 
         let remote_prover_url = params
@@ -170,7 +170,7 @@ impl BrevisPicoClient {
         Ok(Self {
             remote_prover_url,
             api_key,
-            config: BrevisPicoProverConfig::from_env(),
+            config: BrevisProverConfig::from_env(),
             params,
         })
     }
@@ -349,7 +349,7 @@ impl BrevisPicoClient {
 
     async fn wait_proof(&self, request_id: String) -> ProverResult<Vec<u8>> {
         tracing::info!(
-            "Waiting for Brevis Pico proof completion, polling agent status for request: {}",
+            "Waiting for Brevis proof completion, polling agent status for request: {}",
             request_id
         );
 
@@ -364,7 +364,7 @@ impl BrevisPicoClient {
         loop {
             if start_time.elapsed() > max_timeout {
                 return Err(ProverError::GuestError(format!(
-                    "Brevis Pico proof request {} timed out after {} seconds",
+                    "Brevis proof request {} timed out after {} seconds",
                     request_id, self.config.max_proof_timeout_secs
                 )));
             }
@@ -419,13 +419,13 @@ impl BrevisPicoClient {
                             }
                             if attempt == max_retries {
                                 return Err(ProverError::GuestError(format!(
-                                    "Brevis Pico agent status endpoint error after {} attempts: {}",
+                                    "Brevis agent status endpoint error after {} attempts: {}",
                                     max_retries,
                                     response.status()
                                 )));
                             }
                             tracing::warn!(
-                                "Attempt {}/{} - brevis pico agent status endpoint error: {}",
+                                "Attempt {}/{} - brevis agent status endpoint error: {}",
                                 attempt,
                                 max_retries,
                                 response.status()
@@ -440,13 +440,13 @@ impl BrevisPicoClient {
                     Err(err) => {
                         if attempt == max_retries {
                             return Err(ProverError::GuestError(format!(
-                                "Failed to query brevis pico agent status endpoint after {} attempts: {}",
+                                "Failed to query brevis agent status endpoint after {} attempts: {}",
                                 max_retries,
                                 err
                             )));
                         }
                         tracing::warn!(
-                            "Attempt {}/{} - failed to query brevis pico agent status: {:?}",
+                            "Attempt {}/{} - failed to query brevis agent status: {:?}",
                             attempt,
                             max_retries,
                             err
@@ -470,11 +470,11 @@ impl BrevisPicoClient {
 
             match status {
                 "preparing" | "submitted" | "in_progress" => {
-                    tracing::info!("Brevis Pico request {}: {}", request_id, status_message);
+                    tracing::info!("Brevis request {}: {}", request_id, status_message);
                     tokio::time::sleep(poll_interval).await;
                 }
                 "completed" => {
-                    tracing::info!("Brevis Pico request {}: {}", request_id, status_message);
+                    tracing::info!("Brevis request {}: {}", request_id, status_message);
                     let proof_data = res
                         .get("proof_data")
                         .and_then(|v| v.as_array())
@@ -496,13 +496,13 @@ impl BrevisPicoClient {
                         .and_then(|e| e.as_str())
                         .unwrap_or("No error details");
                     return Err(ProverError::GuestError(format!(
-                        "Brevis Pico request {} failed - {}: {}",
+                        "Brevis request {} failed - {}: {}",
                         request_id, status_message, error_detail
                     )));
                 }
                 _ => {
                     return Err(ProverError::GuestError(format!(
-                        "Unknown status from brevis pico agent for request {}: {} - {}",
+                        "Unknown status from brevis agent for request {}: {} - {}",
                         request_id, status, status_message
                     )));
                 }
@@ -511,10 +511,10 @@ impl BrevisPicoClient {
     }
 }
 
-pub struct BrevisPicoProver;
+pub struct BrevisProver;
 
-impl BrevisPicoProver {
-    fn bundle_to_proof(bundle: BrevisPicoProofBundle) -> Proof {
+impl BrevisProver {
+    fn bundle_to_proof(bundle: BrevisProofBundle) -> Proof {
         let riscv_vkey = B256::from_slice(&bundle.riscv_vkey);
         let public_values = bundle.public_values.clone();
         let encoded = (riscv_vkey, public_values.clone(), bundle.proof).abi_encode();
@@ -538,7 +538,7 @@ impl BrevisPicoProver {
     }
 }
 
-impl Prover for BrevisPicoProver {
+impl Prover for BrevisProver {
     async fn run(
         &self,
         _input: GuestInput,
@@ -556,14 +556,14 @@ impl Prover for BrevisPicoProver {
         config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        let client = BrevisPicoClient::from_config(config)?;
+        let client = BrevisClient::from_config(config)?;
         client.ensure_image_uploaded(ImageType::Batch).await?;
 
         let input_bytes = bincode::serialize(&input)
             .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
 
         let proof_bytes = client.submit_proof("Batch", input_bytes).await?;
-        let bundle: BrevisPicoProofBundle = bincode::deserialize(&proof_bytes)
+        let bundle: BrevisProofBundle = bincode::deserialize(&proof_bytes)
             .map_err(|e| ProverError::GuestError(format!("Failed to decode proof bundle: {e}")))?;
 
         Ok(Self::bundle_to_proof(bundle))
@@ -576,7 +576,7 @@ impl Prover for BrevisPicoProver {
         config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        let client = BrevisPicoClient::from_config(config)?;
+        let client = BrevisClient::from_config(config)?;
         client
             .ensure_image_uploaded(ImageType::Aggregation(AggType::Base))
             .await?;
@@ -589,14 +589,14 @@ impl Prover for BrevisPicoProver {
         };
         let guest_input = bincode::serialize(&agg_input)
             .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
-        let input_bytes = bincode::serialize(&BrevisPicoAggregationInput {
+        let input_bytes = bincode::serialize(&BrevisAggregationInput {
             guest_input,
             pico_proofs,
         })
         .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
 
         let proof_bytes = client.submit_proof("Aggregate", input_bytes).await?;
-        let bundle: BrevisPicoProofBundle = bincode::deserialize(&proof_bytes)
+        let bundle: BrevisProofBundle = bincode::deserialize(&proof_bytes)
             .map_err(|e| ProverError::GuestError(format!("Failed to decode proof bundle: {e}")))?;
 
         Ok(Self::bundle_to_proof(bundle))
@@ -610,7 +610,7 @@ impl Prover for BrevisPicoProver {
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         Err(ProverError::GuestError(
-            "Brevis Pico shasta proposals are not supported".to_string(),
+            "Brevis shasta proposals are not supported".to_string(),
         ))
     }
 
@@ -621,7 +621,7 @@ impl Prover for BrevisPicoProver {
         config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        let client = BrevisPicoClient::from_config(config)?;
+        let client = BrevisClient::from_config(config)?;
         client
             .ensure_image_uploaded(ImageType::Aggregation(AggType::Shasta))
             .await?;
@@ -654,14 +654,14 @@ impl Prover for BrevisPicoProver {
         };
         let guest_input = bincode::serialize(&shasta_input)
             .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
-        let input_bytes = bincode::serialize(&BrevisPicoAggregationInput {
+        let input_bytes = bincode::serialize(&BrevisAggregationInput {
             guest_input,
             pico_proofs,
         })
         .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
 
         let proof_bytes = client.submit_proof("Aggregate", input_bytes).await?;
-        let bundle: BrevisPicoProofBundle = bincode::deserialize(&proof_bytes)
+        let bundle: BrevisProofBundle = bincode::deserialize(&proof_bytes)
             .map_err(|e| ProverError::GuestError(format!("Failed to decode proof bundle: {e}")))?;
 
         Ok(Self::bundle_to_proof(bundle))
@@ -672,7 +672,7 @@ impl Prover for BrevisPicoProver {
     }
 
     fn proof_type(&self) -> ProofType {
-        ProofType::BrevisPico
+        ProofType::Brevis
     }
 }
 
@@ -680,7 +680,7 @@ fn parse_aggregation_inputs(
     input: &AggregationGuestInput,
 ) -> ProverResult<([u32; 8], Vec<B256>)> {
     let first = input.proofs.first().ok_or_else(|| {
-        ProverError::GuestError("empty aggregation request for brevis pico".to_string())
+        ProverError::GuestError("empty aggregation request for brevis".to_string())
     })?;
     let image_id = parse_proof_vkey(first)?;
 
@@ -689,7 +689,7 @@ fn parse_aggregation_inputs(
         let proof_image_id = parse_proof_vkey(proof)?;
         if proof_image_id != image_id {
             return Err(ProverError::GuestError(format!(
-                "brevis pico aggregation input has mismatched vkey at index {idx}"
+                "brevis aggregation input has mismatched vkey at index {idx}"
             )));
         }
         block_inputs.push(parse_proof_public_input(proof)?);

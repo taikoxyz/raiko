@@ -33,11 +33,10 @@ pub enum ProofType {
     #[serde(alias = "SGXGETH")]
     SgxGeth = 4u8,
 
-    /// # Brevis Pico
+    /// # Brevis
     ///
-    /// Uses the Brevis Pico prover to build the block.
-    #[serde(alias = "BREVIS_PICO", alias = "BREVIS", alias = "PICO")]
-    BrevisPico = 5u8,
+    /// Uses the Brevis prover to build the block.
+    Brevis = 5u8,
 }
 
 impl std::fmt::Display for ProofType {
@@ -48,7 +47,7 @@ impl std::fmt::Display for ProofType {
             ProofType::Sgx => "sgx",
             ProofType::Risc0 => "risc0",
             ProofType::SgxGeth => "sgxgeth",
-            ProofType::BrevisPico => "brevis_pico",
+            ProofType::Brevis => "brevis",
         })
     }
 }
@@ -63,7 +62,7 @@ impl std::str::FromStr for ProofType {
             "sgx" => Ok(ProofType::Sgx),
             "risc0" => Ok(ProofType::Risc0),
             "sgxgeth" => Ok(ProofType::SgxGeth),
-            "brevis_pico" | "brevis" | "pico" => Ok(ProofType::BrevisPico),
+            "brevis" => Ok(ProofType::Brevis),
             _ => Err(format!("Unknown proof type {}", s)),
         }
     }
@@ -79,7 +78,7 @@ impl TryFrom<u8> for ProofType {
             2 => Ok(Self::Sgx),
             3 => Ok(Self::Risc0),
             4 => Ok(Self::SgxGeth),
-            5 => Ok(Self::BrevisPico),
+            5 => Ok(Self::Brevis),
             _ => Err(format!("Unknown proof type {}", value)),
         }
     }

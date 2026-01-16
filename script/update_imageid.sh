@@ -131,7 +131,7 @@ extract_sp1_vk_hash() {
 }
 
 # Function to extract Brevis VKEY from an ELF binary.
-extract_brevis_pico_vkey() {
+extract_brevis_vkey() {
     local elf_path="$1"
     local manifest_path="./provers/brevis/vkey/Cargo.toml"
 
@@ -442,10 +442,6 @@ update_env_file() {
         print_status "Updated SP1_SHASTA_AGGREGATION_VK_HASH in $env_file: $SP1_SHASTA_AGGREGATION_VK_HASH"
     fi
 
-    # Remove deprecated BREVIS_PICO_* variables (renamed to BREVIS_*)
-    sed -i '/^BREVIS_PICO_.*_VKEY=/d' "$env_file"
-    sed -i '/^BREVIS_PICO_VKEY=/d' "$env_file"
-
     # Update Brevis VKEYs if provided
     if [ -n "$BREVIS_AGGREGATION_VKEY" ]; then
         if grep -q "^BREVIS_AGGREGATION_VKEY=" "$env_file"; then
@@ -594,9 +590,9 @@ extract_brevis_vkeys_from_elf_dir() {
     local aggregation_vkey
     local shasta_aggregation_vkey
 
-    batch_vkey=$(extract_brevis_pico_vkey "$batch_elf") || return 1
-    aggregation_vkey=$(extract_brevis_pico_vkey "$aggregation_elf") || return 1
-    shasta_aggregation_vkey=$(extract_brevis_pico_vkey "$shasta_aggregation_elf") || return 1
+    batch_vkey=$(extract_brevis_vkey "$batch_elf") || return 1
+    aggregation_vkey=$(extract_brevis_vkey "$aggregation_elf") || return 1
+    shasta_aggregation_vkey=$(extract_brevis_vkey "$shasta_aggregation_elf") || return 1
 
     BREVIS_BATCH_VKEY="$batch_vkey"
     BREVIS_AGGREGATION_VKEY="$aggregation_vkey"

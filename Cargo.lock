@@ -1706,7 +1706,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "brevis-pico-driver"
+name = "brevis-driver"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives 0.7.7",
@@ -6737,7 +6737,7 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "bincode",
- "brevis-pico-driver",
+ "brevis-driver",
  "clap 4.5.48",
  "env_logger",
  "ethers-core",
@@ -6787,7 +6787,7 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "bincode",
- "brevis-pico-driver",
+ "brevis-driver",
  "bytemuck",
  "cap",
  "cfg-if",

@@ -14,7 +14,7 @@ pico_sdk::entrypoint!(main);
 pub fn main() {
     let batch_input: GuestBatchInput = read_as();
     let final_blocks = calculate_batch_blocks_final_header(&batch_input);
-    let instance_hash = ProtocolInstance::new_batch(&batch_input, final_blocks, ProofType::BrevisPico)
+    let instance_hash = ProtocolInstance::new_batch(&batch_input, final_blocks, ProofType::Brevis)
         .expect("failed to build protocol instance")
         .instance_hash();
 

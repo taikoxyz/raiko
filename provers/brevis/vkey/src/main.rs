@@ -13,7 +13,7 @@ use pico_vm::{
 
 fn main() {
     let elf_path = std::env::args().nth(1).unwrap_or_else(|| {
-        eprintln!("Usage: brevis-pico-vkey <path-to-riscv-elf>");
+        eprintln!("Usage: brevis-vkey <path-to-riscv-elf>");
         std::process::exit(2);
     });
 

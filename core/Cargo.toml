@@ -9,7 +9,7 @@ edition = "2021"
 sp1-driver = { path = "../provers/sp1/driver", optional = true }
 risc0-driver = { path = "../provers/risc0/driver", optional = true }
 sgx-prover = { path = "../provers/sgx/prover", optional = true }
-brevis-pico-driver = { path = "../provers/brevis/driver", optional = true }
+brevis-driver = { path = "../provers/brevis/driver", optional = true }
 
 # raiko
 raiko-lib = { workspace = true }
@@ -79,5 +79,5 @@ default = ["statedb_lru"]
 sp1 = ["dep:sp1-driver", "sp1-driver/enable"]
 risc0 = ["dep:risc0-driver", "risc0-driver/enable"]
 sgx = ["dep:sgx-prover", "sgx-prover/enable"]
-brevis_pico = ["dep:brevis-pico-driver", "brevis-pico-driver/enable"]
+brevis = ["dep:brevis-driver", "brevis-driver/enable"]
 statedb_lru = []

@@ -1,10 +1,9 @@
 [workspace]
 
 [package]
-name = "brevis-pico-vkey"
+name = "brevis-vkey"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 pico-vm = { git = "https://github.com/brevis-network/pico", rev = "57ff6c5c0755f38bfa55a54eda053eae664ebcd2" }
-
