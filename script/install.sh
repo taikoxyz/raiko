@@ -13,37 +13,62 @@ if [ -z "$1" ] || [ "$1" == "sp1" ] || [ "$1" == "risc0" ] || [ "$1" == "brevis"
 	RISCV_GCC_DIR_DEFAULT="/opt/riscv"
 	RISCV_GCC_DIR_ENV="${RISCV_GCC_DIR:-}"
 	RISCV_GCC_DIR="${RISCV_GCC_DIR_ENV:-$RISCV_GCC_DIR_DEFAULT}"
-	# Check if the RISC-V GCC prebuilt binary archive already exists
-	if [ -f /tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz ]; then
-		echo "riscv-gcc-prebuilt existed, please check the file manually"
+	RISCV_GCC_ARCHIVE="/tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz"
+	RISCV_GCC_URL="https://github.com/stnolting/riscv-gcc-prebuilt/releases/download/rv32i-131023/riscv32-unknown-elf.gcc-13.2.0.tar.gz"
+	RISCV_GCC_BIN_REL="bin/riscv32-unknown-elf-gcc"
+
+	fallback_riscv_gcc_dir() {
+		RISCV_GCC_DIR="$HOME/.riscv"
+		mkdir -p "$RISCV_GCC_DIR"
+		echo "Install RISC-V GCC into $RISCV_GCC_DIR (set RISCV_GCC_DIR to override)."
+	}
+
+	# Prefer an existing installation and avoid extracting into a non-writable /opt/riscv.
+	if [ -x "${RISCV_GCC_DIR}/${RISCV_GCC_BIN_REL}" ]; then
+		echo "riscv-gcc-prebuilt already installed in $RISCV_GCC_DIR"
+	elif [ -z "$RISCV_GCC_DIR_ENV" ] && [ "$RISCV_GCC_DIR" = "$RISCV_GCC_DIR_DEFAULT" ] && [ -x "${HOME}/.riscv/${RISCV_GCC_BIN_REL}" ]; then
+		RISCV_GCC_DIR="$HOME/.riscv"
+		echo "riscv-gcc-prebuilt already installed in $RISCV_GCC_DIR"
 	else
-		# Download the file using wget
-		wget -O /tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz https://github.com/stnolting/riscv-gcc-prebuilt/releases/download/rv32i-131023/riscv32-unknown-elf.gcc-13.2.0.tar.gz
-		# Check if wget succeeded
-		if [ $? -ne 0 ]; then
-			echo "Failed to download riscv-gcc-prebuilt"
+		# Resolve install directory and ensure it's writable before extracting.
+		if [ -z "$RISCV_GCC_DIR_ENV" ] && [ "$RISCV_GCC_DIR" = "$RISCV_GCC_DIR_DEFAULT" ]; then
+			if [ -d "$RISCV_GCC_DIR" ] && { [ ! -w "$RISCV_GCC_DIR" ] || [ ! -x "$RISCV_GCC_DIR" ]; }; then
+				fallback_riscv_gcc_dir
+			fi
+		elif [ -d "$RISCV_GCC_DIR" ] && { [ ! -w "$RISCV_GCC_DIR" ] || [ ! -x "$RISCV_GCC_DIR" ]; }; then
+			echo "RISCV_GCC_DIR ($RISCV_GCC_DIR) is not writable. Set RISCV_GCC_DIR to a writable path or use sudo."
 			exit 1
 		fi
+
 		# Create the directory if it doesn't exist (fallback to $HOME if /opt is not writable)
 		if [ ! -d "$RISCV_GCC_DIR" ]; then
 			if ! mkdir -p "$RISCV_GCC_DIR"; then
 				if [ -z "$RISCV_GCC_DIR_ENV" ] && [ "$RISCV_GCC_DIR" = "$RISCV_GCC_DIR_DEFAULT" ]; then
-					RISCV_GCC_DIR="$HOME/.riscv"
-					mkdir -p "$RISCV_GCC_DIR"
-					echo "Install RISC-V GCC into $RISCV_GCC_DIR (set RISCV_GCC_DIR to override)."
+					fallback_riscv_gcc_dir
 				else
 					echo "Failed to create $RISCV_GCC_DIR. Set RISCV_GCC_DIR to a writable path or use sudo."
 					exit 1
 				fi
 			fi
 		fi
-		# Extract the downloaded archive
-		tar -xzf /tmp/riscv32-unknown-elf.gcc-13.2.0.tar.gz -C "$RISCV_GCC_DIR"
-		# Check if tar succeeded
-		if [ $? -ne 0 ]; then
-			echo "Failed to extract riscv-gcc-prebuilt"
-			exit 1
+
+		# Ensure the directory is writable before extracting.
+		if [ ! -w "$RISCV_GCC_DIR" ] || [ ! -x "$RISCV_GCC_DIR" ]; then
+			if [ -z "$RISCV_GCC_DIR_ENV" ] && [ "$RISCV_GCC_DIR" = "$RISCV_GCC_DIR_DEFAULT" ]; then
+				fallback_riscv_gcc_dir
+			else
+				echo "RISCV_GCC_DIR ($RISCV_GCC_DIR) is not writable. Set RISCV_GCC_DIR to a writable path or use sudo."
+				exit 1
+			fi
 		fi
+
+		# Download the file if missing.
+		if [ ! -f "$RISCV_GCC_ARCHIVE" ]; then
+			wget -O "$RISCV_GCC_ARCHIVE" "$RISCV_GCC_URL"
+		fi
+
+		# Extract the archive.
+		tar -xzf "$RISCV_GCC_ARCHIVE" -C "$RISCV_GCC_DIR"
 	fi
 fi
 

@@ -205,10 +205,15 @@ if [ "$1" == "brevis" ]; then
     check_toolchain $TOOLCHAIN_BREVIS
     rustup component add rust-src --toolchain "${TOOLCHAIN_BREVIS#+}"
     if [ -z "${RISCV_GCC_DIR}" ]; then
-        if [ -x "/opt/riscv/bin/riscv32-unknown-elf-gcc" ]; then
+        # Prefer a complete user-local toolchain when /opt/riscv is not writable or incomplete.
+        if [ -x "${HOME}/.riscv/bin/riscv32-unknown-elf-gcc" ] && [ -x "${HOME}/.riscv/bin/riscv32-unknown-elf-ar" ]; then
+            RISCV_GCC_DIR="${HOME}/.riscv"
+        elif [ -x "/opt/riscv/bin/riscv32-unknown-elf-gcc" ] && [ -x "/opt/riscv/bin/riscv32-unknown-elf-ar" ]; then
             RISCV_GCC_DIR="/opt/riscv"
         elif [ -x "${HOME}/.riscv/bin/riscv32-unknown-elf-gcc" ]; then
             RISCV_GCC_DIR="${HOME}/.riscv"
+        elif [ -x "/opt/riscv/bin/riscv32-unknown-elf-gcc" ]; then
+            RISCV_GCC_DIR="/opt/riscv"
         fi
     fi
     if [ -n "${RISCV_GCC_DIR}" ] && [ -x "${RISCV_GCC_DIR}/bin/riscv32-unknown-elf-gcc" ]; then
@@ -218,7 +223,7 @@ if [ "$1" == "brevis" ]; then
         if [ -z "${CC_riscv32im_risc0_zkvm_elf}" ]; then
             export CC_riscv32im_risc0_zkvm_elf="${RISCV_GCC_DIR}/bin/riscv32-unknown-elf-gcc"
         fi
-        if [ -z "${AR_riscv32im_risc0_zkvm_elf}" ]; then
+        if [ -z "${AR_riscv32im_risc0_zkvm_elf}" ] && [ -x "${RISCV_GCC_DIR}/bin/riscv32-unknown-elf-ar" ]; then
             export AR_riscv32im_risc0_zkvm_elf="${RISCV_GCC_DIR}/bin/riscv32-unknown-elf-ar"
         fi
     elif command -v riscv32-unknown-elf-gcc >/dev/null 2>&1; then
@@ -257,20 +262,20 @@ if [ "$1" == "brevis" ]; then
                     "-C" "panic=abort"
             )
 
-            build_brevis_elf() {
-                local BIN_NAME="$1"
+	            build_brevis_elf() {
+	                local BIN_NAME="$1"
 
-                (cd "${BREVIS_GUEST_DIR}" && CARGO_ENCODED_RUSTFLAGS="${BREVIS_CARGO_ENCODED_RUSTFLAGS}" \
-                    cargo ${TOOLCHAIN_BREVIS} build --release \
-                        --bin "${BIN_NAME}" \
-                        --target riscv32im-risc0-zkvm-elf \
-                        -Z build-std=alloc,core,proc_macro,panic_abort,std \
-                        -Z build-std-features=compiler-builtins-mem \
-                        --target-dir "${BREVIS_GUEST_DIR}/target")
+	                (cd "${BREVIS_GUEST_DIR}" && CARGO_ENCODED_RUSTFLAGS="${BREVIS_CARGO_ENCODED_RUSTFLAGS}" \
+	                    cargo ${TOOLCHAIN_BREVIS} build --release \
+	                        --bin "${BIN_NAME}" \
+	                        --target riscv32im-risc0-zkvm-elf \
+	                        -Z build-std=alloc,core,proc_macro,panic_abort,std \
+	                        -Z build-std-features=compiler-builtins-mem \
+	                        --target-dir "target")
 
-                mkdir -p "${BREVIS_ELF_DIR}"
-                cp "${BREVIS_GUEST_DIR}/target/riscv32im-risc0-zkvm-elf/release/${BIN_NAME}" "${BREVIS_ELF_DIR}/${BIN_NAME}"
-            }
+	                mkdir -p "${BREVIS_ELF_DIR}"
+	                cp "${BREVIS_GUEST_DIR}/target/riscv32im-risc0-zkvm-elf/release/${BIN_NAME}" "${BREVIS_ELF_DIR}/${BIN_NAME}"
+	            }
 
             build_brevis_elf "brevis-batch"
             build_brevis_elf "brevis-aggregation"
