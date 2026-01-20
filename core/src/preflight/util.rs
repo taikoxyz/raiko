@@ -553,6 +553,7 @@ async fn prepare_taiko_chain_batch_input_shasta(
         &provider_l1,
         batch_anchor_tx_info,
         l1_inclusion_block_number - 1,
+        prover_data.last_anchor_block_number,
     )
     .await?;
 
@@ -1150,19 +1151,28 @@ pub async fn get_max_anchor_headers<BDP>(
     provider: &BDP,
     anchor_tx_info_vec: Vec<(u64, B256)>,
     original_block_numbers: u64,
+    last_anchor_block_number: Option<u64>,
 ) -> RaikoResult<Vec<Header>>
 where
     BDP: BlockDataProvider,
 {
     assert!(!anchor_tx_info_vec.is_empty(), "anchor_tx_info is empty");
     let min_anchor_height = anchor_tx_info_vec[0].0;
-    assert!(
-        original_block_numbers - min_anchor_height <= ANCHOR_MAX_OFFSET as u64,
-        "original_block_numbers - min_anchor_height > ANCHOR_MAX_OFFSET"
-    );
+    let lag = original_block_numbers.saturating_sub(min_anchor_height);
     info!(
         "get max anchor L1 block headers in range: ({min_anchor_height}, {original_block_numbers})"
     );
+    if lag > ANCHOR_MAX_OFFSET as u64 && last_anchor_block_number == Some(min_anchor_height) {
+        warn!(
+            "skip l1 ancestor headers due to stalled anchor: origin={original_block_numbers}, anchor={min_anchor_height}, lag={lag}"
+        );
+        return Ok(Vec::new());
+    }
+    assert!(
+        lag <= ANCHOR_MAX_OFFSET as u64,
+        "original_block_numbers - min_anchor_height > ANCHOR_MAX_OFFSET"
+    );
+
     let all_init_block_numbers = (min_anchor_height..=original_block_numbers)
         .map(|block_number| (block_number, false))
         .collect::<Vec<_>>();

@@ -29,10 +29,11 @@ use crate::{
     },
     proof_type::ProofType,
     prover::{ProofCarryData, ShastaTransitionInput, TransitionInputData},
+    utils::shasta_rules::ANCHOR_MAX_OFFSET,
     CycleTracker,
 };
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 // The empty root of [`Vec<EthDeposit>`]
 const EMPTY_ETH_DEPOSIT_ROOT: B256 =
@@ -505,6 +506,30 @@ fn verify_shasha_anchor_linkage(
     last_parent_hash == *expected_parent_hash
 }
 
+fn bypass_shasta_anchor_linkage(batch_input: &GuestBatchInput) -> bool {
+    if !batch_input.taiko.l1_ancestor_headers.is_empty() {
+        return false;
+    }
+    let Some(last_anchor) = batch_input.taiko.prover_data.last_anchor_block_number else {
+        return false;
+    };
+    let min_anchor = batch_input
+        .inputs
+        .iter()
+        .filter_map(|input| {
+            input
+                .taiko
+                .anchor_tx
+                .as_ref()
+                .and_then(|tx| decode_anchor_shasta(tx.input()).ok())
+                .map(|data| data._checkpoint.blockNumber)
+        })
+        .min()
+        .unwrap_or(0);
+    let lag = batch_input.taiko.l1_header.number.saturating_sub(min_anchor);
+    min_anchor == last_anchor && lag > ANCHOR_MAX_OFFSET as u64
+}
+
 impl ProtocolInstance {
     pub fn new(input: &GuestInput, header: &Header, proof_type: ProofType) -> Result<Self> {
         let blob_used = input.taiko.block_proposed.blob_used();
@@ -679,14 +704,18 @@ impl ProtocolInstance {
                 stateRoot: last_block.header.state_root,
             }),
             BlockProposedFork::Shasta(event_data) => {
-                assert!(
-                    verify_shasha_anchor_linkage(
-                        &batch_input.inputs,
-                        batch_input.taiko.l1_ancestor_headers.as_slice(),
-                        &event_data.proposal.originBlockHash
-                    ),
-                    "L1 anchor linkage verification failed"
-                );
+                if bypass_shasta_anchor_linkage(batch_input) {
+                    warn!("skip shasta anchor linkage verification due to stalled anchor");
+                } else {
+                    assert!(
+                        verify_shasha_anchor_linkage(
+                            &batch_input.inputs,
+                            batch_input.taiko.l1_ancestor_headers.as_slice(),
+                            &event_data.proposal.originBlockHash
+                        ),
+                        "L1 anchor linkage verification failed"
+                    );
+                }
                 assert_eq!(
                     &event_data.proposal.originBlockNumber, &batch_input.taiko.l1_header.number,
                     "L1 origin block number mismatch"
