@@ -33,7 +33,7 @@ use crate::{
     CycleTracker,
 };
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 // The empty root of [`Vec<EthDeposit>`]
 const EMPTY_ETH_DEPOSIT_ROOT: B256 =
@@ -513,7 +513,7 @@ fn bypass_shasta_anchor_linkage(batch_input: &GuestBatchInput) -> bool {
     let Some(last_anchor) = batch_input.taiko.prover_data.last_anchor_block_number else {
         return false;
     };
-    let min_anchor = batch_input
+    let mut anchors = batch_input
         .inputs
         .iter()
         .filter_map(|input| {
@@ -523,11 +523,13 @@ fn bypass_shasta_anchor_linkage(batch_input: &GuestBatchInput) -> bool {
                 .as_ref()
                 .and_then(|tx| decode_anchor_shasta(tx.input()).ok())
                 .map(|data| data._checkpoint.blockNumber)
-        })
-        .min()
-        .unwrap_or(0);
+        });
+    let Some(min_anchor) = anchors.next() else {
+        return false;
+    };
+    let all_same = anchors.all(|h| h == min_anchor);
     let lag = batch_input.taiko.l1_header.number.saturating_sub(min_anchor);
-    min_anchor == last_anchor && lag > ANCHOR_MAX_OFFSET as u64
+    min_anchor == last_anchor && all_same && lag > ANCHOR_MAX_OFFSET as u64
 }
 
 impl ProtocolInstance {
@@ -705,7 +707,7 @@ impl ProtocolInstance {
             }),
             BlockProposedFork::Shasta(event_data) => {
                 if bypass_shasta_anchor_linkage(batch_input) {
-                    warn!("skip shasta anchor linkage verification due to stalled anchor");
+                    info!("skip shasta anchor linkage verification due to stalled anchor");
                 } else {
                     assert!(
                         verify_shasha_anchor_linkage(
