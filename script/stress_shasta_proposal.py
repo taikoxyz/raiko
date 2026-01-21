@@ -3,7 +3,7 @@ import time
 from datetime import datetime
 import json
 import logging
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, AsyncIterator
 from collections import deque
 import asyncio
 import argparse
@@ -59,6 +59,10 @@ class BatchMonitor:
         time_speed: float = 1.0,
         anchor_abi_file: Optional[str] = None,
         aggregate: int = 0,
+        mode: str = "sequential",
+        max_concurrency: int = 3,
+        extend_to_full_proposal: bool = True,
+        max_forward: int = 10000,
     ):
         self.l1_rpc = l1_rpc
         self.l2_rpc = l2_rpc
@@ -80,6 +84,10 @@ class BatchMonitor:
         self.time_speed = time_speed
         self.anchor_abi_file = anchor_abi_file
         self.aggregate = aggregate
+        self.mode = mode
+        self.max_concurrency = max_concurrency
+        self.extend_to_full_proposal = extend_to_full_proposal
+        self.max_forward = max_forward
         # Initialize Shasta event decoder
         self.shasta_decoder = ShastaEventDecoder()
         # Cache for proposal block numbers: proposal_id -> l1_block_number
@@ -91,8 +99,6 @@ class BatchMonitor:
         self.aggregate_running_count = 0
         # Track aggregate requests: list of proposal data dicts
         self.aggregate_requests: list[list[Dict[str, Any]]] = []
-        # Track aggregate requests: list of proposal_ids lists
-        self.aggregate_requests: list[list[int]] = []
         # logger
         logging.basicConfig(
             level=logging.INFO,
@@ -168,7 +174,9 @@ class BatchMonitor:
             self.logger.warning(f"Could not initialize L2 contract for decoding: {e}")
             self.l2_contract = None
 
-    async def get_l2_block(self, block_number: int) -> Optional[Dict[str, Any]]:
+    async def get_l2_block(
+        self, block_number: int, full_transactions: bool = True
+    ) -> Optional[Dict[str, Any]]:
         """Get L2 block by number"""
         try:
             response = requests.post(
@@ -176,7 +184,7 @@ class BatchMonitor:
                 json={
                     "jsonrpc": "2.0",
                     "method": "eth_getBlockByNumber",
-                    "params": [hex(block_number), True],  # True to include full transaction data
+                    "params": [hex(block_number), full_transactions],
                     "id": 1,
                 },
                 timeout=10,
@@ -185,6 +193,25 @@ class BatchMonitor:
             return result.get("result")
         except Exception as e:
             self.logger.error(f"Failed to get L2 block {block_number}: {e}")
+            return None
+
+    async def get_l2_transaction(self, tx_hash: str) -> Optional[Dict[str, Any]]:
+        """Get L2 transaction by hash (used to fetch anchor tx input without downloading full blocks)."""
+        try:
+            response = requests.post(
+                self.l2_rpc,
+                json={
+                    "jsonrpc": "2.0",
+                    "method": "eth_getTransactionByHash",
+                    "params": [tx_hash],
+                    "id": 1,
+                },
+                timeout=10,
+            )
+            result = response.json()
+            return result.get("result")
+        except Exception as e:
+            self.logger.error(f"Failed to get L2 tx {tx_hash}: {e}")
             return None
 
     def extract_proposal_id_from_extradata(self, extradata: str) -> Optional[int]:
@@ -220,6 +247,18 @@ class BatchMonitor:
             self.logger.debug(traceback.format_exc())
             return None
 
+    async def get_l2_proposal_id(self, block_number: int) -> Optional[int]:
+        """Fetch L2 block header and extract proposal_id from extradata."""
+        block = await self.get_l2_block(block_number, full_transactions=False)
+        if block is None:
+            return None
+
+        extradata = block.get("extraData", "0x")
+        if not extradata or extradata == "0x":
+            return None
+
+        return self.extract_proposal_id_from_extradata(extradata)
+
     def decode_anchor_tx_input(self, tx_input: str) -> Optional[int]:
         """
         Decode anchorV4 transaction input to extract anchor_number.
@@ -235,11 +274,11 @@ class BatchMonitor:
             # Try web3.py contract decoding first if available
             if self.l2_contract is not None:
                 try:
-                    self.logger.info(f"Attempting Web3.py decoding for tx input (length: {len(tx_input)} chars)")
+                    # self.logger.info(f"Attempting Web3.py decoding for tx input (length: {len(tx_input)} chars)")
                     
                     # Decode the function call
                     func_obj, func_params = self.l2_contract.decode_function_input(tx_input)
-                    self.logger.info(f"Successfully decoded function: {func_obj.fn_name}")
+                    # self.logger.info(f"Successfully decoded function: {func_obj.fn_name}")
                     
                     # Check if it's anchorV4
                     if func_obj.fn_name == "anchorV4":
@@ -265,9 +304,9 @@ class BatchMonitor:
                             self.logger.debug(f"Extracted anchor_number from checkpoint attribute: {anchor_number}")
                         
                         if anchor_number is not None:
-                            self.logger.info(
-                                f"✓ Decoded via ABI: anchor_number={anchor_number}"
-                            )
+                            # self.logger.info(
+                            #     f"✓ Decoded via ABI: anchor_number={anchor_number}"
+                            # )
                             return anchor_number
                         else:
                             self.logger.warning(
@@ -330,7 +369,8 @@ class BatchMonitor:
         anchor_number is extracted from anchor transaction checkpoint.
         """
         try:
-            block = await self.get_l2_block(l2_block_number)
+            # Fetch the block without full transactions to reduce payload size.
+            block = await self.get_l2_block(l2_block_number, full_transactions=False)
             if block is None:
                 return None
             
@@ -350,9 +390,21 @@ class BatchMonitor:
                 self.logger.warning(f"No transactions in L2 block {l2_block_number}")
                 return None
             
-            # First transaction is the anchor transaction
-            anchor_tx = transactions[0]
-            tx_input = anchor_tx.get("input", "0x")
+            # First transaction is the anchor transaction.
+            # With `full_transactions=False`, we only get tx hashes, so fetch the tx by hash.
+            first_tx = transactions[0]
+            tx_input: str = "0x"
+
+            if isinstance(first_tx, dict):
+                tx_input = first_tx.get("input", "0x")
+            elif isinstance(first_tx, str):
+                tx = await self.get_l2_transaction(first_tx)
+                if tx is not None:
+                    tx_input = tx.get("input", "0x")
+            else:
+                self.logger.warning(
+                    f"Unexpected tx type in L2 block {l2_block_number}: {type(first_tx)}"
+                )
             
             if tx_input == "0x" or len(tx_input) <= 2:
                 self.logger.warning(f"Empty or invalid anchor tx input in block {l2_block_number}")
@@ -1018,26 +1070,31 @@ class BatchMonitor:
         last_valid_block = start_block
         
         while current_block >= 0:
-            self.logger.debug(f"Checking backwards: block {current_block} for proposal {proposal_id}")
-            anchor_info = await self.parse_l2_block_anchor_tx(current_block)
-            
-            if anchor_info is None:
-                # Can't parse, stop going backwards
-                self.logger.debug(f"Could not parse block {current_block}, stopping backwards search")
+            self.logger.debug(
+                f"Checking backwards: block {current_block} for proposal {proposal_id}"
+            )
+            current_proposal_id = await self.get_l2_proposal_id(current_block)
+
+            if current_proposal_id is None:
+                self.logger.debug(
+                    f"Could not read proposal_id from block {current_block}, stopping backwards search"
+                )
                 break
-            
-            if anchor_info.proposal_id == proposal_id:
-                # Same proposal, continue backwards
+
+            if current_proposal_id == proposal_id:
                 last_valid_block = current_block
                 current_block -= 1
             else:
-                # Different proposal, we found the start
-                self.logger.debug(f"Found different proposal {anchor_info.proposal_id} at block {current_block}, start is {last_valid_block}")
+                self.logger.debug(
+                    f"Found different proposal {current_proposal_id} at block {current_block}, start is {last_valid_block}"
+                )
                 break
         
         return last_valid_block
 
-    async def find_proposal_end_block(self, end_block: int, proposal_id: int, max_forward: int = 100) -> int:
+    async def find_proposal_end_block(
+        self, end_block: int, proposal_id: int, max_forward: Optional[int] = None
+    ) -> int:
         """
         Find the true end block of a proposal by checking forwards.
         Returns the last block number that belongs to this proposal_id.
@@ -1047,157 +1104,213 @@ class BatchMonitor:
         last_valid_block = end_block
         checked = 0
         
+        if max_forward is None:
+            max_forward = self.max_forward
+
         while checked < max_forward:
-            self.logger.debug(f"Checking forwards: block {current_block} for proposal {proposal_id}")
-            anchor_info = await self.parse_l2_block_anchor_tx(current_block)
-            
-            if anchor_info is None:
-                # Can't parse, stop going forwards
-                self.logger.debug(f"Could not parse block {current_block}, stopping forwards search")
+            self.logger.debug(
+                f"Checking forwards: block {current_block} for proposal {proposal_id}"
+            )
+            current_proposal_id = await self.get_l2_proposal_id(current_block)
+
+            if current_proposal_id is None:
+                self.logger.debug(
+                    f"Could not read proposal_id from block {current_block}, stopping forwards search"
+                )
                 break
-            
-            if anchor_info.proposal_id == proposal_id:
-                # Same proposal, continue forwards
+
+            if current_proposal_id == proposal_id:
                 last_valid_block = current_block
                 current_block += 1
                 checked += 1
             else:
-                # Different proposal, we found the end
-                self.logger.debug(f"Found different proposal {anchor_info.proposal_id} at block {current_block}, end is {last_valid_block}")
+                self.logger.debug(
+                    f"Found different proposal {current_proposal_id} at block {current_block}, end is {last_valid_block}"
+                )
                 break
         
         return last_valid_block
 
+    async def iter_proposal_groups(
+        self, start_block: int, end_block: int
+    ) -> AsyncIterator[ProposalGroup]:
+        """
+        Stream proposal groups by scanning L2 blocks in order.
+
+        Yields a `ProposalGroup` only when the proposal boundary is observed
+        (proposal_id changes). If `extend_to_full_proposal` is enabled, the scan
+        will continue past `end_block` until the last proposal boundary is found
+        (or `max_forward` is reached).
+        """
+        if start_block > end_block:
+            return
+
+        # Determine true start if we're in the middle of a proposal.
+        start_info = await self.parse_l2_block_anchor_tx(start_block)
+        if start_info is None:
+            self.logger.error(
+                f"Failed to parse start block {start_block}, cannot determine proposal"
+            )
+            return
+
+        true_start_block = start_block
+        if start_block > 0:
+            parent_proposal_id = await self.get_l2_proposal_id(start_block - 1)
+            if parent_proposal_id == start_info.proposal_id:
+                self.logger.info(
+                    f"Start block {start_block} is in the middle of proposal {start_info.proposal_id}, "
+                    f"finding true start..."
+                )
+                true_start_block = await self.find_proposal_start_block(
+                    start_block, start_info.proposal_id
+                )
+                self.logger.info(
+                    f"True start block for proposal {start_info.proposal_id} is {true_start_block}"
+                )
+
+        first_group_info = await self.parse_l2_block_anchor_tx(true_start_block)
+        if first_group_info is None:
+            self.logger.error(
+                f"Failed to parse true start block {true_start_block}, cannot proceed"
+            )
+            return
+
+        current_proposal_id = first_group_info.proposal_id
+        current_anchor_number = first_group_info.anchor_number
+        current_blocks: list[int] = [true_start_block]
+
+        cursor = true_start_block + 1
+        extended = 0
+        scanned = 0
+        progress_every = 200
+
+        while True:
+            if cursor <= end_block:
+                proposal_id = await self.get_l2_proposal_id(cursor)
+                if proposal_id is None:
+                    self.logger.warning(
+                        f"Could not read proposal_id from L2 block {cursor}, stopping scan"
+                    )
+                    break
+
+                if proposal_id == current_proposal_id:
+                    current_blocks.append(cursor)
+                    cursor += 1
+                    scanned += 1
+                    if scanned % progress_every == 0:
+                        self.logger.info(
+                            f"Scanning L2... current proposal {current_proposal_id}, at block {cursor-1}"
+                        )
+                    continue
+
+                # Boundary found within range: yield current group and start next group.
+                group = ProposalGroup(
+                    proposal_id=current_proposal_id,
+                    anchor_number=current_anchor_number,
+                    l2_block_numbers=current_blocks,
+                )
+                self.logger.info(
+                    f"Yielding proposal {group.proposal_id}: L2 {group.l2_block_numbers[0]}-{group.l2_block_numbers[-1]} (count={len(group.l2_block_numbers)})"
+                )
+                yield group
+
+                next_group_info = await self.parse_l2_block_anchor_tx(cursor)
+                if next_group_info is None:
+                    self.logger.warning(
+                        f"Failed to parse new proposal start at L2 block {cursor}, stopping scan"
+                    )
+                    break
+
+                current_proposal_id = next_group_info.proposal_id
+                current_anchor_number = next_group_info.anchor_number
+                current_blocks = [cursor]
+                cursor += 1
+                scanned += 1
+                continue
+
+            # cursor > end_block: optionally extend to finish the last proposal.
+            if not self.extend_to_full_proposal:
+                self.logger.warning(
+                    f"End block {end_block} is in the middle of proposal {current_proposal_id}; "
+                    f"set extend_to_full_proposal to include the full proposal."
+                )
+                break
+
+            if extended >= self.max_forward:
+                self.logger.warning(
+                    f"Reached max_forward={self.max_forward} while extending proposal {current_proposal_id} past end_block={end_block}; "
+                    f"skipping incomplete proposal group."
+                )
+                break
+
+            proposal_id = await self.get_l2_proposal_id(cursor)
+            if proposal_id is None:
+                self.logger.warning(
+                    f"Could not read proposal_id from L2 block {cursor} while extending proposal {current_proposal_id}, stopping"
+                )
+                break
+
+            if proposal_id == current_proposal_id:
+                current_blocks.append(cursor)
+                cursor += 1
+                extended += 1
+                scanned += 1
+                if scanned % progress_every == 0:
+                    self.logger.info(
+                        f"Scanning L2... extending proposal {current_proposal_id}, at block {cursor-1}"
+                    )
+                continue
+
+            # Boundary found beyond end_block: yield last group and stop (do not start next group).
+            group = ProposalGroup(
+                proposal_id=current_proposal_id,
+                anchor_number=current_anchor_number,
+                l2_block_numbers=current_blocks,
+            )
+            self.logger.info(
+                f"Yielding proposal {group.proposal_id}: L2 {group.l2_block_numbers[0]}-{group.l2_block_numbers[-1]} (count={len(group.l2_block_numbers)})"
+            )
+            yield group
+            break
+
     async def process_l2_block_range(self):
         """
-        Process L2 block range:
-        1. Parse each L2 block to get anchor tx info (proposal_id, anchor_number)
-        2. Find true start point if start block is in middle of a proposal
-        3. Group consecutive blocks by proposal_id
-        4. For each group, find L1 inclusion block
-        5. Submit to Raiko
+        Stream proposals from an L2 block range and submit each proposal to Raiko
+        as soon as its L2 block list is complete.
+
+        Modes:
+        - sequential: submit → wait for proof → continue scanning
+        - concurrent: submit/poll tasks while scanning continues (bounded by max_concurrency)
         """
         if self.l2_block_range is None:
             self.logger.error("L2 block range is required")
             return
-        
+
         start_l2_block, end_l2_block = self.l2_block_range
         self.logger.info(f"Processing L2 blocks from {start_l2_block} to {end_l2_block}")
-        
-        # Step 1: Parse the first block to check if we're in the middle of a proposal
-        first_block_info = await self.parse_l2_block_anchor_tx(start_l2_block)
-        if first_block_info is None:
-            self.logger.error(f"Failed to parse first block {start_l2_block}, cannot proceed")
-            return
-        
-        # Step 2: Check if we need to go backwards to find the true start
-        true_start_block = start_l2_block
-        if start_l2_block > 0:
-            # Check parent block to see if it has the same proposal_id
-            parent_info = await self.parse_l2_block_anchor_tx(start_l2_block - 1)
-            if parent_info is not None and parent_info.proposal_id == first_block_info.proposal_id:
-                # We're in the middle of a proposal, find the true start
-                self.logger.info(
-                    f"Start block {start_l2_block} is in the middle of proposal {first_block_info.proposal_id}, "
-                    f"finding true start..."
-                )
-                true_start_block = await self.find_proposal_start_block(start_l2_block, first_block_info.proposal_id)
-                self.logger.info(f"True start block for proposal {first_block_info.proposal_id} is {true_start_block}")
-        
-        # Step 3: Parse the last block to check if we're in the middle of a proposal
-        last_block_info = await self.parse_l2_block_anchor_tx(end_l2_block)
-        true_end_block = end_l2_block
-        if last_block_info is not None:
-            # Check next block to see if it has the same proposal_id
-            next_block_info = await self.parse_l2_block_anchor_tx(end_l2_block + 1)
-            if next_block_info is not None and next_block_info.proposal_id == last_block_info.proposal_id:
-                # We're in the middle of a proposal, find the true end
-                self.logger.info(
-                    f"End block {end_l2_block} is in the middle of proposal {last_block_info.proposal_id}, "
-                    f"finding true end..."
-                )
-                true_end_block = await self.find_proposal_end_block(end_l2_block, last_block_info.proposal_id)
-                self.logger.info(f"True end block for proposal {last_block_info.proposal_id} is {true_end_block}")
-        
-        # Step 4: Parse all L2 blocks from true start to true end
-        anchor_infos = []
-        parse_start = true_start_block
-        parse_end = true_end_block
-        
-        self.logger.info(f"Parsing L2 blocks from {parse_start} to {parse_end}")
-        for l2_block_num in range(parse_start, parse_end + 1):
-            self.logger.info(f"Parsing L2 block {l2_block_num}")
-            anchor_info = await self.parse_l2_block_anchor_tx(l2_block_num)
-            if anchor_info is None:
-                self.logger.warning(f"Failed to parse anchor tx from L2 block {l2_block_num}, skipping")
-                continue
-            anchor_infos.append(anchor_info)
-            self.logger.info(
-                f"L2 block {l2_block_num}: proposal_id={anchor_info.proposal_id}, anchor_number={anchor_info.anchor_number}"
-            )
-        
-        if not anchor_infos:
-            self.logger.error("No valid anchor transactions found in L2 block range")
-            return
-        
-        # Step 2: Group consecutive blocks by proposal_id
-        groups = self.group_blocks_by_proposal_id(anchor_infos)
-        self.logger.info(f"Found {len(groups)} proposal groups")
-        for group in groups:
-            self.logger.info(
-                f"Proposal {group.proposal_id}: anchor_number={group.anchor_number}, L2 blocks={group.l2_block_numbers}"
-            )
-        
-        # Step 2.5: Batch query all proposal IDs (both normal and bond proposals)
-        # Collect all proposal queries: (proposal_id, anchor_number)
-        proposal_queries = []
-        bond_proposal_queries = []
-        
-        for group in groups:
-            # Normal proposal
-            proposal_queries.append((group.proposal_id, group.anchor_number))
-            
-            # Bond proposal (proposal_id - 6)
-            bond_proposal_id = group.proposal_id - 6
-            if bond_proposal_id > 0:
-                # For bond proposals, we don't have anchor_number, so use a wider search range
-                # We'll estimate based on the normal proposal's anchor_number
-                bond_proposal_queries.append((bond_proposal_id, group.anchor_number))
-        
-        # Determine search range based on anchor numbers
-        if proposal_queries:
-            min_anchor = min(anchor_number for _, anchor_number in proposal_queries)
-            max_anchor = max(anchor_number for _, anchor_number in proposal_queries)
-            
-            # Normal proposals: search from min_anchor+1 to max_anchor+96
-            # Bond proposals: search from min_anchor-200 to max_anchor+96 (wider range)
-            normal_search_start = min_anchor + 1
-            normal_search_end = max_anchor + 96
-            
-            bond_search_start = max(1, min_anchor - 200)
-            bond_search_end = max_anchor + 96
-            
-            # Batch query normal proposals
-            if proposal_queries:
-                self.logger.info(
-                    f"Batch querying {len(proposal_queries)} normal proposals in L1 blocks {normal_search_start} to {normal_search_end}"
-                )
-                await self.batch_find_proposal_blocks(proposal_queries, normal_search_start, normal_search_end)
-            
-            # Batch query bond proposals
-            if bond_proposal_queries:
-                self.logger.info(
-                    f"Batch querying {len(bond_proposal_queries)} bond proposals in L1 blocks {bond_search_start} to {bond_search_end}"
-                )
-                await self.batch_find_proposal_blocks(bond_proposal_queries, bond_search_start, bond_search_end)
-        
-        # Step 3: For each group, find L1 inclusion block and submit
+
+        mode = (self.mode or "sequential").lower()
+        if mode not in ("sequential", "concurrent"):
+            self.logger.warning(f"Unknown mode '{self.mode}', falling back to sequential")
+            mode = "sequential"
+
+        semaphore: Optional[asyncio.Semaphore] = None
+        if mode == "concurrent":
+            semaphore = asyncio.Semaphore(max(1, int(self.max_concurrency)))
+
         acc_odds = 1
         tasks = []
         first_l1_block = None
         first_l1_timestamp = None
-        
-        for group in groups:
+
+        async def _run_group(group: ProposalGroup, l1_inclusion_block: int):
+            if semaphore is None:
+                await self.process_proposal_group(group, l1_inclusion_block)
+                return
+            async with semaphore:
+                await self.process_proposal_group(group, l1_inclusion_block)
+
+        async for group in self.iter_proposal_groups(start_l2_block, end_l2_block):
             self.logger.info(
                 f"Processing proposal group {group.proposal_id} with L2 blocks {group.l2_block_numbers}"
             )
@@ -1270,25 +1383,23 @@ class BatchMonitor:
                 if self.aggregate > 0:
                     aggregate_info = f", aggregate running: {self.aggregate_running_count}"
                 self.logger.info(
-                    f"Submitting proposal {group.proposal_id} (L2 blocks {group.l2_block_numbers}) @ L1 block {l1_inclusion_block}, current running tasks: {self.running_count}{aggregate_info}"
+                    f"Submitting proposal {group.proposal_id} (L2 blocks {group.l2_block_numbers}) @ L1 block {l1_inclusion_block}, mode={mode}, current running tasks: {self.running_count}{aggregate_info}"
                 )
                 self.running_count += 1
                 acc_odds -= 1.0
-                # Create task and add to list
-                task = asyncio.create_task(
-                    self.process_proposal_group(group, l1_inclusion_block)
-                )
-                tasks.append(task)
-                # Yield control to event loop so task can start executing
-                await asyncio.sleep(0)
+                if mode == "sequential":
+                    await self.process_proposal_group(group, l1_inclusion_block)
+                else:
+                    task = asyncio.create_task(_run_group(group, l1_inclusion_block))
+                    tasks.append(task)
+                    await asyncio.sleep(0)
             else:
                 self.logger.info(
                     f"Proposal {group.proposal_id} skipped due to block_running_ratio:{self.block_running_ratio}"
                 )
         
-        # Wait for all tasks to complete
-        self.logger.info(f"Waiting for {len(tasks)} processing tasks to complete...")
         if tasks:
+            self.logger.info(f"Waiting for {len(tasks)} processing tasks to complete...")
             await asyncio.gather(*tasks, return_exceptions=True)
         
         # Submit any remaining pending proposals as aggregate if aggregate mode is enabled
@@ -1329,6 +1440,10 @@ class BatchMonitor:
             "prove_type": self.prove_type,
             "block_running_ratio": self.block_running_ratio,
             "aggregate": self.aggregate,
+            "mode": self.mode,
+            "max_concurrency": self.max_concurrency,
+            "extend_to_full_proposal": self.extend_to_full_proposal,
+            "max_forward": self.max_forward,
         }
         self.logger.info(f"Config:\n{json.dumps(config_dict, indent=2, default=str)}")
         
@@ -1474,6 +1589,35 @@ async def main():
         help="Aggregate mode: if > 0, collect n proposals and submit as aggregate request",
     )
 
+    parser.add_argument(
+        "--mode",
+        choices=["sequential", "concurrent"],
+        default="sequential",
+        help="Processing mode: sequential waits for each proof before scanning; concurrent submits/polls while scanning",
+    )
+
+    parser.add_argument(
+        "--max-concurrency",
+        type=lambda x: parse_none_value(x, int),
+        default=3,
+        help="Max concurrent in-flight proposal tasks (concurrent mode only)",
+    )
+
+    parser.add_argument(
+        "--no-extend-to-full-proposal",
+        dest="extend_to_full_proposal",
+        action="store_false",
+        default=True,
+        help="Do not scan past end block to complete the last proposal (may produce incomplete l2_block_numbers)",
+    )
+
+    parser.add_argument(
+        "--max-forward",
+        type=lambda x: parse_none_value(x, int),
+        default=10000,
+        help="Max blocks to scan past end to complete the last proposal when extending",
+    )
+
     args = parser.parse_args()
 
     monitor = BatchMonitor(
@@ -1491,6 +1635,10 @@ async def main():
         time_speed=args.time_speed,
         anchor_abi_file=args.anchor_abi_file,
         aggregate=args.aggregate,
+        mode=args.mode,
+        max_concurrency=args.max_concurrency,
+        extend_to_full_proposal=args.extend_to_full_proposal,
+        max_forward=args.max_forward,
     )
 
     await monitor.run()

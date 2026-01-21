@@ -1,0 +1,88 @@
+[
+    {
+        "name": "hoodi",
+        "chain_id": 560048,
+        "max_spec_id": "CANCUN",
+        "hard_forks": {
+            "FRONTIER": {
+                "Block": 0
+            },
+            "SHANGHAI": {
+                "Timestamp": 1696000704
+            },
+            "CANCUN": {
+                "Timestamp": 1707305664
+            }
+        },
+        "eip_1559_constants": {
+            "base_fee_change_denominator": "0x8",
+            "base_fee_max_increase_denominator": "0x8",
+            "base_fee_max_decrease_denominator": "0x8",
+            "elasticity_multiplier": "0x2"
+        },
+        "l1_contract": {},
+        "l2_contract": null,
+        "rpc": "http://136.111.176.156:8545",
+        "beacon_rpc": "https://ethereum-hoodi-beacon-api.publicnode.com",
+        "verifier_address_forks": {
+            "FRONTIER": {
+                "SGX": "0x532efbf6d62720d0b2a2bb9d11066e8588cae6d9",
+                "SP1": null,
+                "RISC0": "0x0000000000000000000000000000000000000000"
+            }
+        },
+        "genesis_time": 1742213400,
+        "seconds_per_slot": 12,
+        "is_taiko": false
+    },
+    {
+        "name": "taiko_dev",
+        "chain_id": 167011,
+        "max_spec_id": "SHASTA",
+        "hard_forks": {
+            "HEKLA": {
+                "Block": 0
+            },
+            "ONTAKE": {
+                "Block": 0
+            },
+            "PACAYA": {
+                "Block": 0
+            },
+            "SHASTA": {
+                "Timestamp": 0
+            },
+            "CANCUN": "TBD"
+        },
+        "eip_1559_constants": {
+            "base_fee_change_denominator": "0x8",
+            "base_fee_max_increase_denominator": "0x8",
+            "base_fee_max_decrease_denominator": "0x8",
+            "elasticity_multiplier": "0x2"
+        },
+        "l1_contract": {
+            "PACAYA": "0xeAd9c57ce675464AD9E7F60432DA65b84323a3A2",
+            "SHASTA": "0x471BE350ea7BBbc927a6Df9DE4A786aca7989052"
+        },
+        "l2_contract": "0x1670110000000000000000000000000000010001",
+        "rpc": "https://rpc.masaya.taiko.xyz",
+        "beacon_rpc": null,
+        "verifier_address_forks": {
+            "PACAYA": {
+                "SGX": null,
+                "SP1": null,
+                "RISC0": null,
+                "SGXGETH": null
+            },
+            "SHASTA": {
+                "SGX": null,
+                "SP1": null,
+                "RISC0": null,
+                "SGXGETH": null
+            }
+        },
+        "genesis_time": 0,
+        "seconds_per_slot": 1,
+        "is_taiko": true
+    }
+]

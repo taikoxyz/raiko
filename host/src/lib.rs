@@ -44,7 +44,7 @@ pub struct Opts {
     #[serde(default = "Opts::default_max_log")]
     pub max_log: usize,
 
-    #[arg(long, require_equals = true, default_value = "host/config/config.json")]
+    #[arg(long, require_equals = true, default_value = "host/config/config.taiko_masaya.json")]
     #[serde(default = "Opts::default_config_path")]
     /// Path to a config file that includes sufficient json args to request
     /// a proof of specified type. Curl json-rpc overrides its contents
