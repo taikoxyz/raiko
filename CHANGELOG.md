@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.13.0](https://github.com/taikoxyz/raiko/compare/v1.12.0...v1.13.0) (2026-01-16)
+
+
+### Features
+
+* **protocol:** enable shasta fork ([#642](https://github.com/taikoxyz/raiko/issues/642)) ([cb61c88](https://github.com/taikoxyz/raiko/commit/cb61c88f071e7b234890dd814ccb9dee549189ac))
+
+
+### Bug Fixes
+
+* change taiko_hoodi chainid to 167013 ([#638](https://github.com/taikoxyz/raiko/issues/638)) ([56c7270](https://github.com/taikoxyz/raiko/commit/56c7270aabce179662714ebfe771791ac39feb9c))
+
 ## [1.12.0](https://github.com/taikoxyz/raiko/compare/v1.10.0...v1.12.0) (2025-10-09)
 
 
