@@ -29,7 +29,6 @@ use crate::{
     },
     proof_type::ProofType,
     prover::{ProofCarryData, ShastaTransitionInput, TransitionInputData},
-    utils::shasta_rules::ANCHOR_MAX_OFFSET,
     CycleTracker,
 };
 use reth_evm_ethereum::taiko::ANCHOR_GAS_LIMIT;
@@ -510,9 +509,6 @@ fn bypass_shasta_anchor_linkage(batch_input: &GuestBatchInput) -> bool {
     if !batch_input.taiko.l1_ancestor_headers.is_empty() {
         return false;
     }
-    let Some(last_anchor) = batch_input.taiko.prover_data.last_anchor_block_number else {
-        return false;
-    };
     let mut anchors = batch_input
         .inputs
         .iter()
@@ -524,12 +520,10 @@ fn bypass_shasta_anchor_linkage(batch_input: &GuestBatchInput) -> bool {
                 .and_then(|tx| decode_anchor_shasta(tx.input()).ok())
                 .map(|data| data._checkpoint.blockNumber)
         });
-    let Some(min_anchor) = anchors.next() else {
+    let Some(first_anchor) = anchors.next() else {
         return false;
     };
-    let all_same = anchors.all(|h| h == min_anchor);
-    let lag = batch_input.taiko.l1_header.number.saturating_sub(min_anchor);
-    min_anchor == last_anchor && all_same && lag > ANCHOR_MAX_OFFSET as u64
+    anchors.all(|h| h == first_anchor)
 }
 
 impl ProtocolInstance {
