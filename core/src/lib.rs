@@ -157,12 +157,12 @@ impl Raiko {
             self.request.proof_type, batch_input.taiko.batch_id
         );
         let pool_txs_list = generate_transactions_for_batch_blocks(&batch_input);
-        let blocks = batch_input.inputs.iter().zip(pool_txs_list).try_fold(
+        let blocks = batch_input.inputs.iter().zip(pool_txs_list).enumerate().try_fold(
             Vec::new(),
-            |mut acc, input_and_txs| -> RaikoResult<Vec<Block>> {
+            |mut acc, (idx, input_and_txs)| -> RaikoResult<Vec<Block>> {
                 let (input, txs_with_flag) = input_and_txs;
                 let (pool_txs, _) = txs_with_flag;
-                let output = self.single_output_for_batch(pool_txs, input)?;
+                let output = self.single_output_for_batch(pool_txs, input, idx == 0)?;
                 acc.push(output);
                 Ok(acc)
             },
@@ -190,9 +190,11 @@ impl Raiko {
         &self,
         origin_pool_txs: Vec<reth_primitives::TransactionSigned>,
         input: &GuestInput,
+        is_first_block_in_proposal: bool,
     ) -> RaikoResult<Block> {
         let db = create_mem_db(&mut input.clone()).unwrap();
-        let mut builder = RethBlockBuilder::new(input, db);
+        let mut builder = RethBlockBuilder::new(input, db)
+            .set_is_first_block_in_proposal(is_first_block_in_proposal);
 
         let mut pool_txs = vec![input.taiko.anchor_tx.clone().unwrap()];
         pool_txs.extend_from_slice(&origin_pool_txs);
