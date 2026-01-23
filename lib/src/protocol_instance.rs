@@ -505,6 +505,27 @@ fn verify_shasha_anchor_linkage(
     last_parent_hash == *expected_parent_hash
 }
 
+fn bypass_shasta_anchor_linkage(batch_input: &GuestBatchInput) -> bool {
+    if !batch_input.taiko.l1_ancestor_headers.is_empty() {
+        return false;
+    }
+    let mut anchors = batch_input
+        .inputs
+        .iter()
+        .filter_map(|input| {
+            input
+                .taiko
+                .anchor_tx
+                .as_ref()
+                .and_then(|tx| decode_anchor_shasta(tx.input()).ok())
+                .map(|data| data._checkpoint.blockNumber)
+        });
+    let Some(first_anchor) = anchors.next() else {
+        return false;
+    };
+    anchors.all(|h| h == first_anchor)
+}
+
 impl ProtocolInstance {
     pub fn new(input: &GuestInput, header: &Header, proof_type: ProofType) -> Result<Self> {
         let blob_used = input.taiko.block_proposed.blob_used();
@@ -679,14 +700,18 @@ impl ProtocolInstance {
                 stateRoot: last_block.header.state_root,
             }),
             BlockProposedFork::Shasta(event_data) => {
-                assert!(
-                    verify_shasha_anchor_linkage(
-                        &batch_input.inputs,
-                        batch_input.taiko.l1_ancestor_headers.as_slice(),
-                        &event_data.proposal.originBlockHash
-                    ),
-                    "L1 anchor linkage verification failed"
-                );
+                if bypass_shasta_anchor_linkage(batch_input) {
+                    info!("skip shasta anchor linkage verification due to stalled anchor");
+                } else {
+                    assert!(
+                        verify_shasha_anchor_linkage(
+                            &batch_input.inputs,
+                            batch_input.taiko.l1_ancestor_headers.as_slice(),
+                            &event_data.proposal.originBlockHash
+                        ),
+                        "L1 anchor linkage verification failed"
+                    );
+                }
                 assert_eq!(
                     &event_data.proposal.originBlockNumber, &batch_input.taiko.l1_header.number,
                     "L1 origin block number mismatch"
