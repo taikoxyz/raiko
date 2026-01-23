@@ -141,6 +141,19 @@ fn agent_auth_error(status: reqwest::StatusCode) -> Option<String> {
     }
 }
 
+fn build_submit_payload(
+    proof_type: &str,
+    input: Vec<u8>,
+    public_values_digest: [u8; 32],
+) -> serde_json::Value {
+    serde_json::json!({
+        "prover_type": "brevis",
+        "input": input,
+        "output": public_values_digest.to_vec(),
+        "proof_type": proof_type,
+    })
+}
+
 struct BrevisClient {
     remote_prover_url: String,
     api_key: Option<String>,
@@ -297,13 +310,13 @@ impl BrevisClient {
         Ok(())
     }
 
-    async fn submit_proof(&self, proof_type: &str, input: Vec<u8>) -> ProverResult<Vec<u8>> {
-        let payload = serde_json::json!({
-            "prover_type": "brevis",
-            "input": input,
-            "output": Vec::<u8>::new(),
-            "proof_type": proof_type,
-        });
+    async fn submit_proof(
+        &self,
+        proof_type: &str,
+        input: Vec<u8>,
+        public_values_digest: [u8; 32],
+    ) -> ProverResult<Vec<u8>> {
+        let payload = build_submit_payload(proof_type, input, public_values_digest);
 
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(self.config.http_connect_timeout_secs))
@@ -552,7 +565,7 @@ impl Prover for BrevisProver {
     async fn batch_run(
         &self,
         input: GuestBatchInput,
-        _output: &GuestBatchOutput,
+        output: &GuestBatchOutput,
         config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
@@ -562,7 +575,10 @@ impl Prover for BrevisProver {
         let input_bytes = bincode::serialize(&input)
             .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
 
-        let proof_bytes = client.submit_proof("Batch", input_bytes).await?;
+        let mut digest = [0u8; 32];
+        digest.copy_from_slice(output.hash.as_slice());
+
+        let proof_bytes = client.submit_proof("Batch", input_bytes, digest).await?;
         let bundle: BrevisProofBundle = bincode::deserialize(&proof_bytes)
             .map_err(|e| ProverError::GuestError(format!("Failed to decode proof bundle: {e}")))?;
 
@@ -572,7 +588,7 @@ impl Prover for BrevisProver {
     async fn aggregate(
         &self,
         input: AggregationGuestInput,
-        _output: &AggregationGuestOutput,
+        output: &AggregationGuestOutput,
         config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
@@ -595,7 +611,10 @@ impl Prover for BrevisProver {
         })
         .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
 
-        let proof_bytes = client.submit_proof("Aggregate", input_bytes).await?;
+        let mut digest = [0u8; 32];
+        digest.copy_from_slice(output.hash.as_slice());
+
+        let proof_bytes = client.submit_proof("Aggregate", input_bytes, digest).await?;
         let bundle: BrevisProofBundle = bincode::deserialize(&proof_bytes)
             .map_err(|e| ProverError::GuestError(format!("Failed to decode proof bundle: {e}")))?;
 
@@ -617,7 +636,7 @@ impl Prover for BrevisProver {
     async fn shasta_aggregate(
         &self,
         input: ShastaAggregationGuestInput,
-        _output: &AggregationGuestOutput,
+        output: &AggregationGuestOutput,
         config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
@@ -660,7 +679,10 @@ impl Prover for BrevisProver {
         })
         .map_err(|e| ProverError::GuestError(format!("Failed to serialize input: {e}")))?;
 
-        let proof_bytes = client.submit_proof("Aggregate", input_bytes).await?;
+        let mut digest = [0u8; 32];
+        digest.copy_from_slice(output.hash.as_slice());
+
+        let proof_bytes = client.submit_proof("Aggregate", input_bytes, digest).await?;
         let bundle: BrevisProofBundle = bincode::deserialize(&proof_bytes)
             .map_err(|e| ProverError::GuestError(format!("Failed to decode proof bundle: {e}")))?;
 
