@@ -1,4 +1,4 @@
-FROM ghcr.io/edgelesssys/ego-dev:v1.7.0 AS build-gaiko
+FROM ghcr.io/edgelesssys/ego-dev:v1.8.1 AS build-gaiko
 WORKDIR /opt/gaiko
 
 # Install dependencies
