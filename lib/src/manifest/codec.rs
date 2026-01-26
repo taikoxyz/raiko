@@ -2,7 +2,7 @@ use alloy_rlp::{Decodable, Encodable};
 use anyhow::Result;
 
 use super::types::{DerivationSourceManifest, ProtocolBlockManifest};
-use crate::utils::blobs::{zlib_compress_data, zlib_decompress_data};
+use crate::utils::blobs::zlib_compress_data;
 
 /// Encode and compress a Shasta proposal manifest (equivalent to Go's EncodeAndCompressShastaProposal)
 pub fn encode_and_compress_shasta_proposal(proposal: &DerivationSourceManifest) -> Result<Vec<u8>> {
@@ -120,6 +120,7 @@ impl Decodable for DerivationSourceManifest {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::blobs::zlib_decompress_data;
     use alloy_primitives::Address;
 
     fn create_test_proposal() -> DerivationSourceManifest {
