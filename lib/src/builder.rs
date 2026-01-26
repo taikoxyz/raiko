@@ -85,6 +85,12 @@ pub fn calculate_batch_blocks_final_header(input: &GuestBatchInput) -> Vec<Block
 // 1. connect parent hash & state root
 // 2. block number should be in sequence
 fn validate_final_batch_blocks(input: &GuestBatchInput, final_blocks: &[Block]) {
+    // Shasta-only: validate extra_data once, post-execution, to keep code simple.
+    assert!(
+        crate::utils::shasta_rules::validate_shasta_extra_data_for_batch(input),
+        "invalid shasta extra_data in batch input"
+    );
+
     input
         .inputs
         .iter()
