@@ -15,20 +15,6 @@ pub fn encode_and_compress_shasta_proposal(proposal: &DerivationSourceManifest) 
     Ok(compressed)
 }
 
-/// Decode and decompress a Shasta proposal manifest
-pub fn decode_and_decompress_shasta_proposal(
-    compressed_data: &[u8],
-) -> Result<DerivationSourceManifest> {
-    // First, decompress the data
-    let rlp_encoded = zlib_decompress_data(compressed_data)?;
-
-    // Then RLP decode
-    let mut data = rlp_encoded.as_slice();
-    let proposal = DerivationSourceManifest::decode(&mut data)?;
-
-    Ok(proposal)
-}
-
 impl Encodable for ProtocolBlockManifest {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
         // Calculate the payload length first
@@ -107,7 +93,7 @@ impl Encodable for DerivationSourceManifest {
     }
 }
 
-pub(crate) const PROPOSAL_MAX_BLOCKS: usize = 384;
+pub(crate) const PROPOSAL_MAX_BLOCKS: usize = 192;
 
 impl Decodable for DerivationSourceManifest {
     fn decode(buf: &mut &[u8]) -> Result<Self, alloy_rlp::Error> {
@@ -201,5 +187,19 @@ mod tests {
 
         // Decode and decompress
         let _decoded = decode_and_decompress_shasta_proposal(&encoded).unwrap();
+    }
+
+    /// Decode and decompress a Shasta proposal manifest
+    fn decode_and_decompress_shasta_proposal(
+        compressed_data: &[u8],
+    ) -> Result<DerivationSourceManifest> {
+        // First, decompress the data
+        let rlp_encoded = zlib_decompress_data(compressed_data)?;
+
+        // Then RLP decode
+        let mut data = rlp_encoded.as_slice();
+        let proposal = DerivationSourceManifest::decode(&mut data)?;
+
+        Ok(proposal)
     }
 }
