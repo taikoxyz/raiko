@@ -109,9 +109,9 @@ fn validate_final_batch_blocks(input: &GuestBatchInput, final_blocks: &[Block]) 
             );
             assert!(
                 parent_block.header.state_root == current_input.parent_header.state_root,
-                "Parent hash mismatch, expected: {}, got: {}",
-                parent_block.header.hash_slow(),
-                current_block.header.parent_hash
+                "State root mismatch, expected: {}, got: {}",
+                parent_block.header.state_root,
+                current_input.parent_header.state_root
             );
             // state root is checked in finalize(), skip here
             // assert!(current_block.state_root == current_input.block.state_root)
