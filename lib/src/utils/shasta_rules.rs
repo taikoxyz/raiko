@@ -110,7 +110,7 @@ pub fn validate_shasta_extra_data_for_batch(input: &GuestBatchInput) -> bool {
     // - parent.proposalId == currentProposalId - 1
     let parent_header = &input.inputs[0].parent_header;
     if expected_proposal_id > 0 {
-        let Some((_pctg, parent_proposal_id, parent_end_flag)) =
+        let Some((_, parent_proposal_id, parent_end_flag)) =
             decode_shasta_extra_data(parent_header.extra_data.as_ref())
         else {
             warn!(
