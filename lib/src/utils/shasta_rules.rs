@@ -18,11 +18,10 @@ pub const ANCHOR_MAX_OFFSET: usize = 128;
 /// Decode Shasta `extra_data` layout (per `Derivation.md`):
 /// - byte[0]    => basefeeSharingPctg (uint8)
 /// - byte[1..6] => proposalId (uint48, big-endian)
-/// - byte[7]    => endOfProposalFlag (bool as 0/1)
-fn decode_shasta_extra_data(extra_data: &[u8]) -> Option<(u8, u64, u8)> {
-    if extra_data.len() < 8 {
+fn decode_shasta_extra_data(extra_data: &[u8]) -> Option<(u8, u64)> {
+    if extra_data.len() < 7 {
         warn!(
-            "invalid shasta extra_data length: {} (need at least 8 bytes)",
+            "invalid shasta extra_data length: {} (need at least 7 bytes)",
             extra_data.len()
         );
         return None;
@@ -39,16 +38,8 @@ fn decode_shasta_extra_data(extra_data: &[u8]) -> Option<(u8, u64, u8)> {
         extra_data[5],
         extra_data[6],
     ]);
-    let end_of_proposal_flag = extra_data[7];
-    if end_of_proposal_flag > 1 {
-        warn!(
-            "invalid shasta endOfProposalFlag byte: {} (must be 0 or 1)",
-            end_of_proposal_flag
-        );
-        return None;
-    }
 
-    Some((basefee_sharing_pctg, proposal_id, end_of_proposal_flag))
+    Some((basefee_sharing_pctg, proposal_id))
 }
 
 /// Validate Shasta `extra_data` for all blocks in this proposal batch.
@@ -67,12 +58,10 @@ pub fn validate_shasta_extra_data_for_batch(input: &GuestBatchInput) -> bool {
 
     let expected_basefee_sharing_pctg = event_data.proposal.basefeeSharingPctg;
     let expected_proposal_id = input.taiko.batch_id;
-    let last_idx = input.inputs.len() - 1;
 
-    for (idx, guest_input) in input.inputs.iter().enumerate() {
+    for guest_input in input.inputs.iter() {
         let header = &guest_input.block.header;
-        let expected_end_flag = if idx == last_idx { 1 } else { 0 };
-        let Some((basefee_sharing_pctg, proposal_id, end_flag)) =
+        let Some((basefee_sharing_pctg, proposal_id)) =
             decode_shasta_extra_data(header.extra_data.as_ref())
         else {
             warn!(
@@ -96,21 +85,12 @@ pub fn validate_shasta_extra_data_for_batch(input: &GuestBatchInput) -> bool {
             );
             return false;
         }
-        if end_flag != expected_end_flag {
-            warn!(
-                "shasta extra_data endOfProposalFlag mismatch for block {}: got {}, expected {}",
-                header.number, end_flag, expected_end_flag
-            );
-            return false;
-        }
     }
 
-    // Optional: the parent of the 1st block should be the tail of the previous proposal.
-    // - parent.endOfProposalFlag == 1
-    // - parent.proposalId == currentProposalId - 1
-    let parent_header = &input.inputs[0].parent_header;
+    // Optional: the parent of the 1st block should belong to the previous proposal.
     if expected_proposal_id > 0 {
-        let Some((_, parent_proposal_id, parent_end_flag)) =
+        let parent_header = &input.inputs[0].parent_header;
+        let Some((_parent_pctg, parent_proposal_id)) =
             decode_shasta_extra_data(parent_header.extra_data.as_ref())
         else {
             warn!(
@@ -119,13 +99,6 @@ pub fn validate_shasta_extra_data_for_batch(input: &GuestBatchInput) -> bool {
             );
             return false;
         };
-        if parent_end_flag != 1 {
-            warn!(
-                "shasta parent extra_data endOfProposalFlag mismatch for parent {}: got {}, expected 1",
-                parent_header.number, parent_end_flag
-            );
-            return false;
-        }
         if parent_proposal_id != expected_proposal_id - 1 {
             warn!(
                 "shasta parent extra_data proposalId mismatch for parent {}: got {}, expected {}",
