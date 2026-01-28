@@ -294,6 +294,20 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         taiko: taiko_guest_batch_input.clone(),
     };
 
+    // Shasta-only: verify the L2 block header `extra_data` matches the proposal decoding and the request.
+    //
+    // Note: the same rule is enforced inside the guests (via `calculate_batch_blocks_final_header`),
+    // but we also fail early here for better error reporting and less wasted work.
+    if let BlockProposedFork::Shasta(_) = &mock_guest_batch_input.taiko.batch_proposed {
+        if !raiko_lib::utils::shasta_rules::validate_shasta_extra_data_for_batch(
+            &mock_guest_batch_input,
+        ) {
+            return Err(RaikoError::Preflight(
+                "invalid shasta extra_data in batch input".to_string(),
+            ));
+        }
+    }
+
     // distribute txs to each block
     let pool_txs_list: Vec<(Vec<TransactionSigned>, bool)> =
         generate_transactions_for_batch_blocks(&mock_guest_batch_input);
