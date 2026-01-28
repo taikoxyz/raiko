@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.14.0](https://github.com/taikoxyz/raiko/compare/v1.13.0...v1.14.0) (2026-01-28)
+
+
+### Features
+
+* align PROPOSAL_MAX_BLOCKS to 192 ([#660](https://github.com/taikoxyz/raiko/issues/660)) ([7d06d41](https://github.com/taikoxyz/raiko/commit/7d06d41281986b84bc993a733cd37939b149221a))
+
+
+### Bug Fixes
+
+* **shasta:** bypass anchor linkage on stalled anchors ([#657](https://github.com/taikoxyz/raiko/issues/657)) ([d624c4c](https://github.com/taikoxyz/raiko/commit/d624c4ca8910b463d20ceed76673a7746bae1a1e))
+* update ego-dev image version to v1.8.1 and update gaiko subproject commit ([#658](https://github.com/taikoxyz/raiko/issues/658)) ([87a1c86](https://github.com/taikoxyz/raiko/commit/87a1c8634d6321ddae9383ce0fa434afbcc7b21f))
+
 ## [1.13.0](https://github.com/taikoxyz/raiko/compare/v1.12.0...v1.13.0) (2026-01-16)
 
 
