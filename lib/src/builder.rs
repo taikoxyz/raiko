@@ -262,6 +262,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         };
 
         // Execute transactions
+        println!("~~~~ EthExecutorProvider Execute transactions");
         let executor = EthExecutorProvider::ethereum(reth_chain_spec.clone())
             .eth_executor(self.db.take().unwrap())
             .taiko_data(TaikoData {
