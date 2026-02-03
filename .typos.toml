@@ -1,5 +1,8 @@
-[default.extend-words]
-consts = "consts"
+[default]
+extend-words = [
+  "consts",
+]
 
-[default.extend-ignore-identifiers-re]
-"\\bconsts\\b" = "consts"
+extend-ignore-identifiers-re = [
+  "\\bconsts\\b",
+]
