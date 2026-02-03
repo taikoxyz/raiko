@@ -179,7 +179,8 @@
             "elasticity_multiplier": "0x2"
         },
         "l1_contract": {
-            "PACAYA": "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a"
+            "PACAYA": "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
+            "SHASTA": "0x0000000000000000000000000000000000000000"
         },
         "l2_contract": "0x1670000000000000000000000000000000010001",
         "rpc": "https://rpc.mainnet.taiko.xyz",
@@ -222,7 +223,8 @@
             "elasticity_multiplier": "0x2"
         },
         "l1_contract": {
-            "PACAYA": "0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9"
+            "PACAYA": "0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9",
+            "SHASTA": "0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF"
         },
         "l2_contract": "0x1670130000000000000000000000000000010001",
         "rpc": "https://rpc.hoodi.taiko.xyz",
