@@ -66,7 +66,6 @@ lazy_static = { workspace = true }
 lru = { workspace = true }
 
 [dev-dependencies]
-assert_cmd = { workspace = true }
 rstest = { workspace = true }
 ethers-core = { workspace = true }
 env_logger = { workspace = true }
