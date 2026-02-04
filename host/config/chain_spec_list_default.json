@@ -156,7 +156,7 @@
     {
         "name": "taiko_mainnet",
         "chain_id": 167000,
-        "max_spec_id": "PACAYA",
+        "max_spec_id": "SHASTA",
         "hard_forks": {
             "HEKLA": {
                 "Block": 0
@@ -179,7 +179,8 @@
             "elasticity_multiplier": "0x2"
         },
         "l1_contract": {
-            "PACAYA": "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a"
+            "PACAYA": "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
+            "SHASTA": "0x0000000000000000000000000000000000000000"
         },
         "l2_contract": "0x1670000000000000000000000000000000010001",
         "rpc": "https://rpc.mainnet.taiko.xyz",
@@ -199,7 +200,7 @@
     {
         "name": "taiko_hoodi",
         "chain_id": 167013,
-        "max_spec_id": "PACAYA",
+        "max_spec_id": "SHASTA",
         "hard_forks": {
             "HEKLA": {
                 "Block": 0
@@ -211,7 +212,7 @@
                 "Block": 0
             },
             "SHASTA": {
-                "Timestamp": 9762068932
+                "Timestamp": 1770296400
             },
             "CANCUN": "TBD"
         },
@@ -222,7 +223,8 @@
             "elasticity_multiplier": "0x2"
         },
         "l1_contract": {
-            "PACAYA": "0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9"
+            "PACAYA": "0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9",
+            "SHASTA": "0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF"
         },
         "l2_contract": "0x1670130000000000000000000000000000010001",
         "rpc": "https://rpc.hoodi.taiko.xyz",
@@ -233,6 +235,12 @@
                 "SP1": "0x3B3bb4A1Cb8B1A0D65F96a5A93415375C039Eda3",
                 "RISC0": "0xbf285Dd2FD56BF4893D207Fba4c738D1029edFfd",
                 "SGXGETH": "0xCdBB6C1751413e78a40735b6D9Aaa7D55e8c038e"
+            },
+            "SHASTA": {
+                "SGX": "0x40CcAFC1C2D14bdD70984b221F2b49af5e7C6114",
+                "RISC0": "0xfa0e7dAFe9785627df034c123A9B87497EB06b41",
+                "SP1": "0xc42Ef1A7A606162e144F696A07A7D3Ad98bF4EE7",
+                "SGXGETH": "0x8e362ef5140B0b9BE4a1141b6367784b0A7cefB1"
             }
         },
         "genesis_time": 0,
