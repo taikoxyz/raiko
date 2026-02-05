@@ -471,11 +471,16 @@ pub const SHASTA_INITIAL_BASE_FEE: u64 = 25_000_000;
 
 pub fn validate_shasta_block_base_fee(
     block_guest_inputs: &[GuestInput],
-    is_first_shasta_proposal: bool,
+    use_init_base_fee: bool,
     l2_grandparent_header: Option<&Header>,
 ) -> bool {
-    if is_first_shasta_proposal {
+    if use_init_base_fee {
         if block_guest_inputs[0].block.header.base_fee_per_gas != Some(SHASTA_INITIAL_BASE_FEE) {
+            tracing::warn!(
+                "shasta block base fee is invalid, expected: {}, found: {}",
+                SHASTA_INITIAL_BASE_FEE,
+                block_guest_inputs[0].block.header.base_fee_per_gas.unwrap()
+            );
             return false;
         }
     } else {
