@@ -120,21 +120,13 @@ pub fn generate_transactions_for_shasta_blocks(
                         ) =>
                     {
                         // parent is pacaya means this is the first shasta block
-                        let is_first_shasta_proposal = guest_batch_input
-                            .taiko
-                            .chain_spec
-                            .active_fork(
-                                guest_batch_input.inputs[0].parent_header.number,
-                                guest_batch_input.inputs[0].parent_header.timestamp,
-                            )
-                            .unwrap()
-                            == SpecId::PACAYA
-                            || guest_batch_input.inputs[0].parent_header.number == 0;
+                        let use_init_base_fee =
+                            guest_batch_input.inputs[0].parent_header.number <= 1;
 
                         //TODO: move to validate_normal_proposal_manifest
                         if !validate_shasta_block_base_fee(
                             &guest_batch_input.inputs,
-                            is_first_shasta_proposal,
+                            use_init_base_fee,
                             guest_batch_input.taiko.l2_grandparent_header.as_ref(),
                         ) {
                             warn!("shasta block base fee is invalid, need double check");
