@@ -130,15 +130,9 @@ pub fn generate_transactions_for_shasta_blocks(
                             guest_batch_input.taiko.l2_grandparent_header.as_ref(),
                         ) {
                             warn!("shasta block base fee is invalid, need double check");
-                            make_default_manifest(
-                                guest_batch_input,
-                                last_parent_block_timestamp,
-                                last_parent_block_gas_limit,
-                                last_anchor_block_number,
-                            )
-                        } else {
-                            manifest
+                            assert!(false, "shasta block base fee is invalid");
                         }
+                        manifest
                     }
                     _ => {
                         let manifest = make_default_manifest(
