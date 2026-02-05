@@ -121,7 +121,7 @@ pub fn generate_transactions_for_shasta_blocks(
                     {
                         // parent is pacaya means this is the first shasta block
                         let use_init_base_fee =
-                            guest_batch_input.inputs[0].parent_header.number <= 1;
+                            guest_batch_input.inputs[0].parent_header.number == 0;
 
                         //TODO: move to validate_normal_proposal_manifest
                         if !validate_shasta_block_base_fee(
