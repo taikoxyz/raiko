@@ -2,8 +2,11 @@
 
 use crate::{
     boundless::BoundlessProver,
-    methods::risc0_aggregation::RISC0_AGGREGATION_ELF, methods::risc0_batch::RISC0_BATCH_ELF,
-    methods::risc0_shasta_aggregation::RISC0_SHASTA_AGGREGATION_ELF,
+    methods::{
+        boundless_aggregation::BOUNDLESS_AGGREGATION_ELF as RISC0_AGGREGATION_ELF,
+        boundless_batch::BOUNDLESS_BATCH_ELF as RISC0_BATCH_ELF,
+        boundless_shasta_aggregation::BOUNDLESS_SHASTA_AGGREGATION_ELF as RISC0_SHASTA_AGGREGATION_ELF,
+    },
 };
 use alloy_primitives::{hex::ToHexExt, B256};
 use bonsai::{cancel_proof, maybe_prove};
@@ -395,7 +398,7 @@ fn build_shasta_block_inputs(
 #[cfg(test)]
 mod test {
     use super::*;
-    use methods::risc0_batch::RISC0_BATCH_ID;
+    use methods::boundless_batch::BOUNDLESS_BATCH_ID as RISC0_BATCH_ID;
     use methods::test_risc0_batch::{TEST_RISC0_BATCH_ELF, TEST_RISC0_BATCH_ID};
     use risc0_zkvm::{default_prover, ExecutorEnv};
 
