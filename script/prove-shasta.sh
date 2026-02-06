@@ -80,8 +80,8 @@ elif [ "$chain" == "holesky" ]; then
     l1_network="holesky"
 elif [ "$chain" == "taiko_mainnet" ]; then
     l1_network="ethereum"
-elif [ "$chain" == "taiko_a7" ]; then
-    l1_network="holesky"
+elif [ "$chain" == "taiko_hoodi" ]; then
+    l1_network="hoodi"
 elif [ "$chain" == "taiko_dev" ]; then
     l1_network="taiko_dev_l1"
 else

@@ -3,7 +3,7 @@ use reth_evm_ethereum::taiko::ANCHOR_V4_GAS_LIMIT;
 use reth_primitives::revm_primitives::SpecId;
 use reth_primitives::{Block, Header};
 use std::cmp::max as std_max;
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::consts::ForkCondition;
 use crate::input::{BlockProposedFork, GuestBatchInput, GuestInput};
@@ -283,9 +283,9 @@ pub fn validate_shasta_block_gas_limit(
             ),
             upper_limit,
         );
-        tracing::info!("validate_shasta_block_gas_limit, parent_gas_limit: {}, block_gas_limit: {}, upper_limit: {}, lower_limit: {}", parent_gas_limit, block_gas_limit, upper_limit, lower_limit);
 
         if block_gas_limit < lower_limit || block_gas_limit > upper_limit {
+            info!("validate_shasta_block_gas_limit, parent_gas_limit: {}, block_gas_limit: {}, upper_limit: {}, lower_limit: {}", parent_gas_limit, block_gas_limit, upper_limit, lower_limit);
             warn!("block gas limit is out of bounds, block_gas_limit: {}, lower_limit: {}, upper_limit: {}", block_gas_limit, lower_limit, upper_limit);
             return false;
         }
