@@ -5,11 +5,11 @@ ARG BUILD_FLAGS=""
 
 RUN apt-get update && \
     apt-get install -y \
-    build-essential \
-    cracklib-runtime \
-    jq \
-    clang \
-    sudo && \
+        build-essential \
+        cracklib-runtime \
+        jq \
+        clang \
+        sudo && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -17,7 +17,7 @@ WORKDIR /opt/raiko
 # build related files
 COPY makefile makefile
 COPY script script
-RUN ls -al > /tmp/file_list.txt
+RUN ls -al >/tmp/file_list.txt
 RUN cat /tmp/file_list.txt
 
 ENV TARGET=risc0
@@ -52,7 +52,7 @@ COPY reqpool reqpool
 COPY reqactor reqactor
 COPY ballot ballot
 COPY redis-derive redis-derive
-RUN ls -al > /tmp/file_list.txt
+RUN ls -al >/tmp/file_list.txt
 RUN cat /tmp/file_list.txt
 
 ENV TARGET=risc0
@@ -83,8 +83,8 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     openssl \
     curl \
-    jq \
-    && rm -rf /var/lib/apt/lists/*
+    jq && \
+    rm -rf /var/lib/apt/lists/*
 
 # copy to /etc/raiko, but if self register mode, the mounted one will overwrite it.
 COPY --from=builder /opt/raiko/host/config/config.sgx.json /etc/raiko/
@@ -96,6 +96,9 @@ COPY --from=builder /opt/raiko/host/config/chain_spec_list_devnet.json /etc/raik
 COPY --from=builder /opt/raiko/target/release/raiko-host /opt/raiko/bin/
 # Copy the .env file with RISC0 and SP1 image IDs from builder stage
 COPY --from=builder /opt/raiko/.env /opt/raiko/.env
+# Include guest ELF artifacts for SP1 and RISC0 in the final image
+COPY --from=builder /opt/raiko/provers/sp1/guest/elf /opt/raiko/provers/sp1/elf
+COPY --from=builder /opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release /opt/raiko/provers/risc0/guest/elf
 
 WORKDIR /opt/raiko/bin
 COPY ./docker/entrypoint.sh /opt/raiko/bin/
