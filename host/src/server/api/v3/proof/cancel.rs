@@ -38,7 +38,7 @@ pub async fn cancel_handler(
 
     let proof_request_opts: Vec<ProofRequestOpt> = aggregation_request.into();
 
-    let mut sub_request_keys = Vec::with_capacity(proof_request_opts.len());
+    let mut sub_single_proof_keys = Vec::with_capacity(proof_request_opts.len());
     for opt in proof_request_opts {
         let proof_request = ProofRequest::try_from(opt)?;
 
@@ -56,17 +56,18 @@ pub async fn cancel_handler(
             proof_request.proof_type,
             proof_request.prover.clone().to_string(),
         );
-        sub_request_keys.push(sub_key);
+        sub_single_proof_keys.push(sub_key);
     }
 
-    let proof_type = sub_request_keys.first().unwrap().proof_type();
-    let block_numbers = sub_request_keys
+    let proof_type = sub_single_proof_keys.first().unwrap().proof_type();
+    let block_numbers = sub_single_proof_keys
         .iter()
         .map(|key| *key.block_number())
         .collect();
     let agg_request_key = AggregationRequestKey::new(*proof_type, block_numbers);
+    
 
-    let result = crate::server::cancel_aggregation(&actor, agg_request_key, sub_request_keys).await;
+    let result = crate::server::cancel_aggregation(&actor, agg_request_key, sub_single_proof_keys).await;
     Ok(to_v2_cancel_status(result))
 }
 
