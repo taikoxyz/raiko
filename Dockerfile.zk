@@ -17,7 +17,7 @@ WORKDIR /opt/raiko
 # build related files
 COPY makefile makefile
 COPY script script
-RUN ls -al >/tmp/file_list.txt
+RUN ls -al > /tmp/file_list.txt
 RUN cat /tmp/file_list.txt
 
 ENV TARGET=risc0
@@ -52,7 +52,7 @@ COPY reqpool reqpool
 COPY reqactor reqactor
 COPY ballot ballot
 COPY redis-derive redis-derive
-RUN ls -al >/tmp/file_list.txt
+RUN ls -al > /tmp/file_list.txt
 RUN cat /tmp/file_list.txt
 
 ENV TARGET=risc0
