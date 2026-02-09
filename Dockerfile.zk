@@ -97,9 +97,9 @@ COPY --from=builder /opt/raiko/target/release/raiko-host /opt/raiko/bin/
 # Copy the .env file with RISC0 and SP1 image IDs from builder stage
 COPY --from=builder /opt/raiko/.env /opt/raiko/.env
 # Include only the runtime guest ELF artifacts for SP1 and RISC0
-COPY --from=builder /opt/raiko/provers/sp1/guest/elf/sp1-aggregation /opt/raiko/provers/sp1/guest/elf/sp1-aggregation
-COPY --from=builder /opt/raiko/provers/sp1/guest/elf/sp1-batch /opt/raiko/provers/sp1/guest/elf/sp1-batch
-COPY --from=builder /opt/raiko/provers/sp1/guest/elf/sp1-shasta-aggregation /opt/raiko/provers/sp1/guest/elf/sp1-shasta-aggregation
+COPY --from=builder /opt/raiko/provers/sp1/guest/elf/sp1-aggregation /opt/raiko/provers/sp1/elf/sp1-aggregation
+COPY --from=builder /opt/raiko/provers/sp1/guest/elf/sp1-batch /opt/raiko/provers/sp1/elf/sp1-batch
+COPY --from=builder /opt/raiko/provers/sp1/guest/elf/sp1-shasta-aggregation /opt/raiko/provers/sp1/elf/sp1-shasta-aggregation
 COPY --from=builder /opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-aggregation.bin /opt/raiko/provers/risc0/elf/boundless-aggregation.bin
 COPY --from=builder /opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-batch.bin /opt/raiko/provers/risc0/elf/boundless-batch.bin
 COPY --from=builder /opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-shasta-aggregation.bin /opt/raiko/provers/risc0/elf/boundless-shasta-aggregation.bin
