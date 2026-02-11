@@ -5,11 +5,11 @@ ARG BUILD_FLAGS=""
 
 RUN apt-get update && \
     apt-get install -y \
-    build-essential \
-    cracklib-runtime \
-    jq \
-    clang \
-    sudo && \
+        build-essential \
+        cracklib-runtime \
+        jq \
+        clang \
+        sudo && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -83,8 +83,8 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     openssl \
     curl \
-    jq \
-    && rm -rf /var/lib/apt/lists/*
+    jq && \
+    rm -rf /var/lib/apt/lists/*
 
 # copy to /etc/raiko, but if self register mode, the mounted one will overwrite it.
 COPY --from=builder /opt/raiko/host/config/config.sgx.json /etc/raiko/
@@ -96,6 +96,13 @@ COPY --from=builder /opt/raiko/host/config/chain_spec_list_devnet.json /etc/raik
 COPY --from=builder /opt/raiko/target/release/raiko-host /opt/raiko/bin/
 # Copy the .env file with RISC0 and SP1 image IDs from builder stage
 COPY --from=builder /opt/raiko/.env /opt/raiko/.env
+# Include only the runtime guest ELF artifacts for SP1 and RISC0
+COPY --from=builder /opt/raiko/provers/sp1/guest/elf/sp1-aggregation /opt/raiko/provers/sp1/elf/sp1-aggregation
+COPY --from=builder /opt/raiko/provers/sp1/guest/elf/sp1-batch /opt/raiko/provers/sp1/elf/sp1-batch
+COPY --from=builder /opt/raiko/provers/sp1/guest/elf/sp1-shasta-aggregation /opt/raiko/provers/sp1/elf/sp1-shasta-aggregation
+COPY --from=builder /opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-aggregation.bin /opt/raiko/provers/risc0/elf/boundless-aggregation.bin
+COPY --from=builder /opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-batch.bin /opt/raiko/provers/risc0/elf/boundless-batch.bin
+COPY --from=builder /opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-shasta-aggregation.bin /opt/raiko/provers/risc0/elf/boundless-shasta-aggregation.bin
 
 WORKDIR /opt/raiko/bin
 COPY ./docker/entrypoint.sh /opt/raiko/bin/

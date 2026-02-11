@@ -157,16 +157,21 @@ impl Raiko {
             self.request.proof_type, batch_input.taiko.batch_id
         );
         let pool_txs_list = generate_transactions_for_batch_blocks(&batch_input);
-        let blocks = batch_input.inputs.iter().zip(pool_txs_list).enumerate().try_fold(
-            Vec::new(),
-            |mut acc, (idx, input_and_txs)| -> RaikoResult<Vec<Block>> {
-                let (input, txs_with_flag) = input_and_txs;
-                let (pool_txs, _) = txs_with_flag;
-                let output = self.single_output_for_batch(pool_txs, input, idx == 0)?;
-                acc.push(output);
-                Ok(acc)
-            },
-        )?;
+        let blocks = batch_input
+            .inputs
+            .iter()
+            .zip(pool_txs_list)
+            .enumerate()
+            .try_fold(
+                Vec::new(),
+                |mut acc, (idx, input_and_txs)| -> RaikoResult<Vec<Block>> {
+                    let (input, txs_with_flag) = input_and_txs;
+                    let (pool_txs, _) = txs_with_flag;
+                    let output = self.single_output_for_batch(pool_txs, input, idx == 0)?;
+                    acc.push(output);
+                    Ok(acc)
+                },
+            )?;
 
         blocks.windows(2).try_for_each(|window| {
             let parent = &window[0];
@@ -461,9 +466,19 @@ mod tests {
     }
 
     fn dump_file<T: Serialize>(filename: &str, data: &T) {
-        if env::var("DUMP_FILE").unwrap_or_else(|_| "0".to_string()) == "1" {
-            let writer = std::fs::File::create(filename).expect("Unable to create file");
-            serde_json::to_writer(writer, data).expect("Unable to write data");
+        let dump_mode = env::var("DUMP_FILE").unwrap_or_else(|_| "0".to_string());
+        match dump_mode.as_str() {
+            "1" => {
+                let realname = format!("{filename}.json");
+                let writer = std::fs::File::create(&realname).expect("Unable to create file");
+                serde_json::to_writer(writer, data).expect("Unable to write data");
+            }
+            "2" => {
+                let realname = format!("{filename}.bin");
+                let mut writer = std::fs::File::create(realname).expect("Unable to create file");
+                bincode::serialize_into(&mut writer, data).expect("Unable to write bincode data");
+            }
+            _ => {}
         }
     }
 
@@ -500,13 +515,13 @@ mod tests {
             .await
             .expect("input generation failed");
 
-        dump_file(&format!("input-{}.json", proof_request.batch_id), &input);
+        dump_file(&format!("input-{}", proof_request.batch_id), &input);
 
         let output = raiko
             .get_batch_output(&input)
             .expect("output generation failed");
 
-        dump_file(&format!("output-{}.json", proof_request.batch_id), &output);
+        dump_file(&format!("output-{}", proof_request.batch_id), &output);
         raiko
             .shasta_proposal_prove(input, &output, None)
             .await
@@ -533,7 +548,7 @@ mod tests {
             proof_carry_data_vec: vec![proof.extra_data.clone().unwrap()],
         };
         dump_file(
-            &format!("agg-input-{}.json", proof_request.batch_id),
+            &format!("agg-input-{}", proof_request.batch_id),
             &guest_input,
         );
 
@@ -544,10 +559,7 @@ mod tests {
             hash: aggregate_hash,
         };
 
-        dump_file(
-            &format!("agg-output-{}.json", proof_request.batch_id),
-            &output,
-        );
+        dump_file(&format!("agg-output-{}", proof_request.batch_id), &output);
         let config = Value::default();
         aggregate_shasta_proposals(proof_type, input, &output, &config, None)
             .await
@@ -623,9 +635,9 @@ mod tests {
         let l1_chain_spec = chain_specs.get_chain_spec(&l1_network).unwrap();
         let proof_request = ProofRequest {
             block_number: 0,
-            batch_id: 3,
-            l1_inclusion_block_number: 85,
-            l2_block_numbers: vec![3],
+            batch_id: 1,
+            l1_inclusion_block_number: 2174455,
+            l2_block_numbers: vec![3951006],
             network,
             graffiti: B256::ZERO,
             prover: address!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
@@ -635,7 +647,7 @@ mod tests {
             prover_args: test_proof_params(false),
             checkpoint: None,
             cached_event_data: None,
-            last_anchor_block_number: Some(78),
+            last_anchor_block_number: Some(0),
         };
 
         let proof =
