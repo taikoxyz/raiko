@@ -246,5 +246,49 @@
         "genesis_time": 0,
         "seconds_per_slot": 1,
         "is_taiko": true
+    },
+    {
+        "name": "taiko_transition",
+        "chain_id": 167014,
+        "max_spec_id": "SHASTA",
+        "hard_forks": {
+            "HEKLA": {
+                "Block": 0
+            },
+            "ONTAKE": {
+                "Block": 0
+            },
+            "PACAYA": {
+                "Block": 0
+            },
+            "SHASTA": {
+                "Timestamp": 1770987600
+            },
+            "CANCUN": "TBD"
+        },
+        "eip_1559_constants": {
+            "base_fee_change_denominator": "0x8",
+            "base_fee_max_increase_denominator": "0x8",
+            "base_fee_max_decrease_denominator": "0x8",
+            "elasticity_multiplier": "0x2"
+        },
+        "l1_contract": {
+            "PACAYA": "0x07700C3bC1B0EE3D311E7D642d364242fd537906",
+            "SHASTA": "0x2C34D466f6f57043B534D9b24DD032e905a95f50"
+        },
+        "l2_contract": "0x1670140000000000000000000000000000010001",
+        "rpc": "http://34.59.40.60:8545",
+        "beacon_rpc": null,
+        "verifier_address_forks": {
+            "SHASTA": {
+                "SGX": "0xF6c749514c65D16b244A46A6eA4F691f15241ad3",
+                "RISC0": "0x15190EEf1934DFC909Cd8ae3479701cd644982F7",
+                "SP1": "0xe00Bd5E1c0a63be8b1385ba560f99f2A595050Ba",
+                "SGXGETH": "0xA7b19cd71553f9Cc1519963b6F98EEf3dB73d885"
+            }
+        },
+        "genesis_time": 0,
+        "seconds_per_slot": 1,
+        "is_taiko": true
     }
 ]

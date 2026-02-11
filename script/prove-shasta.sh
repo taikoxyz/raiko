@@ -2,7 +2,7 @@
 
 if [ "$#" -ne 5 ]; then
     echo "Usage: prove-shasta.sh <chain> <proof> <batch_info> <l2 block> <last l2 anchor>"
-    echo "  chain: taiko_mainnet, taiko_a7, taiko_dev"
+    echo "  chain: taiko_mainnet, taiko_a7, taiko_dev, taiko_transition"
     echo "  proof: native, risc0[-bonsai], sp1, sgx, sgxgeth"
     echo "  batch_info: \"[(batch_id, batch_proposal_height)]\""
     echo "Example:"
@@ -81,6 +81,8 @@ elif [ "$chain" == "holesky" ]; then
 elif [ "$chain" == "taiko_mainnet" ]; then
     l1_network="ethereum"
 elif [ "$chain" == "taiko_hoodi" ]; then
+    l1_network="hoodi"
+elif [ "$chain" == "taiko_transition" ]; then
     l1_network="hoodi"
 elif [ "$chain" == "taiko_dev" ]; then
     l1_network="taiko_dev_l1"
