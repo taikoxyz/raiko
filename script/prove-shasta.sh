@@ -24,7 +24,37 @@ proof="$2"
 
 # Use the third command line argument as a tuple of the batch number and l1 inclusion number
 batch_info="$3"
-l2_block_numbers="$4"
+# Function to parse "a,b" into "a,a+1,...,b"
+parse_range_to_list() {
+    local input="$1"
+    # Remove spaces if any
+    local cleaned
+    cleaned=$(echo "$input" | tr -d ' ')
+    local start end
+
+    # Split by comma
+    IFS=',' read -r start end <<< "$cleaned"
+
+    # Validate numbers
+    if ! [[ "$start" =~ ^[0-9]+$ && "$end" =~ ^[0-9]+$ && "$start" -le "$end" ]]; then
+        echo "❌ Invalid l2 block range format: expected something like 12,15" >&2
+        return 1
+    fi
+
+    local result=""
+    for ((i = start; i <= end; i++)); do
+        if [[ -n "$result" ]]; then
+            result+=","
+        fi
+        result+="$i"
+    done
+    echo "$result"
+}
+
+l2_block_numbers=$(parse_range_to_list "$4")
+if [[ $? -ne 0 ]]; then
+    exit 1
+fi
 
 batch_id=""
 height=""
