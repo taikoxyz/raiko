@@ -277,7 +277,7 @@
             "SHASTA": "0x2C34D466f6f57043B534D9b24DD032e905a95f50"
         },
         "l2_contract": "0x1670140000000000000000000000000000010001",
-        "rpc": "http://34.59.40.60:8545",
+        "rpc": "https://taiko-transition-rpc.invalid",
         "beacon_rpc": null,
         "verifier_address_forks": {
             "SHASTA": {
