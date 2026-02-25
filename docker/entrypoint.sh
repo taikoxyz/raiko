@@ -101,6 +101,10 @@ function update_docker_chain_specs() {
         update_chain_spec_json $CONFIG_FILE "taiko_mainnet" "rpc" $TAIKO_MAINNET_RPC
     fi
 
+    if [ -n "${TAIKO_TRANSITION_RPC}" ]; then
+        update_chain_spec_json $CONFIG_FILE "taiko_transition" "rpc" $TAIKO_TRANSITION_RPC
+    fi
+
     if [ -n "${HOODI_RPC}" ]; then
         update_chain_spec_json $CONFIG_FILE "hoodi" "rpc" $HOODI_RPC
     fi
