@@ -377,6 +377,7 @@ const MAX_GAS_TARGET_TARGET_PERCENTAGE: u64 = 95;
 
 /// Calculates the next base fee for Shasta blocks according to EIP-4396 logic.
 /// Returns the next base fee given the parent block gas/fee parameters and protocol config.
+/// The calculated value is clamped using the chain-specific minimum (see `min_base_fee_for_shasta_chain`).
 fn calc_next_shasta_base_fee(
     parent_gas_limit: u64,
     parent_gas_used: u64,
@@ -384,6 +385,7 @@ fn calc_next_shasta_base_fee(
     parent_block_time: u64,
     elasticity_multiplier: u64,
     base_fee_change_denominator: u64,
+    min_base_fee: u64,
 ) -> u64 {
     // Calculate parentGasTarget = parent.GasLimit / elasticity_multiplier
     let parent_gas_target = parent_gas_limit / elasticity_multiplier;
@@ -404,7 +406,7 @@ fn calc_next_shasta_base_fee(
 
     // If the parent gasUsed is the same as the adjusted target, the baseFee remains unchanged.
     if parent_gas_used == parent_adjusted_gas_target {
-        return clamp_shasta_base_fee(parent_base_fee);
+        return clamp_shasta_base_fee_with_min(parent_base_fee, min_base_fee);
     }
 
     if parent_gas_used > parent_adjusted_gas_target {
@@ -419,9 +421,12 @@ fn calc_next_shasta_base_fee(
             .unwrap_or(0);
 
         if adjustment < 1 {
-            return clamp_shasta_base_fee(parent_base_fee.saturating_add(1));
+            return clamp_shasta_base_fee_with_min(
+                parent_base_fee.saturating_add(1),
+                min_base_fee,
+            );
         }
-        clamp_shasta_base_fee(parent_base_fee.saturating_add(adjustment))
+        clamp_shasta_base_fee_with_min(parent_base_fee.saturating_add(adjustment), min_base_fee)
     } else {
         // Otherwise if the parent block used less gas than its target, the baseFee should decrease.
         // max(0, parentBaseFee * gasUsedDelta / parentGasTarget / baseFeeChangeDenominator)
@@ -440,19 +445,33 @@ fn calc_next_shasta_base_fee(
         } else {
             base_fee
         };
-        clamp_shasta_base_fee(base_fee)
+        clamp_shasta_base_fee_with_min(base_fee, min_base_fee)
     }
 }
 
-/// Minimum allowed base fee for Shasta blocks (0.005 Gwei)
+/// Minimum allowed base fee for Shasta blocks on non-mainnet chains (0.005 Gwei)
 pub const MIN_BASE_FEE_SHASTA: u64 = 5_000_000;
+/// Minimum allowed base fee for Shasta blocks on Taiko mainnet (0.01 Gwei)
+pub const MAINNET_MIN_BASE_FEE_SHASTA: u64 = 10_000_000;
 /// Maximum allowed base fee for Shasta blocks (1 Gwei)
 pub const MAX_BASE_FEE_SHASTA: u64 = 1_000_000_000;
+/// Taiko mainnet chain ID (EIP-4396 min base fee uses MAINNET_MIN_BASE_FEE_SHASTA)
+pub const TAIKO_MAINNET_CHAIN_ID: u64 = 167000;
 
-/// Clamp the provided base fee to the min and max allowed for Shasta blocks.
-pub fn clamp_shasta_base_fee(base_fee: u64) -> u64 {
-    if base_fee < MIN_BASE_FEE_SHASTA {
+/// Returns the minimum base fee (inclusive) for Shasta blocks for the given chain ID.
+/// Mainnet uses 0.01 gwei; all other chains use 0.005 gwei.
+pub fn min_base_fee_for_shasta_chain(chain_id: u64) -> u64 {
+    if chain_id == TAIKO_MAINNET_CHAIN_ID {
+        MAINNET_MIN_BASE_FEE_SHASTA
+    } else {
         MIN_BASE_FEE_SHASTA
+    }
+}
+
+/// Clamp the provided base fee to the given minimum and max allowed for Shasta blocks.
+fn clamp_shasta_base_fee_with_min(base_fee: u64, min_base_fee: u64) -> u64 {
+    if base_fee < min_base_fee {
+        min_base_fee
     } else if base_fee > MAX_BASE_FEE_SHASTA {
         MAX_BASE_FEE_SHASTA
     } else {
@@ -473,6 +492,7 @@ pub fn validate_shasta_block_base_fee(
     block_guest_inputs: &[GuestInput],
     use_init_base_fee: bool,
     l2_grandparent_header: Option<&Header>,
+    min_base_fee: u64,
 ) -> bool {
     if use_init_base_fee {
         if block_guest_inputs[0].block.header.base_fee_per_gas != Some(SHASTA_INITIAL_BASE_FEE) {
@@ -505,6 +525,7 @@ pub fn validate_shasta_block_base_fee(
             parent_block_time,
             DEFAULT_ELASTICITY_MULTIPLIER,
             DEFAULT_BASE_FEE_CHANGE_DENOMINATOR,
+            min_base_fee,
         );
         if first_block_base_fee != block_guest_inputs[0].block.header.base_fee_per_gas.unwrap() {
             warn!(
@@ -545,6 +566,7 @@ pub fn validate_shasta_block_base_fee(
             parent_block_time,
             DEFAULT_ELASTICITY_MULTIPLIER,
             DEFAULT_BASE_FEE_CHANGE_DENOMINATOR,
+            min_base_fee,
         );
 
         if expected_base_fee != actual_base_fee {
@@ -593,6 +615,7 @@ mod tests {
             parent_block_time,
             elasticity_multiplier,
             base_fee_change_denominator,
+            super::MIN_BASE_FEE_SHASTA,
         );
 
         // Verify the result is within valid bounds
