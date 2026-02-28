@@ -29,10 +29,13 @@ fn make_default_manifest(
         Some(ForkCondition::Timestamp(timestamp)) => *timestamp,
         _ => unreachable!("shasta fork should be a timestamp fork"),
     };
+    let timestamp_max_offset =
+        timestamp_max_offset_for_chain(guest_batch_input.taiko.chain_spec.chain_id());
     let timestamp = clamp_timestamp_lower_bound(
         last_parent_block_timestamp,
         proposal_timestamp,
         shasta_fork_timestamp,
+        timestamp_max_offset,
     );
     let coinbase = taiko_guest_batch_input.batch_proposed.proposer();
     let anchor_block_number = last_anchor_block_number;

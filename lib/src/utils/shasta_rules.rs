@@ -13,7 +13,20 @@ use crate::no_std::*;
 
 pub const BOND_PROCESSING_DELAY: usize = 6;
 
+/// Maximum anchor block number offset for Hoodi and non-mainnet chains.
 pub const ANCHOR_MAX_OFFSET: usize = 128;
+/// Maximum anchor block number offset for Taiko mainnet.
+pub const MAINNET_ANCHOR_MAX_OFFSET: usize = 512;
+
+/// Returns the maximum anchor block number offset for the given chain ID.
+/// Mainnet uses 512; Hoodi and other chains use 128.
+pub fn anchor_max_offset_for_chain(chain_id: u64) -> usize {
+    if chain_id == TAIKO_MAINNET_CHAIN_ID {
+        MAINNET_ANCHOR_MAX_OFFSET
+    } else {
+        ANCHOR_MAX_OFFSET
+    }
+}
 
 /// Decode Shasta `extra_data` layout (per `Derivation.md`):
 /// - byte[0]    => basefeeSharingPctg (uint8)
@@ -117,10 +130,11 @@ pub(crate) fn valid_anchor_in_normal_proposal(
     blocks: &[ProtocolBlockManifest],
     last_anchor_block_number: u64,
     l1_origin_block_number: u64,
+    anchor_max_offset: u64,
 ) -> bool {
-    // Check if anchor is within valid range [l1_header_number - ANCHOR_MAX_OFFSET, l1_header_number]
+    // Check if anchor is within valid range [l1_header_number - anchor_max_offset, l1_header_number]
     // Use saturating_sub to avoid underflow when l1_header_number is small
-    let min_anchor = l1_origin_block_number.saturating_sub(ANCHOR_MAX_OFFSET as u64);
+    let min_anchor = l1_origin_block_number.saturating_sub(anchor_max_offset);
     let max_anchor = l1_origin_block_number;
 
     // Perform all checks in a single loop:
@@ -190,10 +204,13 @@ pub(crate) fn validate_normal_proposal_manifest(
         return false;
     }
 
+    let chain_id = input.taiko.chain_spec.chain_id();
+    let anchor_max_offset = anchor_max_offset_for_chain(chain_id) as u64;
     if !valid_anchor_in_normal_proposal(
         &manifest.blocks,
         last_anchor_block_number,
         input.taiko.batch_proposed.proposal_block_number() - 1,
+        anchor_max_offset,
     ) {
         warn!(
             "valid_anchor_in_proposal failed, last_anchor_block_number: {}",
@@ -294,8 +311,20 @@ pub fn validate_shasta_block_gas_limit(
     true
 }
 
-// Offset constant for lower bound, placeholder, adjust as needed for protocol.
-const TIMESTAMP_MAX_OFFSET: u64 = 12 * 128;
+/// Timestamp max offset for Hoodi and non-mainnet (12 * 128).
+const HOODI_TIMESTAMP_MAX_OFFSET: u64 = 12 * 128;
+/// Timestamp max offset for Taiko mainnet (12 * 512).
+const MAINNET_TIMESTAMP_MAX_OFFSET: u64 = 12 * 512;
+
+/// Returns the maximum timestamp offset from proposal origin for the given chain ID.
+/// Mainnet uses 6144; Hoodi and other chains use 1536.
+pub fn timestamp_max_offset_for_chain(chain_id: u64) -> u64 {
+    if chain_id == TAIKO_MAINNET_CHAIN_ID {
+        MAINNET_TIMESTAMP_MAX_OFFSET
+    } else {
+        HOODI_TIMESTAMP_MAX_OFFSET
+    }
+}
 
 /// validate timestamp for each block
 // #### `timestamp` Validation
@@ -310,6 +339,8 @@ pub fn validate_shasta_manifest_block_timesatmp(
 ) -> bool {
     let block_guest_inputs = &batch_guest_inputs.inputs;
     let proposal_timestamp = batch_guest_inputs.taiko.batch_proposed.proposal_timestamp();
+    let timestamp_max_offset =
+        timestamp_max_offset_for_chain(batch_guest_inputs.taiko.chain_spec.chain_id());
     let shasta_fork_timestamp = match batch_guest_inputs
         .taiko
         .chain_spec
@@ -332,12 +363,12 @@ pub fn validate_shasta_manifest_block_timesatmp(
         }
 
         // Lower bound validation:
-        // Calculate lowerBound = max(parent.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)
+        // Calculate lowerBound = max(parent.timestamp + 1, proposal.timestamp - timestamp_max_offset)
         // Then validate: block.timestamp >= lowerBound
         let lower_bound = std_max(
             std_max(
                 parent_timestamp + 1,
-                proposal_timestamp.saturating_sub(TIMESTAMP_MAX_OFFSET),
+                proposal_timestamp.saturating_sub(timestamp_max_offset),
             ),
             shasta_fork_timestamp,
         );
@@ -357,11 +388,12 @@ pub(crate) fn clamp_timestamp_lower_bound(
     parent_block_ts: u64,
     proposal_ts: u64,
     shasta_fork_timestamp: u64,
+    timestamp_max_offset: u64,
 ) -> u64 {
-    tracing::info!("clamp_timestamp_lower_bound, parent_block_ts: {}, proposal_ts: {}, shasta_fork_timestamp: {}", parent_block_ts, proposal_ts, shasta_fork_timestamp);
+    tracing::info!("clamp_timestamp_lower_bound, parent_block_ts: {}, proposal_ts: {}, shasta_fork_timestamp: {}, timestamp_max_offset: {}", parent_block_ts, proposal_ts, shasta_fork_timestamp, timestamp_max_offset);
     let lower_bound = std_max(
         parent_block_ts + 1,
-        proposal_ts.saturating_sub(TIMESTAMP_MAX_OFFSET),
+        proposal_ts.saturating_sub(timestamp_max_offset),
     );
     if lower_bound < shasta_fork_timestamp {
         shasta_fork_timestamp
@@ -649,7 +681,8 @@ mod tests {
         assert!(valid_anchor_in_normal_proposal(
             &blocks,
             last_anchor_block_number,
-            l1_header_number
+            l1_header_number,
+            super::ANCHOR_MAX_OFFSET as u64,
         ));
     }
 
@@ -664,7 +697,8 @@ mod tests {
         assert!(!valid_anchor_in_normal_proposal(
             &blocks,
             last_anchor_block_number,
-            l1_header_number
+            l1_header_number,
+            super::ANCHOR_MAX_OFFSET as u64,
         ));
     }
 
