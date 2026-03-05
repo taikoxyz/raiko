@@ -1,3 +1,62 @@
+# zk:v1.15.0
+
+## image
+
+us-docker.pkg.dev/evmchain/images/raiko-zk:1.15.0
+
+## risc0
+
+boundless elf image id: 33ac277d74776b9199ffe913addadb6a49fafb07153a7faa874593629377d513
+"/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-aggregation"
+boundless elf image id: 7280f15f5c0a9b1354907d862c0b03caf3f33d65bb83e6db56bbd3cf0dd79fd2
+"/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-batch"
+boundless elf image id: 26abb0237d10e891443e2a76bd3c1f6704c1ad03c07cb2165f4afcfc64b3cee7
+"/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-shasta-aggregation"
+
+## sp1
+
+"/opt/raiko/provers/sp1/guest/target/riscv32im-succinct-zkvm-elf/release/sp1-aggregation"
+sp1 elf vk bn256 is: 0x00711b07e4437d1fba25154fc88c2766496448350d0e0a40883163651c6222c1
+sp1 elf vk hash_bytes is: 388d83f210df47ee44a2a9f908c276644b2241a8343829021062c6ca1c6222c1
+"/opt/raiko/provers/sp1/guest/target/riscv32im-succinct-zkvm-elf/release/sp1-batch"
+sp1 elf vk bn256 is: 0x00d9389b2b0ce723bb0261ba1e77fed3fc97c3a217b09b6689bcd0ffd801657b
+sp1 elf vk hash_bytes is: 6c9c4d954339c8ee604c3743677fed3f64be1d105ec26d9a1379a1ff5801657b
+"/opt/raiko/provers/sp1/guest/target/riscv32im-succinct-zkvm-elf/release/sp1-shasta-aggregation"
+sp1 elf vk bn256 is: 0x008e24716118be9594358d8882d93d5425f0827cf0a7a4fd0ea2fc4414debfe7
+sp1 elf vk hash_bytes is: 471238b0462fa56506b1b1102d93d5422f8413e7429e93f41d45f88814debfe7
+
+# v1.15.0
+
+## image
+
+us-docker.pkg.dev/evmchain/images/raiko:1.15.0
+
+## gaiko
+
+- mrenclave: b99907155a0078cfe3e4927692f982a052b1b2ca005fccaebf08f3c8dfe21eb4
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+## raiko
+
+- mrenclave: e4a6a74d2a7b86a14cb8739e33268d5eeef6cd7e6a14cc642d6f8764820169be
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+# v1.15.0-edmm
+
+## image
+
+us-docker.pkg.dev/evmchain/images/raiko:1.15.0-edmm
+
+## gaiko
+
+- mrenclave: b99907155a0078cfe3e4927692f982a052b1b2ca005fccaebf08f3c8dfe21eb4
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+## raiko
+
+- mrenclave: 775e1a01db59b5e892ef3cd883036d6e9630af71bc3b3550be8999eaefd339c1
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
 # zk:v1.14.0
 
 ## image
