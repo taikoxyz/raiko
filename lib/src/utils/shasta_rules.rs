@@ -13,7 +13,20 @@ use crate::no_std::*;
 
 pub const BOND_PROCESSING_DELAY: usize = 6;
 
+/// Maximum anchor block number offset for Hoodi and non-mainnet chains.
 pub const ANCHOR_MAX_OFFSET: usize = 128;
+/// Maximum anchor block number offset for Taiko mainnet.
+pub const MAINNET_ANCHOR_MAX_OFFSET: usize = 512;
+
+/// Returns the maximum anchor block number offset for the given chain ID.
+/// Mainnet uses 512; Hoodi and other chains use 128.
+pub fn anchor_max_offset_for_chain(chain_id: u64) -> usize {
+    if chain_id == TAIKO_MAINNET_CHAIN_ID {
+        MAINNET_ANCHOR_MAX_OFFSET
+    } else {
+        ANCHOR_MAX_OFFSET
+    }
+}
 
 /// Decode Shasta `extra_data` layout (per `Derivation.md`):
 /// - byte[0]    => basefeeSharingPctg (uint8)
@@ -117,10 +130,11 @@ pub(crate) fn valid_anchor_in_normal_proposal(
     blocks: &[ProtocolBlockManifest],
     last_anchor_block_number: u64,
     l1_origin_block_number: u64,
+    anchor_max_offset: u64,
 ) -> bool {
-    // Check if anchor is within valid range [l1_header_number - ANCHOR_MAX_OFFSET, l1_header_number]
+    // Check if anchor is within valid range [l1_header_number - anchor_max_offset, l1_header_number]
     // Use saturating_sub to avoid underflow when l1_header_number is small
-    let min_anchor = l1_origin_block_number.saturating_sub(ANCHOR_MAX_OFFSET as u64);
+    let min_anchor = l1_origin_block_number.saturating_sub(anchor_max_offset);
     let max_anchor = l1_origin_block_number;
 
     // Perform all checks in a single loop:
@@ -190,10 +204,13 @@ pub(crate) fn validate_normal_proposal_manifest(
         return false;
     }
 
+    let chain_id = input.taiko.chain_spec.chain_id();
+    let anchor_max_offset = anchor_max_offset_for_chain(chain_id) as u64;
     if !valid_anchor_in_normal_proposal(
         &manifest.blocks,
         last_anchor_block_number,
         input.taiko.batch_proposed.proposal_block_number() - 1,
+        anchor_max_offset,
     ) {
         warn!(
             "valid_anchor_in_proposal failed, last_anchor_block_number: {}",
@@ -294,8 +311,20 @@ pub fn validate_shasta_block_gas_limit(
     true
 }
 
-// Offset constant for lower bound, placeholder, adjust as needed for protocol.
-const TIMESTAMP_MAX_OFFSET: u64 = 12 * 128;
+/// Timestamp max offset for Hoodi and non-mainnet (12 * 128).
+const HOODI_TIMESTAMP_MAX_OFFSET: u64 = 12 * 128;
+/// Timestamp max offset for Taiko mainnet (12 * 512).
+const MAINNET_TIMESTAMP_MAX_OFFSET: u64 = 12 * 512;
+
+/// Returns the maximum timestamp offset from proposal origin for the given chain ID.
+/// Mainnet uses 6144; Hoodi and other chains use 1536.
+pub fn timestamp_max_offset_for_chain(chain_id: u64) -> u64 {
+    if chain_id == TAIKO_MAINNET_CHAIN_ID {
+        MAINNET_TIMESTAMP_MAX_OFFSET
+    } else {
+        HOODI_TIMESTAMP_MAX_OFFSET
+    }
+}
 
 /// validate timestamp for each block
 // #### `timestamp` Validation
@@ -310,6 +339,8 @@ pub fn validate_shasta_manifest_block_timesatmp(
 ) -> bool {
     let block_guest_inputs = &batch_guest_inputs.inputs;
     let proposal_timestamp = batch_guest_inputs.taiko.batch_proposed.proposal_timestamp();
+    let timestamp_max_offset =
+        timestamp_max_offset_for_chain(batch_guest_inputs.taiko.chain_spec.chain_id());
     let shasta_fork_timestamp = match batch_guest_inputs
         .taiko
         .chain_spec
@@ -332,12 +363,12 @@ pub fn validate_shasta_manifest_block_timesatmp(
         }
 
         // Lower bound validation:
-        // Calculate lowerBound = max(parent.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)
+        // Calculate lowerBound = max(parent.timestamp + 1, proposal.timestamp - timestamp_max_offset)
         // Then validate: block.timestamp >= lowerBound
         let lower_bound = std_max(
             std_max(
                 parent_timestamp + 1,
-                proposal_timestamp.saturating_sub(TIMESTAMP_MAX_OFFSET),
+                proposal_timestamp.saturating_sub(timestamp_max_offset),
             ),
             shasta_fork_timestamp,
         );
@@ -357,11 +388,12 @@ pub(crate) fn clamp_timestamp_lower_bound(
     parent_block_ts: u64,
     proposal_ts: u64,
     shasta_fork_timestamp: u64,
+    timestamp_max_offset: u64,
 ) -> u64 {
-    tracing::info!("clamp_timestamp_lower_bound, parent_block_ts: {}, proposal_ts: {}, shasta_fork_timestamp: {}", parent_block_ts, proposal_ts, shasta_fork_timestamp);
+    tracing::info!("clamp_timestamp_lower_bound, parent_block_ts: {}, proposal_ts: {}, shasta_fork_timestamp: {}, timestamp_max_offset: {}", parent_block_ts, proposal_ts, shasta_fork_timestamp, timestamp_max_offset);
     let lower_bound = std_max(
         parent_block_ts + 1,
-        proposal_ts.saturating_sub(TIMESTAMP_MAX_OFFSET),
+        proposal_ts.saturating_sub(timestamp_max_offset),
     );
     if lower_bound < shasta_fork_timestamp {
         shasta_fork_timestamp
@@ -377,6 +409,7 @@ const MAX_GAS_TARGET_TARGET_PERCENTAGE: u64 = 95;
 
 /// Calculates the next base fee for Shasta blocks according to EIP-4396 logic.
 /// Returns the next base fee given the parent block gas/fee parameters and protocol config.
+/// The calculated value is clamped using the chain-specific minimum (see `min_base_fee_for_shasta_chain`).
 fn calc_next_shasta_base_fee(
     parent_gas_limit: u64,
     parent_gas_used: u64,
@@ -384,6 +417,7 @@ fn calc_next_shasta_base_fee(
     parent_block_time: u64,
     elasticity_multiplier: u64,
     base_fee_change_denominator: u64,
+    min_base_fee: u64,
 ) -> u64 {
     // Calculate parentGasTarget = parent.GasLimit / elasticity_multiplier
     let parent_gas_target = parent_gas_limit / elasticity_multiplier;
@@ -404,7 +438,7 @@ fn calc_next_shasta_base_fee(
 
     // If the parent gasUsed is the same as the adjusted target, the baseFee remains unchanged.
     if parent_gas_used == parent_adjusted_gas_target {
-        return clamp_shasta_base_fee(parent_base_fee);
+        return clamp_shasta_base_fee_with_min(parent_base_fee, min_base_fee);
     }
 
     if parent_gas_used > parent_adjusted_gas_target {
@@ -419,9 +453,12 @@ fn calc_next_shasta_base_fee(
             .unwrap_or(0);
 
         if adjustment < 1 {
-            return clamp_shasta_base_fee(parent_base_fee.saturating_add(1));
+            return clamp_shasta_base_fee_with_min(
+                parent_base_fee.saturating_add(1),
+                min_base_fee,
+            );
         }
-        clamp_shasta_base_fee(parent_base_fee.saturating_add(adjustment))
+        clamp_shasta_base_fee_with_min(parent_base_fee.saturating_add(adjustment), min_base_fee)
     } else {
         // Otherwise if the parent block used less gas than its target, the baseFee should decrease.
         // max(0, parentBaseFee * gasUsedDelta / parentGasTarget / baseFeeChangeDenominator)
@@ -440,19 +477,36 @@ fn calc_next_shasta_base_fee(
         } else {
             base_fee
         };
-        clamp_shasta_base_fee(base_fee)
+        clamp_shasta_base_fee_with_min(base_fee, min_base_fee)
     }
 }
 
-/// Minimum allowed base fee for Shasta blocks (0.005 Gwei)
+/// Minimum allowed base fee for Shasta blocks on non-mainnet chains (0.005 Gwei)
 pub const MIN_BASE_FEE_SHASTA: u64 = 5_000_000;
+/// Minimum allowed base fee for Shasta blocks on Taiko mainnet (0.01 Gwei)
+pub const MAINNET_MIN_BASE_FEE_SHASTA: u64 = 10_000_000;
 /// Maximum allowed base fee for Shasta blocks (1 Gwei)
 pub const MAX_BASE_FEE_SHASTA: u64 = 1_000_000_000;
+/// Taiko mainnet chain ID (EIP-4396 min base fee uses MAINNET_MIN_BASE_FEE_SHASTA)
+pub const TAIKO_MAINNET_CHAIN_ID: u64 = 167000;
 
-/// Clamp the provided base fee to the min and max allowed for Shasta blocks.
-pub fn clamp_shasta_base_fee(base_fee: u64) -> u64 {
-    if base_fee < MIN_BASE_FEE_SHASTA {
+/// Returns the minimum base fee (inclusive) for Shasta blocks for the given chain ID.
+/// Mainnet uses 0.01 gwei; all other chains use 0.005 gwei.
+pub fn min_base_fee_for_shasta_chain(chain_id: u64) -> u64 {
+    if chain_id == TAIKO_MAINNET_CHAIN_ID {
+        MAINNET_MIN_BASE_FEE_SHASTA
+    } else {
         MIN_BASE_FEE_SHASTA
+    }
+}
+
+/// Clamp the provided base fee to the given minimum and max allowed for Shasta blocks.
+fn clamp_shasta_base_fee_with_min(base_fee: u64, min_base_fee: u64) -> u64 {
+    // Ensure the effective minimum base fee does not exceed the maximum allowed.
+    let effective_min_base_fee = min(min_base_fee, MAX_BASE_FEE_SHASTA);
+
+    if base_fee < effective_min_base_fee {
+        effective_min_base_fee
     } else if base_fee > MAX_BASE_FEE_SHASTA {
         MAX_BASE_FEE_SHASTA
     } else {
@@ -473,6 +527,7 @@ pub fn validate_shasta_block_base_fee(
     block_guest_inputs: &[GuestInput],
     use_init_base_fee: bool,
     l2_grandparent_header: Option<&Header>,
+    min_base_fee: u64,
 ) -> bool {
     if use_init_base_fee {
         if block_guest_inputs[0].block.header.base_fee_per_gas != Some(SHASTA_INITIAL_BASE_FEE) {
@@ -505,6 +560,7 @@ pub fn validate_shasta_block_base_fee(
             parent_block_time,
             DEFAULT_ELASTICITY_MULTIPLIER,
             DEFAULT_BASE_FEE_CHANGE_DENOMINATOR,
+            min_base_fee,
         );
         if first_block_base_fee != block_guest_inputs[0].block.header.base_fee_per_gas.unwrap() {
             warn!(
@@ -545,6 +601,7 @@ pub fn validate_shasta_block_base_fee(
             parent_block_time,
             DEFAULT_ELASTICITY_MULTIPLIER,
             DEFAULT_BASE_FEE_CHANGE_DENOMINATOR,
+            min_base_fee,
         );
 
         if expected_base_fee != actual_base_fee {
@@ -593,6 +650,7 @@ mod tests {
             parent_block_time,
             elasticity_multiplier,
             base_fee_change_denominator,
+            super::MIN_BASE_FEE_SHASTA,
         );
 
         // Verify the result is within valid bounds
@@ -623,7 +681,8 @@ mod tests {
         assert!(valid_anchor_in_normal_proposal(
             &blocks,
             last_anchor_block_number,
-            l1_header_number
+            l1_header_number,
+            super::ANCHOR_MAX_OFFSET as u64,
         ));
     }
 
@@ -638,7 +697,8 @@ mod tests {
         assert!(!valid_anchor_in_normal_proposal(
             &blocks,
             last_anchor_block_number,
-            l1_header_number
+            l1_header_number,
+            super::ANCHOR_MAX_OFFSET as u64,
         ));
     }
 

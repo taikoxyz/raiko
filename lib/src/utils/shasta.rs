@@ -29,10 +29,13 @@ fn make_default_manifest(
         Some(ForkCondition::Timestamp(timestamp)) => *timestamp,
         _ => unreachable!("shasta fork should be a timestamp fork"),
     };
+    let timestamp_max_offset =
+        timestamp_max_offset_for_chain(guest_batch_input.taiko.chain_spec.chain_id());
     let timestamp = clamp_timestamp_lower_bound(
         last_parent_block_timestamp,
         proposal_timestamp,
         shasta_fork_timestamp,
+        timestamp_max_offset,
     );
     let coinbase = taiko_guest_batch_input.batch_proposed.proposer();
     let anchor_block_number = last_anchor_block_number;
@@ -123,11 +126,15 @@ pub fn generate_transactions_for_shasta_blocks(
                         let use_init_base_fee =
                             guest_batch_input.inputs[0].parent_header.number == 0;
 
+                        let min_base_fee = min_base_fee_for_shasta_chain(
+                            guest_batch_input.taiko.chain_spec.chain_id(),
+                        );
                         //TODO: move to validate_normal_proposal_manifest
                         if !validate_shasta_block_base_fee(
                             &guest_batch_input.inputs,
                             use_init_base_fee,
                             guest_batch_input.taiko.l2_grandparent_header.as_ref(),
+                            min_base_fee,
                         ) {
                             warn!("shasta block base fee is invalid, need double check");
                             assert!(false, "shasta block base fee is invalid");
