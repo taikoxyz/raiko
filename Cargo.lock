@@ -6752,6 +6752,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "raiko-gateway"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "clap 4.5.48",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tower 0.5.2",
+ "tracing",
+ "tracing-subscriber 0.3.20",
+]
+
+[[package]]
 name = "raiko-host"
 version = "0.1.0"
 dependencies = [

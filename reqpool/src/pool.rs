@@ -8,12 +8,19 @@ use raiko_redis_derive::RedisValue;
 #[allow(unused_imports)]
 use redis::{Client, Commands, RedisResult};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
+};
+
+static LOCAL_BACKEND_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone)]
 pub struct Pool {
     client: Client,
     config: RedisPoolConfig,
+    local_backend_namespace: String,
 }
 
 impl Pool {
@@ -28,8 +35,7 @@ impl Pool {
             entity: request_entity,
             status,
         };
-        self.conn()
-            .map_err(|e| e.to_string())?
+        self.backend_for_key(&request_key)?
             .set_ex(
                 request_key,
                 request_entity_and_status,
@@ -41,24 +47,34 @@ impl Pool {
 
     pub fn remove(&mut self, request_key: &RequestKey) -> Result<usize, String> {
         tracing::info!("RedisPool.remove: {request_key}");
-        let result: usize = self
-            .conn()
-            .map_err(|e| e.to_string())?
-            .del(request_key)
-            .map_err(|e| e.to_string())?;
-        Ok(result)
+        if matches!(request_key, RequestKey::ShastaGuestInput(_)) {
+            let local_result = self.local_conn().del(request_key).map_err(|e| e.to_string())?;
+            let shared_result = self.conn().map_err(|e| e.to_string())?.del(request_key).map_err(|e| e.to_string())?;
+            Ok(local_result + shared_result)
+        } else {
+            let result: usize = self
+                .backend_for_key(request_key)?
+                .del(request_key)
+                .map_err(|e| e.to_string())?;
+            Ok(result)
+        }
     }
 
     pub fn get(
         &mut self,
         request_key: &RequestKey,
     ) -> Result<Option<(RequestEntity, StatusWithContext)>, String> {
-        let result: RedisResult<RequestEntityAndStatus> =
-            self.conn().map_err(|e| e.to_string())?.get(request_key);
-        match result {
-            Ok(value) => Ok(Some(value.into())),
-            Err(e) if e.kind() == redis::ErrorKind::TypeError => Ok(None),
-            Err(e) => Err(e.to_string()),
+        if matches!(request_key, RequestKey::ShastaGuestInput(_)) {
+            match Self::get_from_backend(self.local_conn(), request_key)? {
+                Some(value) => Ok(Some(value)),
+                None => {
+                    let backend = self.conn().map_err(|e| e.to_string())?;
+                    Self::get_from_backend(backend, request_key)
+                }
+            }
+        } else {
+            let backend = self.backend_for_key(request_key)?;
+            Self::get_from_backend(backend, request_key)
         }
     }
 
@@ -114,11 +130,18 @@ impl Pool {
     }
 
     pub fn list(&mut self) -> Result<HashMap<RequestKey, StatusWithContext>, String> {
-        let mut conn = self.conn().map_err(|e| e.to_string())?;
-        let keys: Vec<RequestKey> = conn.keys("*").map_err(|e| e.to_string())?;
-
         let mut result = HashMap::new();
-        for key in keys {
+        let mut shared_conn = self.conn().map_err(|e| e.to_string())?;
+        let shared_keys: Vec<RequestKey> = shared_conn.keys("*").map_err(|e| e.to_string())?;
+        for key in shared_keys {
+            if let Ok(Some((_, status))) = self.get(&key) {
+                result.insert(key, status);
+            }
+        }
+
+        let mut local_conn = self.local_conn();
+        let local_keys: Vec<RequestKey> = local_conn.keys("*").map_err(|e| e.to_string())?;
+        for key in local_keys {
             if let Ok(Some((_, status))) = self.get(&key) {
                 result.insert(key, status);
             }
@@ -182,16 +205,55 @@ impl Pool {
         }
 
         let client = Client::open(config.redis_url.clone())?;
-        Ok(Self { client, config })
+        let local_backend_namespace = format!(
+            "{}#local#{}",
+            config.redis_url,
+            LOCAL_BACKEND_COUNTER.fetch_add(1, Ordering::Relaxed)
+        );
+        Ok(Self {
+            client,
+            config,
+            local_backend_namespace,
+        })
     }
 
     pub fn conn(&mut self) -> Result<Backend, redis::RedisError> {
+        self.shared_conn()
+    }
+
+    fn local_conn(&self) -> Backend {
+        Backend::Memory(MemoryBackend::new(self.local_backend_namespace.clone()))
+    }
+
+    fn shared_conn(&mut self) -> Result<Backend, redis::RedisError> {
         if self.config.enable_redis_pool {
             Ok(Backend::Redis(self.redis_conn()?))
         } else {
             Ok(Backend::Memory(MemoryBackend::new(
                 self.config.redis_url.clone(),
             )))
+        }
+    }
+
+    fn backend_for_key(&mut self, request_key: &RequestKey) -> Result<Backend, String> {
+        match request_key {
+            RequestKey::ShastaGuestInput(_) => Ok(self.local_conn()),
+            RequestKey::ShastaProof(_) | RequestKey::ShastaAggregation(_) => {
+                self.shared_conn().map_err(|e| e.to_string())
+            }
+            _ => self.shared_conn().map_err(|e| e.to_string()),
+        }
+    }
+
+    fn get_from_backend(
+        mut backend: Backend,
+        request_key: &RequestKey,
+    ) -> Result<Option<(RequestEntity, StatusWithContext)>, String> {
+        let result: RedisResult<RequestEntityAndStatus> = backend.get(request_key);
+        match result {
+            Ok(value) => Ok(Some(value.into())),
+            Err(e) if e.kind() == redis::ErrorKind::TypeError => Ok(None),
+            Err(e) => Err(e.to_string()),
         }
     }
 
@@ -253,12 +315,87 @@ impl_display_using_json_pretty!(RequestEntityAndStatus);
 
 #[cfg(test)]
 mod tests {
-    use crate::{SingleProofRequestEntity, SingleProofRequestKey};
+    use crate::{
+        AggregationRequestEntity, AggregationRequestKey, RequestEntity, ShastaInputRequestEntity,
+        ShastaInputRequestKey, ShastaProofRequestEntity, ShastaProofRequestKey,
+        SingleProofRequestEntity, SingleProofRequestKey,
+    };
 
     use super::*;
     use alloy_primitives::Address;
+    use raiko_core::interfaces::ProverSpecificOpts;
     use raiko_lib::{input::BlobProofType, primitives::B256, proof_type::ProofType};
     use std::collections::HashMap;
+
+    fn shared_memory_pool(id: &str) -> Pool {
+        Pool::open(RedisPoolConfig {
+            enable_redis_pool: false,
+            redis_url: format!("redis://{id}:6379"),
+            redis_ttl: 3600,
+        })
+        .expect("pool opens")
+    }
+
+    fn shasta_input_key() -> RequestKey {
+        RequestKey::ShastaGuestInput(ShastaInputRequestKey::new(
+            1234,
+            "ethereum".to_string(),
+            "taiko".to_string(),
+        ))
+    }
+
+    fn shasta_input_entity() -> RequestEntity {
+        RequestEntity::ShastaGuestInput(ShastaInputRequestEntity::new(
+            1234,
+            5678,
+            "taiko".to_string(),
+            "ethereum".to_string(),
+            Address::ZERO,
+            BlobProofType::ProofOfEquivalence,
+            vec![1, 2, 3],
+            None,
+            42,
+        ))
+    }
+
+    fn shasta_proof_key() -> RequestKey {
+        RequestKey::ShastaProof(ShastaProofRequestKey::new_with_input_key(
+            ShastaInputRequestKey::new(1234, "ethereum".to_string(), "taiko".to_string()),
+            ProofType::Native,
+            Address::ZERO.to_string(),
+        ))
+    }
+
+    fn shasta_proof_entity() -> RequestEntity {
+        RequestEntity::ShastaProof(ShastaProofRequestEntity::new_with_guest_input_entity(
+            ShastaInputRequestEntity::new(
+                1234,
+                5678,
+                "taiko".to_string(),
+                "ethereum".to_string(),
+                Address::ZERO,
+                BlobProofType::ProofOfEquivalence,
+                vec![1, 2, 3],
+                None,
+                42,
+            ),
+            ProofType::Native,
+            HashMap::new(),
+        ))
+    }
+
+    fn shasta_aggregation_key() -> RequestKey {
+        RequestKey::ShastaAggregation(AggregationRequestKey::new(ProofType::Native, vec![1234]))
+    }
+
+    fn shasta_aggregation_entity() -> RequestEntity {
+        RequestEntity::ShastaAggregation(AggregationRequestEntity::new(
+            vec![1234],
+            vec![],
+            ProofType::Native,
+            ProverSpecificOpts::default(),
+        ))
+    }
 
     #[ignore]
     #[test]
@@ -307,5 +444,131 @@ mod tests {
         let result = pool.list().unwrap();
         assert_eq!(result.len(), 1);
         assert!(result.contains_key(&request_key));
+    }
+
+    #[test]
+    fn test_shasta_guest_input_is_local_only_for_degraded_shared_backend() {
+        let mut pool1 = shared_memory_pool("test_shasta_guest_input_is_local_only");
+        let mut pool2 = shared_memory_pool("test_shasta_guest_input_is_local_only");
+        let request_key = shasta_input_key();
+        let request_entity = shasta_input_entity();
+        let status = StatusWithContext::new_registered();
+
+        pool1
+            .add(request_key.clone(), request_entity.clone(), status.clone())
+            .unwrap();
+
+        assert_eq!(
+            pool1.get(&request_key).unwrap(),
+            Some((request_entity, status.clone()))
+        );
+        assert_eq!(pool2.get(&request_key).unwrap(), None);
+
+        pool1
+            .update_status(request_key.clone(), Status::WorkInProgress.into())
+            .unwrap();
+        assert_eq!(pool2.get(&request_key).unwrap(), None);
+    }
+
+    #[test]
+    fn test_shasta_proof_is_shared_for_degraded_shared_backend() {
+        let mut pool1 = shared_memory_pool("test_shasta_proof_is_shared");
+        let mut pool2 = shared_memory_pool("test_shasta_proof_is_shared");
+        let request_key = shasta_proof_key();
+        let request_entity = shasta_proof_entity();
+        let status = StatusWithContext::new_registered();
+
+        pool1
+            .add(request_key.clone(), request_entity.clone(), status.clone())
+            .unwrap();
+
+        assert_eq!(
+            pool2.get(&request_key).unwrap(),
+            Some((request_entity, status))
+        );
+
+        let old_status = pool2
+            .update_status(request_key.clone(), Status::WorkInProgress.into())
+            .unwrap();
+        assert_eq!(old_status.status(), &Status::Registered);
+
+        assert!(matches!(
+            pool1.get_status(&request_key).unwrap(),
+            Some(updated) if matches!(updated.status(), Status::WorkInProgress)
+        ));
+    }
+
+    #[test]
+    fn test_shasta_aggregation_is_shared_for_degraded_shared_backend() {
+        let mut pool1 = shared_memory_pool("test_shasta_aggregation_is_shared");
+        let mut pool2 = shared_memory_pool("test_shasta_aggregation_is_shared");
+        let request_key = shasta_aggregation_key();
+        let request_entity = shasta_aggregation_entity();
+        let status = StatusWithContext::new_registered();
+
+        pool1
+            .add(request_key.clone(), request_entity.clone(), status.clone())
+            .unwrap();
+
+        assert_eq!(pool2.get(&request_key).unwrap(), Some((request_entity, status)));
+
+        assert_eq!(pool2.remove(&request_key).unwrap(), 1);
+        assert_eq!(pool1.get(&request_key).unwrap(), None);
+    }
+
+    #[test]
+    fn test_non_shasta_keys_remain_shared_for_degraded_shared_backend() {
+        let mut pool1 = shared_memory_pool("test_non_shasta_keys_remain_shared");
+        let mut pool2 = shared_memory_pool("test_non_shasta_keys_remain_shared");
+        let request_key = RequestKey::SingleProof(SingleProofRequestKey::new(
+            1,
+            1234,
+            B256::ZERO,
+            ProofType::Native,
+            Address::ZERO.to_string(),
+        ));
+        let request_entity = RequestEntity::SingleProof(SingleProofRequestEntity::new(
+            1234,
+            5678,
+            "sepolia".to_string(),
+            "sepolia".to_string(),
+            B256::ZERO,
+            Address::ZERO,
+            ProofType::Native,
+            BlobProofType::ProofOfEquivalence,
+            HashMap::new(),
+        ));
+        let status = StatusWithContext::new_registered();
+
+        pool1
+            .add(request_key.clone(), request_entity.clone(), status.clone())
+            .unwrap();
+
+        assert_eq!(pool2.get(&request_key).unwrap(), Some((request_entity, status)));
+
+        assert_eq!(pool2.remove(&request_key).unwrap(), 1);
+        assert_eq!(pool1.get(&request_key).unwrap(), None);
+    }
+
+    #[test]
+    fn test_shasta_guest_input_reads_legacy_shared_entries_for_compatibility() {
+        let mut pool = shared_memory_pool("test_shasta_guest_input_reads_legacy_shared_entries");
+        let request_key = shasta_input_key();
+        let request_entity = shasta_input_entity();
+        let status = StatusWithContext::new_registered();
+        let legacy_value = RequestEntityAndStatus {
+            entity: request_entity.clone(),
+            status: status.clone(),
+        };
+
+        pool.conn()
+            .unwrap()
+            .set_ex(request_key.clone(), legacy_value, 3600)
+            .unwrap();
+
+        assert_eq!(pool.get(&request_key).unwrap(), Some((request_entity, status)));
+        assert!(pool.list().unwrap().contains_key(&request_key));
+        assert_eq!(pool.remove(&request_key).unwrap(), 1);
+        assert_eq!(pool.get(&request_key).unwrap(), None);
     }
 }
