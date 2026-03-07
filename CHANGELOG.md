@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.0](https://github.com/taikoxyz/raiko/compare/v1.15.0...v1.16.0) (2026-03-07)
+
+
+### Features
+
+* **raiko:** remove pacaya verifier and image registration ([#672](https://github.com/taikoxyz/raiko/issues/672)) ([7c0e162](https://github.com/taikoxyz/raiko/commit/7c0e162f9c7a252c7696a3c6f73d368f80a27c46))
+
 ## [1.15.0](https://github.com/taikoxyz/raiko/compare/v1.13.0...v1.15.0) (2026-03-05)
 
 
