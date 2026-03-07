@@ -134,6 +134,7 @@ class BatchMonitor:
             abi = json.load(f)
         l1_w3 = Web3(Web3.HTTPProvider(l1_rpc, {"timeout": 10}))
         l1_w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+        self.l1_w3 = l1_w3
         if l1_w3.is_connected():
             self.logger.info(f"Connected to l1 node {l1_rpc}")
         self.evt_contract = l1_w3.eth.contract(address=evt_address, abi=abi["abi"])
@@ -239,11 +240,13 @@ class BatchMonitor:
             # Try web3.py contract decoding first if available
             if self.l2_contract is not None:
                 try:
-                    self.logger.info(f"Attempting Web3.py decoding for tx input (length: {len(tx_input)} chars)")
+                    self.logger.debug(
+                        f"Attempting Web3.py decoding for tx input (length: {len(tx_input)} chars)"
+                    )
                     
                     # Decode the function call
                     func_obj, func_params = self.l2_contract.decode_function_input(tx_input)
-                    self.logger.info(f"Successfully decoded function: {func_obj.fn_name}")
+                    self.logger.debug(f"Successfully decoded function: {func_obj.fn_name}")
                     
                     # Check if it's anchorV4
                     if func_obj.fn_name == "anchorV4":
@@ -269,7 +272,7 @@ class BatchMonitor:
                             self.logger.debug(f"Extracted anchor_number from checkpoint attribute: {anchor_number}")
                         
                         if anchor_number is not None:
-                            self.logger.info(
+                            self.logger.debug(
                                 f"✓ Decoded via ABI: anchor_number={anchor_number}"
                             )
                             return anchor_number
@@ -378,6 +381,62 @@ class BatchMonitor:
             import traceback
             self.logger.debug(traceback.format_exc())
             return None
+
+    def format_l2_block_range(self, l2_block_numbers: list[int]) -> str:
+        if not l2_block_numbers:
+            return "(0 blocks)"
+        if len(l2_block_numbers) == 1:
+            return f"{l2_block_numbers[0]} (1 block)"
+        return (
+            f"{l2_block_numbers[0]}..{l2_block_numbers[-1]} "
+            f"({len(l2_block_numbers)} blocks)"
+        )
+
+    def format_proposal_context(
+        self,
+        *,
+        proposal_id: int,
+        l2_block_numbers: list[int],
+        l1_inclusion_block: Optional[int] = None,
+        last_anchor_block_number: Optional[int] = None,
+        current_l1_height: Optional[int] = None,
+    ) -> str:
+        parts = [
+            f"proposal {proposal_id}",
+            f"L2 {self.format_l2_block_range(l2_block_numbers)}",
+        ]
+        if l1_inclusion_block is not None:
+            parts.append(f"L1 inclusion {l1_inclusion_block}")
+        if last_anchor_block_number is not None:
+            parts.append(f"last_anchor_block_number={last_anchor_block_number}")
+        if current_l1_height is not None:
+            parts.append(f"current_l1_height={current_l1_height}")
+        return ", ".join(parts)
+
+    async def get_last_anchor_block_number(self, l2_block_numbers: list[int]) -> int:
+        if not l2_block_numbers:
+            return 0
+
+        first_block = l2_block_numbers[0]
+        if first_block == 0:
+            self.logger.info(
+                "First block is 0, no parent block available, using default last_anchor_block_number=0"
+            )
+            return 0
+
+        parent_block = first_block - 1
+        parent_anchor_info = await self.parse_l2_block_anchor_tx(parent_block)
+        if parent_anchor_info is not None:
+            last_anchor_block_number = parent_anchor_info.anchor_number
+            self.logger.info(
+                f"Found last_anchor_block_number={last_anchor_block_number} from parent block {parent_block}"
+            )
+            return last_anchor_block_number
+
+        self.logger.warning(
+            f"Could not parse parent block {parent_block}, using default last_anchor_block_number=0"
+        )
+        return 0
 
     def group_blocks_by_proposal_id(
         self, anchor_infos: list[AnchorTxInfo]
@@ -998,7 +1057,12 @@ class BatchMonitor:
             self.logger.error(f"Failed to query aggregate status: {e}")
             return RaikoResponse(status="error", message=str(e))
 
-    async def process_proposal_group(self, group: ProposalGroup, l1_inclusion_block: int):
+    async def process_proposal_group(
+        self,
+        group: ProposalGroup,
+        l1_inclusion_block: int,
+        last_anchor_block_number: int,
+    ):
         """handle new proposal group"""
         try:
             if self.watch_mode:
@@ -1006,35 +1070,15 @@ class BatchMonitor:
                 return
 
             start_time = datetime.now()
-            self.logger.info(
-                f"Starting to process proposal {group.proposal_id} (L2 blocks {group.l2_block_numbers}) @ L1 block {l1_inclusion_block} at {start_time}"
-            )
 
             with open(self.log_file, "a") as f:
                 f.write(
                     f"\nproposal {group.proposal_id} (L2 blocks {group.l2_block_numbers}) in L1 block {l1_inclusion_block} processing started at {start_time}\n"
                 )
 
-            # Get last_anchor_block_number from parent of the first block in the proposal
-            first_block = group.l2_block_numbers[0]
-            last_anchor_block_number = 0  # Default to 0 if no parent block
-            
-            if first_block > 0:
-                parent_block = first_block - 1
-                parent_anchor_info = await self.parse_l2_block_anchor_tx(parent_block)
-                if parent_anchor_info is not None:
-                    last_anchor_block_number = parent_anchor_info.anchor_number
-                    self.logger.info(
-                        f"Found last_anchor_block_number={last_anchor_block_number} from parent block {parent_block}"
-                    )
-                else:
-                    self.logger.warning(
-                        f"Could not parse parent block {parent_block}, using default last_anchor_block_number=0"
-                    )
-            else:
-                self.logger.info(
-                    f"First block is 0, no parent block available, using default last_anchor_block_number=0"
-                )
+            self.logger.info(
+                f"Starting to process {self.format_proposal_context(proposal_id=group.proposal_id, l2_block_numbers=group.l2_block_numbers, l1_inclusion_block=l1_inclusion_block, last_anchor_block_number=last_anchor_block_number)} at {start_time}"
+            )
 
             # request Raiko
             await self.submit_to_raiko(group.proposal_id, l1_inclusion_block, group.l2_block_numbers, last_anchor_block_number)
@@ -1282,9 +1326,6 @@ class BatchMonitor:
 
         async for group in self.iter_proposal_groups(true_start_block, true_end_block):
             groups_found += 1
-            self.logger.info(
-                f"Processing proposal group {group.proposal_id} with L2 blocks {group.l2_block_numbers}"
-            )
 
             # Find L1 inclusion block
             l1_inclusion_block = await self.find_l1_inclusion_block(
@@ -1299,6 +1340,12 @@ class BatchMonitor:
 
             self.logger.info(
                 f"Found L1 inclusion block {l1_inclusion_block} for proposal {group.proposal_id}"
+            )
+            last_anchor_block_number = await self.get_last_anchor_block_number(
+                group.l2_block_numbers
+            )
+            self.logger.info(
+                f"Processing {self.format_proposal_context(proposal_id=group.proposal_id, l2_block_numbers=group.l2_block_numbers, l1_inclusion_block=l1_inclusion_block, last_anchor_block_number=last_anchor_block_number)}"
             )
 
             # Get L1 block timestamp for time-based throttling
@@ -1353,13 +1400,17 @@ class BatchMonitor:
                 if self.aggregate > 0:
                     aggregate_info = f", aggregate running: {self.aggregate_running_count}"
                 self.logger.info(
-                    f"Submitting proposal {group.proposal_id} (L2 blocks {group.l2_block_numbers}) @ L1 block {l1_inclusion_block}, current running tasks: {self.running_count}{aggregate_info}"
+                    f"Submitting {self.format_proposal_context(proposal_id=group.proposal_id, l2_block_numbers=group.l2_block_numbers, l1_inclusion_block=l1_inclusion_block, last_anchor_block_number=last_anchor_block_number)}, current running tasks: {self.running_count}{aggregate_info}"
                 )
                 self.running_count += 1
                 acc_odds -= 1.0
                 # Create task and add to list
                 task = asyncio.create_task(
-                    self.process_proposal_group(group, l1_inclusion_block)
+                    self.process_proposal_group(
+                        group,
+                        l1_inclusion_block,
+                        last_anchor_block_number=last_anchor_block_number,
+                    )
                 )
                 tasks.append(task)
                 # Yield control to event loop so task can start executing
