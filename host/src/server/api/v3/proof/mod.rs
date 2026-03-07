@@ -21,7 +21,6 @@ use utoipa::OpenApi;
 
 mod aggregate;
 mod batch;
-mod batch_handler;
 mod cancel;
 mod shasta_handler;
 
@@ -128,7 +127,6 @@ pub fn create_docs() -> utoipa::openapi::OpenApi {
     [
         cancel::create_docs(),
         aggregate::create_docs(),
-        batch_handler::create_docs(),
         shasta_handler::create_docs(),
         v2::proof::report::create_docs(),
         v2::proof::list::create_docs(),
@@ -146,7 +144,6 @@ pub fn create_router() -> Router<Actor> {
         .route("/", post(proof_handler))
         .nest("/cancel", cancel::create_router())
         .nest("/aggregate", aggregate::create_router())
-        .nest("/batch", batch_handler::create_router())
         .nest("/batch/shasta", shasta_handler::create_router())
         .nest("/report", v2::proof::report::create_router())
         .nest("/list", v2::proof::list::create_router())

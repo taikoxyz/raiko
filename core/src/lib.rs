@@ -366,10 +366,10 @@ pub fn merge(a: &mut Value, b: &Value) {
 
 #[cfg(test)]
 mod tests {
-    use crate::interfaces::{aggregate_proofs, aggregate_shasta_proposals};
-    use crate::preflight::{
-        parse_l1_batch_proposal_tx_for_pacaya_fork, parse_l1_batch_proposal_tx_for_shasta_fork,
+    use crate::interfaces::{
+        aggregate_proofs, aggregate_shasta_proposals, ShastaProposalCheckpoint,
     };
+    use crate::preflight::parse_l1_batch_proposal_tx_for_shasta_fork;
     use crate::{interfaces::ProofRequest, provider::rpc::RpcBlockDataProvider, ChainSpec, Raiko};
     use alloy_primitives::Address;
     use alloy_provider::Provider;
@@ -378,7 +378,10 @@ mod tests {
     use raiko_lib::protocol_instance::shasta_pcd_aggregation_hash;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
-        input::{AggregationGuestInput, AggregationGuestOutput, BlobProofType},
+        input::{
+            AggregationGuestInput, AggregationGuestOutput, BlobProofType, GuestBatchInput,
+            GuestBatchOutput,
+        },
         primitives::B256,
         proof_type::ProofType,
         prover::Proof,
@@ -387,8 +390,6 @@ mod tests {
     use serde::Serialize;
     use serde_json::{json, Value};
     use std::{collections::HashMap, env, str::FromStr};
-    use tracing::{debug, trace};
-
     fn get_proof_type_from_env() -> ProofType {
         let proof_type = env::var("TARGET").unwrap_or("native".to_string());
         ProofType::from_str(&proof_type).unwrap()
@@ -566,60 +567,6 @@ mod tests {
             .expect("failed to generate aggregation proof")
     }
 
-    async fn batch_prove_pacaya_block(
-        l1_chain_spec: ChainSpec,
-        taiko_chain_spec: ChainSpec,
-        proof_request: ProofRequest,
-    ) -> Proof {
-        let (all_prove_blocks, _) = parse_l1_batch_proposal_tx_for_pacaya_fork(
-            &l1_chain_spec,
-            &taiko_chain_spec,
-            proof_request.l1_inclusion_block_number,
-            proof_request.batch_id,
-        )
-        .await
-        .expect("Could not parse pacaya L1 batch proposal tx");
-        // provider target blocks are all blocks in the batch and the parent block of block[0]
-        let provider_target_blocks =
-            (all_prove_blocks[0] - 1..=*all_prove_blocks.last().unwrap()).collect();
-        let provider =
-            RpcBlockDataProvider::new_batch(&taiko_chain_spec.rpc, provider_target_blocks)
-                .await
-                .expect("Could not create RpcBlockDataProvider");
-        let mut updated_proof_request = proof_request.clone();
-        updated_proof_request.l2_block_numbers = all_prove_blocks.clone();
-        let raiko = Raiko::new(
-            l1_chain_spec.clone(),
-            taiko_chain_spec.clone(),
-            updated_proof_request.clone(),
-        );
-        let input = raiko
-            .generate_batch_input(provider)
-            .await
-            .expect("input generation failed");
-        // let filename = format!(
-        //     "batch-input-{}-{}.json",
-        //     taiko_chain_spec.name, proof_request.batch_id
-        // );
-        // let writer = std::fs::File::create(&filename).expect("Unable to create file");
-        // serde_json::to_writer(writer, &input).expect("Unable to write data");
-        trace!("batch guest input: {input:?}");
-        let output = raiko
-            .get_batch_output(&input)
-            .expect("output generation failed");
-        debug!("batch guest output: {output:?}");
-        // let filename = format!(
-        //     "batch-output-{}-{}.json",
-        //     taiko_chain_spec.name, proof_request.batch_id
-        // );
-        // let writer = std::fs::File::create(&filename).expect("Unable to create file");
-        // serde_json::to_writer(writer, &output).expect("Unable to write data");
-        raiko
-            .batch_prove(input, &output, None)
-            .await
-            .expect("proof generation failed")
-    }
-
     #[ignore]
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_shasta_proposal_block_taiko_dev() {
@@ -656,83 +603,70 @@ mod tests {
         println!("aggregated shasta proof: {aggregated_proof:?}");
     }
 
-    #[ignore]
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_prove_batch_block_taiko_hoodi() {
-        env_logger::init();
-        let proof_type = get_proof_type_from_env();
-        let l1_network = "hoodi".to_string();
-        let network = "taiko_hoodi".to_string();
-        let chain_specs = SupportedChainSpecs::default();
-        let taiko_chain_spec = chain_specs.get_chain_spec(&network).unwrap();
-        let l1_chain_spec = chain_specs.get_chain_spec(&l1_network).unwrap();
-
-        let proof_request = ProofRequest {
-            block_number: 0,
-            batch_id: 5361,
-            l1_inclusion_block_number: 1584196,
-            l2_block_numbers: vec![],
-            network,
-            graffiti: B256::ZERO,
-            prover: Address::ZERO,
-            l1_network,
-            proof_type,
-            blob_proof_type: BlobProofType::ProofOfEquivalence,
-            prover_args: test_proof_params(false),
-            checkpoint: None,
-            last_anchor_block_number: None,
-            cached_event_data: None,
-        };
-        batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
-    }
-
-    #[ignore]
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_batch_prove_block_taiko_mainnet() {
-        env_logger::init();
-        let proof_type = get_proof_type_from_env();
-        let l1_network = Network::Ethereum.to_string();
-        let network = Network::TaikoMainnet.to_string();
-        // Give the CI an simpler block to test because it doesn't have enough memory.
-        // Unfortunately that also means that kzg is not getting fully verified by CI.
-        let block_number = if is_ci() {
-            800000
-        } else {
-            std::env::var("BLOCK_NUMBER")
-                .unwrap_or("800000".to_string())
-                .parse::<u64>()
-                .unwrap()
-        };
-        let taiko_chain_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&network)
-            .unwrap();
-        let l1_chain_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&l1_network)
-            .unwrap();
-
-        let proof_request = ProofRequest {
-            block_number: 0,
-            batch_id: 1,
-            l1_inclusion_block_number: 1000,
-            l2_block_numbers: vec![block_number],
-            network,
-            graffiti: B256::ZERO,
-            prover: Address::ZERO,
-            l1_network,
-            proof_type,
-            blob_proof_type: BlobProofType::ProofOfEquivalence,
-            prover_args: test_proof_params(false),
-            checkpoint: None,
-            last_anchor_block_number: None,
-            cached_event_data: None,
-        };
-        batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
-    }
-
     async fn get_recent_block_num(chain_spec: &ChainSpec) -> u64 {
         let provider = RpcBlockDataProvider::new(&chain_spec.rpc, 0).await.unwrap();
         let height = provider.provider.get_block_number().await.unwrap();
         height - 100
+    }
+
+    #[test]
+    fn test_hoodi_shasta_fixture_regression() {
+        let input_path = concat!(env!("CARGO_MANIFEST_DIR"), "/input-1126.json");
+        let output_path = concat!(env!("CARGO_MANIFEST_DIR"), "/output-1126.json");
+
+        let mut input: GuestBatchInput =
+            serde_json::from_str(&std::fs::read_to_string(input_path).expect("read input fixture"))
+                .expect("deserialize input fixture");
+        let expected_output: GuestBatchOutput = serde_json::from_str(
+            &std::fs::read_to_string(output_path).expect("read output fixture"),
+        )
+        .expect("deserialize output fixture");
+
+        let chain_specs = SupportedChainSpecs::default();
+        let taiko_chain_spec = chain_specs.get_chain_spec("taiko_hoodi").unwrap();
+        let l1_chain_spec = chain_specs.get_chain_spec("hoodi").unwrap();
+        input.taiko.chain_spec = taiko_chain_spec.clone();
+        for block_input in &mut input.inputs {
+            block_input.chain_spec = taiko_chain_spec.clone();
+        }
+
+        let proof_request = ProofRequest {
+            block_number: 0,
+            batch_id: input.taiko.batch_id,
+            l1_inclusion_block_number: input.taiko.l1_header.number + 1,
+            l2_block_numbers: input.inputs.iter().map(|item| item.block.number).collect(),
+            network: "taiko_hoodi".to_string(),
+            l1_network: "hoodi".to_string(),
+            graffiti: input.taiko.prover_data.graffiti,
+            prover: input.taiko.prover_data.actual_prover,
+            proof_type: ProofType::Native,
+            blob_proof_type: input.taiko.data_sources[0].blob_proof_type.clone(),
+            prover_args: test_proof_params(false),
+            checkpoint: input
+                .taiko
+                .prover_data
+                .checkpoint
+                .clone()
+                .map(|cp| ShastaProposalCheckpoint {
+                    block_number: cp.blockNumber,
+                    block_hash: cp.blockHash,
+                    state_root: cp.stateRoot,
+                }),
+            cached_event_data: Some(input.taiko.batch_proposed.clone()),
+            last_anchor_block_number: input.taiko.prover_data.last_anchor_block_number,
+        };
+
+        let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request);
+        let actual_output = raiko
+            .get_batch_output(&input)
+            .expect("fixture batch output generation failed");
+
+        assert_eq!(actual_output.hash, expected_output.hash);
+        assert_eq!(actual_output.blocks.len(), expected_output.blocks.len());
+        assert_eq!(
+            actual_output.blocks.last().unwrap().header,
+            expected_output.blocks.last().unwrap().header
+        );
     }
 
     #[ignore = "public node does not support long distance MPT proof query."]
@@ -771,40 +705,6 @@ mod tests {
                 cached_event_data: None,
             };
             prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
-        }
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_prove_pacaya_batch_taiko_mainnet() {
-        env_logger::init();
-        let proof_type = get_proof_type_from_env();
-        // Skip test on SP1 for now because it's too slow on CI
-        if !(is_ci() && proof_type == ProofType::Sp1) {
-            let network = Network::TaikoMainnet.to_string();
-            let l1_network = Network::Ethereum.to_string();
-            let taiko_chain_spec = SupportedChainSpecs::default()
-                .get_chain_spec(&network)
-                .unwrap();
-            let l1_chain_spec = SupportedChainSpecs::default()
-                .get_chain_spec(&l1_network)
-                .unwrap();
-            let proof_request = ProofRequest {
-                block_number: 0,
-                batch_id: 1350232,
-                l1_inclusion_block_number: 24216800,
-                l2_block_numbers: Vec::new(),
-                network,
-                graffiti: B256::ZERO,
-                prover: Address::ZERO,
-                l1_network,
-                proof_type,
-                blob_proof_type: BlobProofType::ProofOfEquivalence,
-                prover_args: test_proof_params(false),
-                checkpoint: None,
-                last_anchor_block_number: None,
-                cached_event_data: None,
-            };
-            batch_prove_pacaya_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
         }
     }
 

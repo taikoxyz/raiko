@@ -2,9 +2,7 @@ use std::{env, sync::Arc, time::Duration};
 
 use raiko_core::{
     interfaces::{aggregate_proofs, aggregate_shasta_proposals, ProofRequest},
-    preflight::{
-        parse_l1_batch_proposal_tx_for_pacaya_fork, parse_l1_batch_proposal_tx_for_shasta_fork,
-    },
+    preflight::parse_l1_batch_proposal_tx_for_shasta_fork,
     provider::rpc::RpcBlockDataProvider,
     Raiko,
 };
@@ -460,49 +458,8 @@ async fn new_raiko_for_batch_request(
     chain_specs: &SupportedChainSpecs,
     request_entity: BatchProofRequestEntity,
 ) -> Result<Raiko, String> {
-    let l1_chain_spec = chain_specs
-        .get_chain_spec(&request_entity.guest_input_entity().l1_network())
-        .expect("unsupported l1 network");
-    let taiko_chain_spec = chain_specs
-        .get_chain_spec(&request_entity.guest_input_entity().network())
-        .expect("unsupported taiko network");
-    let batch_id = request_entity.guest_input_entity().batch_id();
-    let l1_include_block_number = request_entity
-        .guest_input_entity()
-        .l1_inclusion_block_number();
-    // parse the batch proposal tx to get all prove blocks
-    let (all_prove_blocks, cached_event_data) = parse_l1_batch_proposal_tx_for_pacaya_fork(
-        &l1_chain_spec,
-        &taiko_chain_spec,
-        *l1_include_block_number,
-        *batch_id,
-    )
-    .await
-    .map_err(|err| format!("Could not parse pacaya L1 batch proposal tx: {err:?}"))?;
-
-    let proof_request = ProofRequest {
-        block_number: 0,
-        batch_id: *request_entity.guest_input_entity().batch_id(),
-        l1_inclusion_block_number: *request_entity
-            .guest_input_entity()
-            .l1_inclusion_block_number(),
-        network: request_entity.guest_input_entity().network().clone(),
-        l1_network: request_entity.guest_input_entity().l1_network().clone(),
-        graffiti: request_entity.guest_input_entity().graffiti().clone(),
-        prover: request_entity.prover().clone(),
-        proof_type: request_entity.proof_type().clone(),
-        blob_proof_type: request_entity
-            .guest_input_entity()
-            .blob_proof_type()
-            .clone(),
-        prover_args: request_entity.prover_args().clone(),
-        l2_block_numbers: all_prove_blocks.clone(),
-        checkpoint: Default::default(),
-        cached_event_data: Some(cached_event_data),
-        last_anchor_block_number: None,
-    };
-
-    Ok(Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request))
+    let _ = (chain_specs, request_entity);
+    Err("legacy batch requests were removed; use the Shasta proposal flow instead".to_owned())
 }
 
 async fn generate_input_for_batch(raiko: &Raiko) -> Result<GuestBatchInput, String> {
