@@ -2,7 +2,7 @@
 
 if [ "$#" -ne 5 ]; then
     echo "Usage: prove-shasta.sh <chain> <proof> <batch_info> <l2 block> <last l2 anchor>"
-    echo "  chain: taiko_mainnet, taiko_a7, taiko_dev, taiko_transition"
+    echo "  chain: taiko_mainnet, taiko_hoodi, taiko_dev, taiko_transition"
     echo "  proof: native, risc0[-bonsai], sp1, sgx, sgxgeth"
     echo "  batch_info: \"[(batch_id, batch_proposal_height)]\""
     echo "Example:"
