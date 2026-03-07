@@ -860,7 +860,7 @@ class BatchMonitor:
     ) -> Optional[str]:
         """submit batch to Raiko"""
         try:
-            headers = {"x-api-key": "raiko_VKE7TeQzCWaTlH0oGEPZhzTUE1z49pZZdkTTuEgE", "Content-Type": "application/json"}
+            headers = {"x-api-key": "1", "Content-Type": "application/json"}
 
             proposal_data = {
                 "proposal_id": proposal_id,
@@ -902,7 +902,7 @@ class BatchMonitor:
             return None
             
         try:
-            headers = {"x-api-key": "raiko_VKE7TeQzCWaTlH0oGEPZhzTUE1z49pZZdkTTuEgE", "Content-Type": "application/json"}
+            headers = {"x-api-key": "1", "Content-Type": "application/json"}
             
             # Use the collected proposals
             proposals_to_aggregate = self.pending_proposals.copy()
@@ -946,7 +946,7 @@ class BatchMonitor:
     ) -> RaikoResponse:
         """query Raiko status"""
         try:
-            headers = {"x-api-key": "raiko_VKE7TeQzCWaTlH0oGEPZhzTUE1z49pZZdkTTuEgE", "Content-Type": "application/json"}
+            headers = {"x-api-key": "1", "Content-Type": "application/json"}
             proposal_data = {
                 "proposal_id": proposal_id,
                 "l1_inclusion_block_number": l1_inclusion_block,
@@ -977,7 +977,7 @@ class BatchMonitor:
     async def query_aggregate_status(self, proposals: list[Dict[str, Any]]) -> RaikoResponse:
         """query aggregate request status"""
         try:
-            headers = {"x-api-key": "raiko_VKE7TeQzCWaTlH0oGEPZhzTUE1z49pZZdkTTuEgE", "Content-Type": "application/json"}
+            headers = {"x-api-key": "1", "Content-Type": "application/json"}
             payload = self.generate_post_data(proposals, aggregate=True)
             response = requests.post(
                 f"{self.raiko_rpc}/v3/proof/batch/shasta",
