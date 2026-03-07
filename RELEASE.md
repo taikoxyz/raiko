@@ -20,7 +20,7 @@ sp1 elf vk hash_bytes is: 137fb1eb125de6973791186659ab83394d10fdb73e6dfb0205eef5
 sp1 elf vk bn256 is: 0x008e24716118be9594358d8882d93d5425f0827cf0a7a4fd0ea2fc4414debfe7
 sp1 elf vk hash_bytes is: 471238b0462fa56506b1b1102d93d5422f8413e7429e93f41d45f88814debfe7
 
-# v1.16.0(for shasta only)
+# v1.16.0 (for shasta only)
 
 ## image
 
