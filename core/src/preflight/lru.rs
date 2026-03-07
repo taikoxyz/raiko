@@ -18,6 +18,7 @@ lazy_static! {
         ));
 }
 
+#[cfg(test)]
 fn clear_state_db() {
     debug!("clear state db");
     let mut hashmap = HISTORY_STATE_DB.lock().unwrap();
