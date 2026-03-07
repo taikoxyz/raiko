@@ -1,3 +1,57 @@
+# zk:v1.16.0 (for shasta only)
+
+## image
+
+us-docker.pkg.dev/evmchain/images/raiko-zk:1.16.0
+
+## risc0
+
+boundless elf image id: 779c032b91d0730ef13b26eafa47b32df7ebdaa4ed766d587fe905530afa2544
+"/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-batch"
+boundless elf image id: 26abb0237d10e891443e2a76bd3c1f6704c1ad03c07cb2165f4afcfc64b3cee7
+"/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-shasta-aggregation"
+
+## sp1
+
+"/opt/raiko/provers/sp1/guest/target/riscv32im-succinct-zkvm-elf/release/sp1-batch"
+sp1 elf vk bn256 is: 0x0026ff63d649779a5dbc88c3359ab83399a21fb6ef9b7ec082f77a8a465806e7
+sp1 elf vk hash_bytes is: 137fb1eb125de6973791186659ab83394d10fdb73e6dfb0205eef514465806e7
+"/opt/raiko/provers/sp1/guest/target/riscv32im-succinct-zkvm-elf/release/sp1-shasta-aggregation"
+sp1 elf vk bn256 is: 0x008e24716118be9594358d8882d93d5425f0827cf0a7a4fd0ea2fc4414debfe7
+sp1 elf vk hash_bytes is: 471238b0462fa56506b1b1102d93d5422f8413e7429e93f41d45f88814debfe7
+
+# v1.16.0 (for shasta only)
+
+## image
+
+us-docker.pkg.dev/evmchain/images/raiko:1.16.0
+
+## gaiko
+
+- mrenclave: d1f43acede51c4eb2f66b86cce52682edad80b810b9d87fba3a9b67254c91b77
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+## raiko
+
+- mrenclave: 59bf7d48610cc8a56ba8a390b68c31a1443297869b174aeacac67dc152820f0e
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+# v1.16.0-edmm
+
+## image
+
+us-docker.pkg.dev/evmchain/images/raiko:1.16.0-edmm
+
+## gaiko
+
+- mrenclave: d1f43acede51c4eb2f66b86cce52682edad80b810b9d87fba3a9b67254c91b77
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+## raiko
+
+- mrenclave: f285b7cbd78d2b96cdc54cfea3e47d8f510a4b4f91b719c97f8bbb90974f805b
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
 # zk:v1.15.0
 
 ## image
