@@ -320,14 +320,9 @@ mod tests {
         let taiko_mainnet_spec = SupportedChainSpecs::default()
             .get_chain_spec(&Network::TaikoMainnet.to_string())
             .unwrap();
-        assert_eq!(taiko_mainnet_spec.active_fork(0, 0).unwrap(), SpecId::HEKLA);
         assert_eq!(
-            taiko_mainnet_spec.active_fork(538303, 0).unwrap(),
-            SpecId::HEKLA
-        );
-        assert_eq!(
-            taiko_mainnet_spec.active_fork(538304, 0).unwrap(),
-            SpecId::ONTAKE
+            taiko_mainnet_spec.active_fork(0, 1_775_135_700).unwrap(),
+            SpecId::SHASTA
         );
     }
 
@@ -344,18 +339,15 @@ mod tests {
             address!("532efbf6d62720d0b2a2bb9d11066e8588cae6d9")
         );
 
-        let hekla_mainnet_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&Network::TaikoA7.to_string())
+        let taiko_mainnet_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::TaikoMainnet.to_string())
             .unwrap();
-        let verifier_address =
-            hekla_mainnet_spec.get_fork_verifier_address(12345, 0u64, ProofType::Sgx);
-        assert!(verifier_address.is_err()); // deprecated fork has no verifier address
-        let verifier_address = hekla_mainnet_spec
-            .get_fork_verifier_address(15_537_394, 0u64, ProofType::Sgx)
+        let verifier_address = taiko_mainnet_spec
+            .get_fork_verifier_address(0, 1_775_135_700, ProofType::Sgx)
             .unwrap();
         assert_eq!(
             verifier_address,
-            address!("a8cD459E3588D6edE42177193284d40332c3bcd4")
+            address!("a1018Ba2e22139076f91dA2A856B2CAB22d968F6")
         );
     }
 
@@ -368,6 +360,36 @@ mod tests {
             .get_fork_verifier_address(15_537_394, 0u64, ProofType::Native)
             .unwrap_or_default();
         assert_eq!(verifier_address, Address::ZERO);
+    }
+
+    #[test]
+    fn shasta_only_taiko_specs() {
+        let specs = SupportedChainSpecs::default();
+        assert!(
+            specs.get_chain_spec(&Network::TaikoA7.to_string()).is_none(),
+            "taiko_a7 should not be present in shasta-only defaults"
+        );
+
+        for network in ["taiko_mainnet", "taiko_hoodi", "taiko_transition"] {
+            let spec = specs.get_chain_spec(network).unwrap();
+            assert_eq!(spec.max_spec_id, SpecId::SHASTA);
+            assert_eq!(spec.hard_forks.len(), 1, "{network} should only expose SHASTA");
+            assert_eq!(
+                spec.hard_forks.keys().copied().collect::<Vec<_>>(),
+                vec![SpecId::SHASTA]
+            );
+            assert_eq!(
+                spec.l1_contract.keys().copied().collect::<Vec<_>>(),
+                vec![SpecId::SHASTA]
+            );
+            assert_eq!(
+                spec.verifier_address_forks
+                    .keys()
+                    .copied()
+                    .collect::<Vec<_>>(),
+                vec![SpecId::SHASTA]
+            );
+        }
     }
 
     #[ignore = "devnet spec changes frequently"]
