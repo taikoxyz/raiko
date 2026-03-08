@@ -214,7 +214,7 @@ impl BlockProposedFork {
     }
 
     pub fn gas_limit_with_anchor(&self) -> u64 {
-        0
+        unreachable!("gas_limit_with_anchor is unsupported in shasta-only mode");
     }
 
     pub fn proposer(&self) -> Address {
