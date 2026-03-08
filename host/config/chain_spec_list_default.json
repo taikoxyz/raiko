@@ -79,19 +79,9 @@
         "chain_id": 167000,
         "max_spec_id": "SHASTA",
         "hard_forks": {
-            "HEKLA": {
-                "Block": 0
-            },
-            "ONTAKE": {
-                "Block": 538304
-            },
-            "PACAYA": {
-                "Block": 1166000
-            },
             "SHASTA": {
                 "Timestamp": 1775135700
-            },
-            "CANCUN": "TBD"
+            }
         },
         "eip_1559_constants": {
             "base_fee_change_denominator": "0x8",
@@ -122,19 +112,9 @@
         "chain_id": 167013,
         "max_spec_id": "SHASTA",
         "hard_forks": {
-            "HEKLA": {
-                "Block": 0
-            },
-            "ONTAKE": {
-                "Block": 0
-            },
-            "PACAYA": {
-                "Block": 0
-            },
             "SHASTA": {
                 "Timestamp": 1770296400
-            },
-            "CANCUN": "TBD"
+            }
         },
         "eip_1559_constants": {
             "base_fee_change_denominator": "0x8",
@@ -165,19 +145,9 @@
         "chain_id": 167014,
         "max_spec_id": "SHASTA",
         "hard_forks": {
-            "HEKLA": {
-                "Block": 0
-            },
-            "ONTAKE": {
-                "Block": 0
-            },
-            "PACAYA": {
-                "Block": 0
-            },
             "SHASTA": {
                 "Timestamp": 1770987600
-            },
-            "CANCUN": "TBD"
+            }
         },
         "eip_1559_constants": {
             "base_fee_change_denominator": "0x8",

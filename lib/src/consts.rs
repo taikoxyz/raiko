@@ -502,9 +502,9 @@ mod tests {
         );
         assert!(
             merged_specs
-                .get_chain_spec(&Network::TaikoA7.to_string())
+                .get_chain_spec(&Network::TaikoMainnet.to_string())
                 .is_some(),
-            "existed chain spec TaikoA7 is changed by merge"
+            "existed chain spec TaikoMainnet is changed by merge"
         );
     }
 }

@@ -425,7 +425,7 @@ class BatchMonitor:
             return 0
 
         parent_block = first_block - 1
-        parent_anchor_info = await self.parse_l2_block_anchor_tx(parent_block)
+        parent_anchor_info = await self.get_anchor_info(parent_block)
         if parent_anchor_info is not None:
             last_anchor_block_number = parent_anchor_info.anchor_number
             self.logger.info(
@@ -1223,6 +1223,8 @@ class BatchMonitor:
 
         while high_true - low_false > 1:
             mid = (low_false + high_true) // 2
+            if mid < 0:
+                break
             mid_info = await self.get_anchor_info(mid)
             if mid_info is not None and mid_info.proposal_id == proposal_id:
                 high_true = mid
