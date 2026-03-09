@@ -31,7 +31,6 @@ pub fn create_router(
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers([
             header::ORIGIN,
-            header::ORIGIN,
             header::ACCEPT,
             HeaderName::from_static("x-requested-with"),
         ])

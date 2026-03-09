@@ -38,11 +38,17 @@ pub enum Status {
     },
 }
 
-impl IntoResponse for Status {
-    fn into_response(self) -> axum::response::Response {
-        Json(serde_json::to_value(self).unwrap()).into_response()
-    }
+macro_rules! impl_json_into_response {
+    ($t:ty) => {
+        impl IntoResponse for $t {
+            fn into_response(self) -> axum::response::Response {
+                Json(serde_json::to_value(self).unwrap()).into_response()
+            }
+        }
+    };
 }
+
+impl_json_into_response!(Status);
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(tag = "status", rename_all = "lowercase")]
@@ -51,11 +57,7 @@ pub enum CancelStatus {
     Error { error: String, message: String },
 }
 
-impl IntoResponse for CancelStatus {
-    fn into_response(self) -> axum::response::Response {
-        Json(serde_json::to_value(self).unwrap()).into_response()
-    }
-}
+impl_json_into_response!(CancelStatus);
 
 #[derive(Debug, Serialize, ToSchema, Deserialize)]
 #[serde(tag = "status", rename_all = "lowercase")]
@@ -64,11 +66,7 @@ pub enum PruneStatus {
     Error { error: String, message: String },
 }
 
-impl IntoResponse for PruneStatus {
-    fn into_response(self) -> axum::response::Response {
-        Json(serde_json::to_value(self).unwrap()).into_response()
-    }
-}
+impl_json_into_response!(PruneStatus);
 
 mod proof;
 
