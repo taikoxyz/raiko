@@ -14,7 +14,7 @@ fn main() {
         "provers/risc0/driver/src/methods",
     );
     #[cfg(feature = "test")]
-    pipeline.tests(&["risc0-batch"], "provers/risc0/driver/src/methods");
+    pipeline.tests(&["boundless-batch"], "provers/risc0/driver/src/methods");
     #[cfg(feature = "bench")]
     pipeline.bins(&["ecdsa", "sha256"], "provers/risc0/driver/src/methods");
 }

@@ -10,4 +10,4 @@ pub mod ecdsa;
 #[cfg(feature = "bench")]
 pub mod sha256;
 #[cfg(test)]
-pub mod test_risc0_batch;
+pub mod test_boundless_batch;
