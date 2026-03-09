@@ -43,11 +43,10 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
             provider,
             block_number,
             async_executor: Handle::current(),
-            // defaults
             optimistic: false,
             staging_db: initial_db.clone(),
-            initial_db: initial_db,
-            initial_headers: initial_headers,
+            initial_db,
+            initial_headers,
             current_db: Default::default(),
             pending_accounts: HashSet::new(),
             pending_slots: HashSet::new(),
@@ -308,11 +307,6 @@ impl<'a, BDP: BlockDataProvider> DatabaseCommit for ProviderDb<'a, BDP> {
 
 impl<'a, BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<'a, BDP> {
     async fn fetch_data(&mut self) -> bool {
-        //println!("all accounts touched: {:?}", self.pending_accounts);
-        //println!("all slots touched: {:?}", self.pending_slots);
-        //println!("all block hashes touched: {:?}", self.pending_block_hashes);
-
-        // This run was valid when no pending work was scheduled
         let valid_run = self.is_valid_run();
 
         let Ok(accounts) = self

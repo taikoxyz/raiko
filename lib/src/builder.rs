@@ -16,6 +16,26 @@ use reth_chainspec::{
     ChainSpecBuilder, Hardfork, HOLESKY, MAINNET, TAIKO_A7, TAIKO_DEV, TAIKO_MAINNET, TAIKO_TOLBA,
     TAIKO_TRANSITION,
 };
+
+/// Maps chain spec name to reth ChainSpec for block execution.
+fn reth_chain_spec_for_name(name: &str) -> Arc<reth_chainspec::ChainSpec> {
+    match name {
+        "taiko_a7" => TAIKO_A7.clone(),
+        "taiko_mainnet" => TAIKO_MAINNET.clone(),
+        "ethereum" => Arc::new(
+            ChainSpecBuilder::default()
+                .chain(MAINNET.chain)
+                .genesis(MAINNET.genesis.clone())
+                .cancun_activated()
+                .build(),
+        ),
+        "holesky" => HOLESKY.clone(),
+        "taiko_dev" => TAIKO_DEV.clone(),
+        "taiko_hoodi" => TAIKO_TOLBA.clone(),
+        "taiko_transition" => TAIKO_TRANSITION.clone(),
+        _ => unimplemented!(),
+    }
+}
 use reth_evm::execute::{BlockExecutionOutput, BlockValidationError, Executor, ProviderError};
 use reth_evm_ethereum::execute::{
     validate_block_post_execution, Consensus, EthBeaconConsensus, EthExecutorProvider,
@@ -57,7 +77,7 @@ pub fn calculate_block_header(input: &GuestInput) -> Header {
 }
 
 pub fn calculate_batch_blocks_final_header(input: &GuestBatchInput) -> Vec<Block> {
-    let pool_txs_list = generate_transactions_for_batch_blocks(&input);
+    let pool_txs_list = generate_transactions_for_batch_blocks(input);
     let mut final_blocks = Vec::new();
     for (i, pool_txs) in pool_txs_list.iter().enumerate() {
         let mut builder = RethBlockBuilder::new(
@@ -171,29 +191,9 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         pool_txs: Vec<TransactionSigned>,
         optimistic: bool,
     ) -> Result<()> {
-        // Get the chain spec
         let chain_spec = &self.input.chain_spec;
         let total_difficulty = U256::ZERO;
-        let reth_chain_spec = match chain_spec.name.as_str() {
-            "taiko_a7" => TAIKO_A7.clone(),
-            "taiko_mainnet" => TAIKO_MAINNET.clone(),
-            "ethereum" => {
-                //MAINNET.clone()
-                // TODO(Brecht): for some reason using the spec directly doesn't work
-                Arc::new(
-                    ChainSpecBuilder::default()
-                        .chain(MAINNET.chain)
-                        .genesis(MAINNET.genesis.clone())
-                        .cancun_activated()
-                        .build(),
-                )
-            }
-            "holesky" => HOLESKY.clone(),
-            "taiko_dev" => TAIKO_DEV.clone(),
-            "taiko_hoodi" => TAIKO_TOLBA.clone(),
-            "taiko_transition" => TAIKO_TRANSITION.clone(),
-            _ => unimplemented!(),
-        };
+        let reth_chain_spec = reth_chain_spec_for_name(&chain_spec.name);
 
         let block_ts = self.input.block.timestamp;
         // Shasta-only: verify EVM fork activation
@@ -322,11 +322,10 @@ impl RethBlockBuilder<MemDb> {
         Ok(self.input.block.header.clone())
     }
 
-    /// Finalizes the block building and returns the header
+    /// Finalizes the block building and returns the full block.
     pub fn finalize_block(&mut self) -> Result<Block> {
         let state_root = self.calculate_state_root()?;
-        assert_eq!(self.input.block.state_root, state_root);
-        ensure!(self.input.block.state_root == state_root);
+        ensure!(self.input.block.state_root == state_root, "state root mismatch");
         Ok(self.input.block.clone())
     }
 
@@ -448,7 +447,7 @@ pub fn create_mem_db(input: &mut GuestInput) -> Result<MemDb> {
         } else {
             let bytes: Bytes = contracts
                 .get(&code_hash)
-                .expect(&format!("Contract {code_hash} of {address} exists"))
+                .unwrap_or_else(|| panic!("Contract {code_hash} of {address} exists"))
                 .clone();
             Bytecode::new_raw(bytes)
         };

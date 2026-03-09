@@ -209,48 +209,48 @@ impl ChainSpec {
         &self.eip_1559_constants
     }
 
-    pub fn spec_id(&self, block_no: BlockNumber, timestamp: u64) -> Option<SpecId> {
-        for (spec_id, fork) in self.hard_forks.iter().rev() {
-            if fork.active(block_no, timestamp) {
-                return Some(*spec_id);
-            }
-        }
-        None
+    /// Returns the first active fork (by block/timestamp) when iterating in reverse order.
+    fn active_fork_spec_id(&self, block_num: u64, timestamp: u64) -> Option<SpecId> {
+        self.hard_forks
+            .iter()
+            .rev()
+            .find(|(_, fork)| fork.active(block_num, timestamp))
+            .map(|(spec_id, _)| *spec_id)
     }
 
+    pub fn spec_id(&self, block_no: BlockNumber, timestamp: u64) -> Option<SpecId> {
+        self.active_fork_spec_id(block_no, timestamp)
+    }
+
+    /// Returns verifier address for the first active fork that has verifier config.
     pub fn get_fork_verifier_address(
         &self,
         block_num: u64,
         block_timestamp: u64,
         proof_type: ProofType,
     ) -> Result<Address> {
-        // fall down to the first fork that is active as default
         for (spec_id, fork) in self.hard_forks.iter().rev() {
             if fork.active(block_num, block_timestamp) {
                 if let Some(fork_verifier) = self.verifier_address_forks.get(spec_id) {
                     return fork_verifier
                         .get(&proof_type)
                         .ok_or_else(|| anyhow!("Verifier type not found"))
-                        .and_then(|address| {
-                            address.ok_or_else(|| anyhow!("Verifier address not found"))
-                        });
+                        .and_then(|a| a.ok_or_else(|| anyhow!("Verifier address not found")));
                 }
             }
         }
-
         Err(anyhow!("fork verifier is not active"))
     }
 
+    /// Returns L1 contract address for the first active fork that has one.
     pub fn get_fork_l1_contract_address(&self, block_num: u64) -> Result<Address> {
-        // fall down to the first fork that is active as default
         for (spec_id, fork) in self.hard_forks.iter().rev() {
-            if fork.active(block_num, 0u64) {
-                if let Some(l1_address) = self.l1_contract.get(spec_id) {
-                    return Ok(*l1_address);
+            if fork.active(block_num, 0) {
+                if let Some(addr) = self.l1_contract.get(spec_id) {
+                    return Ok(*addr);
                 }
             }
         }
-
         Err(anyhow!("fork l1 contract is not active"))
     }
 

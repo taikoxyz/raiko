@@ -78,6 +78,7 @@ pub fn decode_blob_data(blob_buf: &[u8]) -> Vec<u8> {
     output[0..output_len].to_vec()
 }
 
+/// Decodes one field element from the blob: validates top 2 bits are zero, copies 31 bytes.
 fn decode_field_element(
     b: &[u8],
     opos: usize,
@@ -95,6 +96,7 @@ fn decode_field_element(
     Ok((b[ipos], opos + 32, ipos + 32))
 }
 
+/// Reassembles 4 high bytes from field elements into 3 output bytes (BLS scalar packing).
 fn reassemble_bytes(
     opos: usize,
     encoded_byte: [u8; 4],

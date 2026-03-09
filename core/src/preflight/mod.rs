@@ -1,5 +1,8 @@
 use std::{collections::HashSet, env};
 
+/// Default number of blocks to process per prefetch task.
+const PREFETCH_CHUNK_SIZE_DEFAULT: usize = 7;
+
 use crate::{
     interfaces::{RaikoError, RaikoResult},
     provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
@@ -81,10 +84,8 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         )
     };
 
-    let l2_block_numbers: Vec<(u64, Option<u64>)> = block_numbers
-        .iter()
-        .map(|&block_number| (block_number, None))
-        .collect::<Vec<(u64, Option<u64>)>>();
+    let l2_block_numbers: Vec<(u64, Option<u64>)> =
+        block_numbers.iter().map(|&n| (n, None)).collect();
     info!(
         "batch preflight {} l2_block_numbers: {:?} to {:?}.",
         l2_block_numbers.len(),
@@ -144,11 +145,12 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
 
     assert_eq!(block_parent_pairs.len(), pool_txs_list.len());
 
-    let mut handles = Vec::new();
     let chunk_size = env::var("PREFETCH_CHUNK_SIZE")
-        .unwrap_or("10".to_owned())
-        .parse()
-        .unwrap_or(10);
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(PREFETCH_CHUNK_SIZE_DEFAULT);
+
+    let mut handles = Vec::new();
     let tasks: Vec<(
         (reth_primitives::Block, alloy_rpc_types::Block),
         (Vec<TransactionSigned>, bool),

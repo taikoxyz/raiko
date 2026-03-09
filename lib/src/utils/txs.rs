@@ -77,7 +77,7 @@ pub fn generate_transactions_for_batch_blocks(
 ) -> Vec<(Vec<TransactionSigned>, bool)> {
     let taiko_guest_batch_input = &guest_batch_input.taiko;
     assert!(
-        taiko_guest_batch_input.data_sources.len() > 0,
+        !taiko_guest_batch_input.data_sources.is_empty(),
         "data_source is empty"
     );
 

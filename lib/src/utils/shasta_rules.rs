@@ -506,16 +506,8 @@ pub fn min_base_fee_for_shasta_chain(chain_id: u64) -> u64 {
 
 /// Clamp the provided base fee to the given minimum and max allowed for Shasta blocks.
 fn clamp_shasta_base_fee_with_min(base_fee: u64, min_base_fee: u64) -> u64 {
-    // Ensure the effective minimum base fee does not exceed the maximum allowed.
-    let effective_min_base_fee = min(min_base_fee, MAX_BASE_FEE_SHASTA);
-
-    if base_fee < effective_min_base_fee {
-        effective_min_base_fee
-    } else if base_fee > MAX_BASE_FEE_SHASTA {
-        MAX_BASE_FEE_SHASTA
-    } else {
-        base_fee
-    }
+    let effective_min = min(min_base_fee, MAX_BASE_FEE_SHASTA);
+    base_fee.clamp(effective_min, MAX_BASE_FEE_SHASTA)
 }
 
 /// Bounds the amount the base fee can change between blocks.
