@@ -482,7 +482,8 @@ class BatchMonitor:
             return self.anchor_info_cache[l2_block_number]
 
         anchor_info = await self.parse_l2_block_anchor_tx(l2_block_number)
-        self.anchor_info_cache[l2_block_number] = anchor_info
+        if anchor_info is not None:
+            self.anchor_info_cache[l2_block_number] = anchor_info
         return anchor_info
 
     async def search_proposal_boundary_in_window(

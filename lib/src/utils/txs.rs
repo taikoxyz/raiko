@@ -3,14 +3,12 @@ use alloy_rlp::Decodable;
 use reth_primitives::TransactionSigned;
 use tracing::{debug, error, warn};
 
-use crate::consts::{ChainSpec, Network};
+use crate::consts::ChainSpec;
 use crate::input::{BlockProposedFork, GuestBatchInput};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
-use crate::utils::blobs::{
-    decode_blob_data, zlib_decompress_data, CALL_DATA_CAPACITY, MAX_BLOB_DATA_SIZE,
-};
+use crate::utils::blobs::{decode_blob_data, zlib_decompress_data, MAX_BLOB_DATA_SIZE};
 use crate::utils::shasta::generate_transactions_for_shasta_blocks;
 
 pub fn decode_transactions(tx_list: &[u8]) -> Vec<TransactionSigned> {
@@ -22,13 +20,8 @@ pub fn decode_transactions(tx_list: &[u8]) -> Vec<TransactionSigned> {
     })
 }
 
-// leave a simply fn in case of more checks in future
-fn validate_calldata_tx_list(tx_list: &[u8]) -> bool {
-    tx_list.len() <= CALL_DATA_CAPACITY
-}
-
 fn unzip_tx_list_from_data_buf(
-    chain_spec: &ChainSpec,
+    _chain_spec: &ChainSpec,
     is_blob_data: bool,
     blob_slice_param: Option<(usize, usize)>,
     tx_list_data_buf: &[u8],
@@ -37,44 +30,23 @@ fn unzip_tx_list_from_data_buf(
         "unzip_tx_list_from_data_buf(is_blob_data: {is_blob_data}, tx_list_data_buf.len: {:?}, blob_slice_param: {blob_slice_param:?})",
         tx_list_data_buf.len()
     );
-    #[allow(clippy::collapsible_else_if)]
-    if chain_spec.is_taiko() {
-        // taiko has some limitations to be aligned with taiko-client
-        if is_blob_data {
-            let compressed_tx_list = decode_blob_data(tx_list_data_buf);
-            assert!(compressed_tx_list.len() <= MAX_BLOB_DATA_SIZE);
-            let slice_compressed_tx_list = if let Some((offset, length)) = blob_slice_param {
-                if offset + length > compressed_tx_list.len() {
-                    error!("blob_slice_param ({offset},{length}) out of range, use empty tx_list");
-                    vec![]
-                } else {
-                    compressed_tx_list[offset..offset + length].to_vec()
-                }
+    // Taiko-only: limitations aligned with taiko-client
+    if is_blob_data {
+        let compressed_tx_list = decode_blob_data(tx_list_data_buf);
+        assert!(compressed_tx_list.len() <= MAX_BLOB_DATA_SIZE);
+        let slice_compressed_tx_list = if let Some((offset, length)) = blob_slice_param {
+            if offset + length > compressed_tx_list.len() {
+                error!("blob_slice_param ({offset},{length}) out of range, use empty tx_list");
+                vec![]
             } else {
-                compressed_tx_list.to_vec()
-            };
-            zlib_decompress_data(&slice_compressed_tx_list).unwrap_or_default()
-        } else {
-            if Network::TaikoA7.to_string() == chain_spec.network() {
-                let tx_list = zlib_decompress_data(tx_list_data_buf).unwrap_or_default();
-                if validate_calldata_tx_list(&tx_list) {
-                    tx_list
-                } else {
-                    warn!("validate_calldata_tx_list failed, use empty tx_list");
-                    vec![]
-                }
-            } else {
-                if validate_calldata_tx_list(tx_list_data_buf) {
-                    zlib_decompress_data(tx_list_data_buf).unwrap_or_default()
-                } else {
-                    warn!("validate_calldata_tx_list failed, use empty tx_list");
-                    vec![]
-                }
+                compressed_tx_list[offset..offset + length].to_vec()
             }
-        }
+        } else {
+            compressed_tx_list.to_vec()
+        };
+        zlib_decompress_data(&slice_compressed_tx_list).unwrap_or_default()
     } else {
-        // no limitation on non-taiko chains
-        zlib_decompress_data(tx_list_data_buf).unwrap_or_default()
+        panic!("Shasta must use blob for tx list data; is_blob_data=false is not supported")
     }
 }
 

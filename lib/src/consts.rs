@@ -83,6 +83,19 @@ impl SupportedChainSpecs {
             .find(|spec| spec.chain_id == chain_id)
             .cloned()
     }
+
+    /// Validates that all L2 chain specs (used for proving) are Taiko. Fails early at startup.
+    /// L1 chains (l2_contract=null) may have is_taiko=false.
+    pub fn validate_taiko_only(&self) -> Result<()> {
+        for (name, spec) in &self.0 {
+            if spec.l2_contract.is_some() && !spec.is_taiko() {
+                bail!(
+                    "Chain spec '{name}' is an L2 chain but has is_taiko=false; this prover only supports Taiko (Shasta) chains"
+                );
+            }
+        }
+        Ok(())
+    }
 }
 
 /// The condition at which a fork is activated.

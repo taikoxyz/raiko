@@ -17,7 +17,7 @@ use raiko_lib::{
     inplace_print,
     input::{
         shasta::{Proposed as ShastaProposed, ShastaEventData},
-        BlobProofType, BlockProposedFork, InputDataSource, TaikoGuestBatchInput, TaikoGuestInput,
+        BlobProofType, BlockProposedFork, InputDataSource, TaikoGuestBatchInput,
         TaikoProverData,
     },
     primitives::eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
@@ -69,30 +69,6 @@ where
     }
 
     Ok(())
-}
-
-/// Prepare the input for a Taiko chain
-pub async fn prepare_taiko_chain_input(
-    l1_chain_spec: &ChainSpec,
-    taiko_chain_spec: &ChainSpec,
-    block_number: u64,
-    l1_inclusion_block_number: Option<u64>,
-    block: &RethBlock,
-    prover_data: TaikoProverData,
-    blob_proof_type: &BlobProofType,
-) -> RaikoResult<TaikoGuestInput> {
-    let _ = (
-        l1_chain_spec,
-        taiko_chain_spec,
-        block_number,
-        l1_inclusion_block_number,
-        block,
-        prover_data,
-        blob_proof_type,
-    );
-    Err(RaikoError::Preflight(
-        "single block Taiko proving is not supported in shasta-only mode".to_owned(),
-    ))
 }
 
 // get fork corresponding anchor block height and state root
@@ -581,44 +557,6 @@ pub async fn get_block_proposed_event_by_height(
         fork,
     )
     .await
-}
-
-pub async fn get_block_and_parent_data<BDP>(
-    provider: &BDP,
-    block_number: u64,
-) -> RaikoResult<(RethBlock, alloy_rpc_types::Block)>
-where
-    BDP: BlockDataProvider,
-{
-    // Get the block and the parent block
-    let blocks = provider
-        .get_blocks(&[(block_number, true), (block_number - 1, false)])
-        .await?;
-    let mut blocks = blocks.iter();
-    let Some(block) = blocks.next() else {
-        return Err(RaikoError::Preflight(
-            "No block data for the requested block".to_owned(),
-        ));
-    };
-    let Some(parent_block) = blocks.next() else {
-        return Err(RaikoError::Preflight(
-            "No parent block data for the requested block".to_owned(),
-        ));
-    };
-
-    info!(
-        "Processing block {:?} with hash: {:?}",
-        block.header.number,
-        block.header.hash.unwrap(),
-    );
-    debug!("block.parent_hash: {:?}", block.header.parent_hash);
-    debug!("block gas used: {:?}", block.header.gas_used);
-    debug!("block transactions: {:?}", block.transactions.len());
-
-    // Convert the alloy block to a reth block
-    let block = RethBlock::try_from(block.clone())
-        .map_err(|e| RaikoError::Conversion(format!("Failed converting to reth block: {e}")))?;
-    Ok((block, parent_block.clone()))
 }
 
 pub async fn get_batch_blocks_and_parent_data<BDP>(
