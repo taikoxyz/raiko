@@ -399,7 +399,7 @@ fn build_shasta_block_inputs(
 mod test {
     use super::*;
     use methods::boundless_batch::BOUNDLESS_BATCH_ID as RISC0_BATCH_ID;
-    use methods::test_risc0_batch::{TEST_RISC0_BATCH_ELF, TEST_RISC0_BATCH_ID};
+    use methods::test_boundless_batch::{TEST_BOUNDLESS_BATCH_ELF, TEST_BOUNDLESS_BATCH_ID};
     use risc0_zkvm::{default_prover, ExecutorEnv};
 
     #[test]
@@ -407,8 +407,8 @@ mod test {
         std::env::set_var("RISC0_PROVER", "local");
         let env = ExecutorEnv::builder().build().unwrap();
         let prover = default_prover();
-        let receipt = prover.prove(env, TEST_RISC0_BATCH_ELF).unwrap();
-        receipt.receipt.verify(TEST_RISC0_BATCH_ID).unwrap();
+        let receipt = prover.prove(env, TEST_BOUNDLESS_BATCH_ELF).unwrap();
+        receipt.receipt.verify(TEST_BOUNDLESS_BATCH_ID).unwrap();
     }
 
     #[ignore = "only to print image id for docker image build"]
