@@ -1,4 +1,4 @@
-use crate::common::{complete_proof_request, make_proof_request, setup, v2_assert_report};
+use crate::common::{complete_proof_request, make_proof_request, setup, v3_assert_report};
 use raiko_host::server::api;
 use raiko_lib::consts::Network;
 use raiko_lib::proof_type::ProofType;
@@ -15,15 +15,15 @@ pub async fn test_v2_mainnet_native_prove() {
     let (_server, client) = setup().await;
     let request = make_proof_request(&network, &proof_type, block_number);
 
-    let status: api::v2::Status = client
+    let status: api::v3::Status = client
         .post("/v2/proof", &request)
         .await
         .expect("failed to send request");
     assert!(
         matches!(
             status,
-            api::v2::Status::Ok {
-                data: api::v2::ProofResponse::Status {
+            api::v3::Status::Ok {
+                data: api::v3::ProofResponse::Status {
                     status: TaskStatus::Registered,
                     ..
                 },
@@ -39,7 +39,7 @@ pub async fn test_v2_mainnet_native_prove() {
     complete_proof_request(api_version, &client, &request).await;
 
     // santy check for report format
-    v2_assert_report(&client).await;
+    v3_assert_report(&client).await;
 }
 
 #[ignore = "v2 prove is not supported"]
@@ -68,15 +68,15 @@ pub async fn test_v2_mainnet_zk_any_prove() {
     // Modify to zk_any request
     request.proof_type = Some("zk_any".to_string());
 
-    let status: api::v2::Status = client
+    let status: api::v3::Status = client
         .post("/v2/proof", &request)
         .await
         .expect("failed to send request");
     assert!(
         matches!(
             status,
-            api::v2::Status::Ok {
-                data: api::v2::ProofResponse::Status {
+            api::v3::Status::Ok {
+                data: api::v3::ProofResponse::Status {
                     status: TaskStatus::Registered,
                     ..
                 },
@@ -92,7 +92,7 @@ pub async fn test_v2_mainnet_zk_any_prove() {
     complete_proof_request(api_version, &client, &request).await;
 
     // santy check for report format
-    v2_assert_report(&client).await;
+    v3_assert_report(&client).await;
 }
 
 #[ignore = "v2 prove is not supported"]
@@ -120,7 +120,7 @@ pub async fn test_v2_mainnet_zk_any_prove_but_not_drawn() {
     // Modify to zk_any request
     request.proof_type = Some("zk_any".to_string());
 
-    let _status: api::v2::Status = client
+    let _status: api::v3::Status = client
         .post("/v2/proof", &request)
         .await
         .expect("failed to send request");
@@ -128,7 +128,7 @@ pub async fn test_v2_mainnet_zk_any_prove_but_not_drawn() {
     // assert!(
     //     matches!(
     //         status,
-    //         api::v2::Status::Error {
+    //         api::v3::Status::Error {
     //             ref error,
     //             ref message,
     //         } if error == "zk_any_not_drawn_error" && message == "The zk_any request is not drawn",

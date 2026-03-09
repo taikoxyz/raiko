@@ -22,6 +22,7 @@ async fn main() -> HostResult<()> {
 
     let opts = parse_opts()?;
     let chain_specs = parse_chain_specs(&opts);
+    chain_specs.validate_taiko_only()?;
     let ballot = parse_ballot(&opts);
     let default_request_config = opts.proof_request_opt.clone();
     let max_proving_concurrency = opts.concurrency_limit;

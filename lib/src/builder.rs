@@ -23,7 +23,7 @@ use reth_evm_ethereum::execute::{
 use reth_evm_ethereum::taiko::{ShastaData, TaikoData};
 use reth_primitives::revm_primitives::db::{Database, DatabaseCommit};
 use reth_primitives::revm_primitives::{
-    Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap, SpecId,
+    Account, AccountInfo, AccountStatus, Bytecode, Bytes, HashMap,
 };
 use reth_primitives::{
     Address, Block, BlockWithSenders, Header, TransactionSigned, B256, KECCAK_EMPTY, U256,
@@ -195,49 +195,14 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             _ => unimplemented!(),
         };
 
-        // todo: shasta has decouple the connection between proposal & block id.
-        // need constraint for it.
-        let block_num = self.input.block.number;
         let block_ts = self.input.block.timestamp;
-        let taiko_fork = self.input.chain_spec.spec_id(block_num, block_ts).unwrap();
-        if reth_chain_spec.is_taiko() {
-            match taiko_fork {
-                SpecId::HEKLA => {
-                    assert!(
-                        reth_chain_spec
-                            .fork(Hardfork::Hekla)
-                            .active_at_block(block_num),
-                        "evm fork HEKLA is not active, please update the chain spec"
-                    );
-                }
-                SpecId::ONTAKE => {
-                    assert!(
-                        reth_chain_spec
-                            .fork(Hardfork::Ontake)
-                            .active_at_block(block_num),
-                        "evm fork ONTAKE is not active, please update the chain spec"
-                    );
-                }
-                SpecId::PACAYA => {
-                    assert!(
-                        reth_chain_spec
-                            .fork(Hardfork::Pacaya)
-                            .active_at_block(block_num),
-                        "evm fork PACAYA is not active, please update the chain spec"
-                    );
-                }
-                SpecId::SHASTA => {
-                    // shasta is activated by timestamp, not block number
-                    assert!(
-                        reth_chain_spec
-                            .fork(Hardfork::Shasta)
-                            .active_at_timestamp(block_ts),
-                        "evm fork SHASTA is not active, please update the chain spec"
-                    );
-                }
-                _ => unimplemented!(),
-            }
-        }
+        // Shasta-only: verify EVM fork activation
+        assert!(
+            reth_chain_spec
+                .fork(Hardfork::Shasta)
+                .active_at_timestamp(block_ts),
+            "evm fork SHASTA is not active, please update the chain spec"
+        );
 
         // Generate the transactions from the tx list
         let mut block = self.input.block.clone();
@@ -271,11 +236,7 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 parent_header: self.input.parent_header.clone(),
                 l2_contract: self.input.chain_spec.l2_contract.unwrap_or_default(),
                 base_fee_config: self.input.taiko.block_proposed.base_fee_config(),
-                gas_limit: if taiko_fork == SpecId::SHASTA {
-                    block.gas_limit
-                } else {
-                    self.input.taiko.block_proposed.gas_limit_with_anchor()
-                },
+                gas_limit: block.gas_limit,
                 shasta_data: shasta_data_opt.clone(),
             })
             .optimistic(optimistic);

@@ -1,6 +1,6 @@
 use crate::{
     interfaces::HostResult,
-    server::api::{v2, v3},
+    server::api::v3,
 };
 use raiko_core::{interfaces::RaikoError, provider::get_task_data};
 use raiko_lib::{primitives::keccak::keccak, proof_type::ProofType};
@@ -9,69 +9,38 @@ use raiko_reqpool::Status;
 use raiko_tasks::TaskStatus;
 use serde_json::Value;
 
-pub fn to_v2_status(
-    proof_type: ProofType,
-    batch_id: Option<u64>,
-    result: Result<Status, String>,
-) -> v2::Status {
-    match result {
-        Ok(status) => v2::Status::Ok {
-            proof_type,
-            batch_id,
-            data: {
-                match status {
-                    Status::Registered => v2::ProofResponse::Status {
-                        status: TaskStatus::Registered,
-                    },
-                    Status::WorkInProgress => v2::ProofResponse::Status {
-                        status: TaskStatus::WorkInProgress,
-                    },
-                    Status::Cancelled => v2::ProofResponse::Status {
-                        status: TaskStatus::Cancelled,
-                    },
-                    Status::Failed { error } => v2::ProofResponse::Status {
-                        status: TaskStatus::AnyhowError(error),
-                    },
-                    Status::Success { proof } => v2::ProofResponse::Proof { proof },
-                }
-            },
-        },
-        Err(e) => v2::Status::Error {
-            error: "task_failed".to_string(),
-            message: e,
-        },
-    }
-}
-
-pub fn to_v2_cancel_status(result: Result<Status, String>) -> v2::CancelStatus {
-    match result {
-        Ok(status) => match status {
-            Status::Success { .. } | Status::Cancelled | Status::Failed { .. } => {
-                v2::CancelStatus::Ok
-            }
-            _ => v2::CancelStatus::Error {
-                error: "cancel_failed".to_string(),
-                message: format!("cancallation response unexpected status {}", status),
-            },
-        },
-        Err(e) => v2::CancelStatus::Error {
-            error: "cancel_failed".to_string(),
-            message: e,
-        },
-    }
-}
-
-// TODO: remove the staled interface
 pub fn to_v3_status(
     proof_type: ProofType,
     batch_id: Option<u64>,
     result: Result<Status, String>,
 ) -> v3::Status {
-    to_v2_status(proof_type, batch_id, result)
-}
-
-pub fn to_v3_cancel_status(result: Result<Status, String>) -> v3::CancelStatus {
-    to_v2_cancel_status(result)
+    match result {
+        Ok(status) => v3::Status::Ok {
+            proof_type,
+            batch_id,
+            data: {
+                match status {
+                    Status::Registered => v3::ProofResponse::Status {
+                        status: TaskStatus::Registered,
+                    },
+                    Status::WorkInProgress => v3::ProofResponse::Status {
+                        status: TaskStatus::WorkInProgress,
+                    },
+                    Status::Cancelled => v3::ProofResponse::Status {
+                        status: TaskStatus::Cancelled,
+                    },
+                    Status::Failed { error } => v3::ProofResponse::Status {
+                        status: TaskStatus::AnyhowError(error),
+                    },
+                    Status::Success { proof } => v3::ProofResponse::Proof { proof },
+                }
+            },
+        },
+        Err(e) => v3::Status::Error {
+            error: "task_failed".to_string(),
+            message: e,
+        },
+    }
 }
 
 // A zk_any request looks like: { "proof_type": "zk_any", "zk_any": { "aggregation": <bool> } }

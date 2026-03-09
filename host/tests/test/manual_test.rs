@@ -1,4 +1,4 @@
-use crate::common::{complete_proof_request, v2_assert_report, Client};
+use crate::common::{complete_proof_request, v3_assert_report, Client};
 use raiko_core::interfaces::{ProofRequestOpt, ProverSpecificOpts};
 use raiko_host::server::api;
 use raiko_tasks::TaskStatus;
@@ -76,15 +76,15 @@ pub async fn test_manual_prove() {
         })
     );
 
-    let status: api::v2::Status = client
+    let status: api::v3::Status = client
         .post("/v2/proof", &request)
         .await
         .expect("failed to send request");
     assert!(
         matches!(
             status,
-            api::v2::Status::Ok {
-                data: api::v2::ProofResponse::Status {
+            api::v3::Status::Ok {
+                data: api::v3::ProofResponse::Status {
                     status: TaskStatus::Registered,
                 },
                 ..
@@ -94,5 +94,5 @@ pub async fn test_manual_prove() {
     );
 
     complete_proof_request(&api_version, &client, &request).await;
-    v2_assert_report(&client).await;
+    v3_assert_report(&client).await;
 }

@@ -19,7 +19,7 @@ use crate::{
     interfaces::{
         run_shasta_proposal_prover, ProofRequest, RaikoError, RaikoResult, ShastaProposalCheckpoint,
     },
-    preflight::{batch_preflight, preflight, BatchPreflightData, PreflightData},
+    preflight::{batch_preflight, BatchPreflightData},
     provider::BlockDataProvider,
 };
 
@@ -49,22 +49,6 @@ impl Raiko {
         }
     }
 
-    fn get_preflight_data(&self) -> PreflightData {
-        PreflightData::new(
-            self.request.block_number,
-            self.request.l1_inclusion_block_number,
-            self.l1_chain_spec.to_owned(),
-            self.taiko_chain_spec.to_owned(),
-            TaikoProverData {
-                graffiti: self.request.graffiti,
-                actual_prover: self.request.prover,
-                checkpoint: None,
-                last_anchor_block_number: None,
-            },
-            self.request.blob_proof_type.clone(),
-        )
-    }
-
     fn get_batch_preflight_data(&self) -> BatchPreflightData {
         BatchPreflightData {
             batch_id: self.request.batch_id,
@@ -85,18 +69,6 @@ impl Raiko {
             blob_proof_type: self.request.blob_proof_type.clone(),
             cached_event_data: self.request.cached_event_data.clone(),
         }
-    }
-
-    pub async fn generate_input<BDP: BlockDataProvider>(
-        &self,
-        provider: BDP,
-    ) -> RaikoResult<GuestInput> {
-        //TODO: read fork from config
-        let preflight_data = self.get_preflight_data();
-        info!("Generating input for block {}", self.request.block_number);
-        preflight(provider, preflight_data)
-            .await
-            .map_err(Into::<RaikoError>::into)
     }
 
     pub async fn generate_batch_input<BDP: BlockDataProvider>(
@@ -445,27 +417,6 @@ mod tests {
         prover_args
     }
 
-    async fn prove_block(
-        l1_chain_spec: ChainSpec,
-        taiko_chain_spec: ChainSpec,
-        proof_request: ProofRequest,
-    ) -> Proof {
-        let provider =
-            RpcBlockDataProvider::new(&taiko_chain_spec.rpc, proof_request.block_number - 1)
-                .await
-                .expect("Could not create RpcBlockDataProvider");
-        let raiko = Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request.clone());
-        let input = raiko
-            .generate_input(provider)
-            .await
-            .expect("input generation failed");
-        let output = raiko.get_output(&input).expect("output generation failed");
-        raiko
-            .prove(input, &output, None)
-            .await
-            .expect("proof generation failed")
-    }
-
     fn dump_file<T: Serialize>(filename: &str, data: &T) {
         let dump_mode = env::var("DUMP_FILE").unwrap_or_else(|_| "0".to_string());
         match dump_mode.as_str() {
@@ -669,94 +620,4 @@ mod tests {
         );
     }
 
-    #[ignore = "public node does not support long distance MPT proof query."]
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_prove_block_ethereum() {
-        let proof_type = get_proof_type_from_env();
-        // Skip test on SP1 for now because it's too slow on CI
-        if !(is_ci() && proof_type == ProofType::Sp1) {
-            let network = Network::Ethereum.to_string();
-            let l1_network = Network::Ethereum.to_string();
-            let taiko_chain_spec = SupportedChainSpecs::default()
-                .get_chain_spec(&network)
-                .unwrap();
-            let l1_chain_spec = SupportedChainSpecs::default()
-                .get_chain_spec(&l1_network)
-                .unwrap();
-            let block_number = get_recent_block_num(&taiko_chain_spec).await;
-            println!(
-                "test_prove_block_ethereum in block_number: {}",
-                block_number
-            );
-            let proof_request = ProofRequest {
-                block_number,
-                batch_id: 0,
-                l1_inclusion_block_number: 0,
-                l2_block_numbers: Vec::new(),
-                network,
-                graffiti: B256::ZERO,
-                prover: Address::ZERO,
-                l1_network,
-                proof_type,
-                blob_proof_type: BlobProofType::ProofOfEquivalence,
-                prover_args: test_proof_params(false),
-                checkpoint: None,
-                last_anchor_block_number: None,
-                cached_event_data: None,
-            };
-            prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
-        }
-    }
-
-    #[ignore = "holesky down"]
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_prove_block_taiko_a7_aggregated() {
-        let proof_type = get_proof_type_from_env();
-        let l1_network = Network::Holesky.to_string();
-        let network = Network::TaikoA7.to_string();
-        // Give the CI an simpler block to test because it doesn't have enough memory.
-        // Unfortunately that also means that kzg is not getting fully verified by CI.
-        let block_number = if is_ci() { 105987 } else { 101368 };
-        let taiko_chain_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&network)
-            .unwrap();
-        let l1_chain_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&l1_network)
-            .unwrap();
-
-        let proof_request = ProofRequest {
-            block_number,
-            batch_id: 0,
-            l1_inclusion_block_number: 0,
-            l2_block_numbers: Vec::new(),
-            network,
-            graffiti: B256::ZERO,
-            prover: Address::ZERO,
-            l1_network,
-            proof_type,
-            blob_proof_type: BlobProofType::ProofOfEquivalence,
-            prover_args: test_proof_params(true),
-            checkpoint: None,
-            last_anchor_block_number: None,
-            cached_event_data: None,
-        };
-        let proof = prove_block(l1_chain_spec, taiko_chain_spec, proof_request).await;
-
-        let input = AggregationGuestInput {
-            proofs: vec![proof.clone(), proof],
-        };
-
-        let output = AggregationGuestOutput { hash: B256::ZERO };
-
-        let aggregated_proof = aggregate_proofs(
-            proof_type,
-            input,
-            &output,
-            &serde_json::to_value(&test_proof_params(false)).unwrap(),
-            None,
-        )
-        .await
-        .expect("proof aggregation failed");
-        println!("aggregated proof: {aggregated_proof:?}");
-    }
 }

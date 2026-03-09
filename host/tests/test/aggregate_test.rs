@@ -1,6 +1,6 @@
 use crate::common::{
     complete_aggregate_proof_request, complete_proof_request, make_aggregate_proof_request,
-    make_proof_request, setup, v2_assert_report,
+    make_proof_request, setup, v3_assert_report,
 };
 use raiko_host::server::api;
 use raiko_lib::consts::Network;
@@ -35,15 +35,15 @@ async fn v2_mainnet_aggregate(network: Network, proof_type: ProofType) {
     let mut proofs = Vec::with_capacity(block_numbers.len());
 
     for request in requests {
-        let status: api::v2::Status = client
+        let status: api::v3::Status = client
             .post("/v2/proof", &request)
             .await
             .expect("failed to send request");
         assert!(
             matches!(
                 status,
-                api::v2::Status::Ok {
-                    data: api::v2::ProofResponse::Status {
+                api::v3::Status::Ok {
+                    data: api::v3::ProofResponse::Status {
                         status: TaskStatus::Registered
                             | TaskStatus::WorkInProgress
                             | TaskStatus::Success,
@@ -87,7 +87,7 @@ async fn v2_mainnet_aggregate(network: Network, proof_type: ProofType) {
     complete_aggregate_proof_request("v3", &client, &aggregate_request).await;
 
     // santy check for report format
-    v2_assert_report(&client).await;
+    v3_assert_report(&client).await;
 }
 
 // Use mock zkvm elf for testing

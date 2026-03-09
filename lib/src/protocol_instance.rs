@@ -287,8 +287,7 @@ fn bypass_shasta_anchor_linkage(batch_input: &GuestBatchInput) -> bool {
 }
 
 impl ProtocolInstance {
-    pub fn new(input: &GuestInput, header: &Header, proof_type: ProofType) -> Result<Self> {
-        let _ = (input, header, proof_type);
+    pub fn new(_input: &GuestInput, _header: &Header, _proof_type: ProofType) -> Result<Self> {
         Err(anyhow::Error::msg(
             "single block protocol instances are not supported in shasta-only mode",
         ))
@@ -335,10 +334,6 @@ impl ProtocolInstance {
                 ensure!(
                     input.chain_spec.l2_contract == verified_chain_spec.l2_contract,
                     "unexpected l2_contract"
-                );
-                ensure!(
-                    input.chain_spec.is_taiko == verified_chain_spec.is_taiko,
-                    "unexpected eip_1559_constants"
                 );
             }
         }
@@ -416,14 +411,12 @@ impl ProtocolInstance {
             verifier_address,
         };
 
-        // Sanity check
-        if batch_input.taiko.chain_spec.is_taiko() {
-            ensure!(
-                pi.block_metadata
-                    .match_block_proposal(&batch_input.taiko.batch_proposed),
-                "batch block hash mismatch"
-            );
-        }
+        // Sanity check: block metadata must match proposal
+        ensure!(
+            pi.block_metadata
+                .match_block_proposal(&batch_input.taiko.batch_proposed),
+            "batch block hash mismatch"
+        );
 
         Ok(pi)
     }
@@ -462,7 +455,6 @@ impl ProtocolInstance {
             "transition to be signed into public: {:?}.",
             shasta_trans_input
         );
-        // Domain separation: bind chain_id + verifier into the signed message.
         hash_shasta_subproof_input(&ProofCarryData {
             chain_id: self.chain_id,
             verifier: self.verifier_address,

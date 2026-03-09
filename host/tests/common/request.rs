@@ -124,8 +124,8 @@ pub async fn v2_complete_proof_request(client: &Client, request: &ProofRequestOp
             .expect("failed to send request")
         {
             // Proof generation is in progress
-            api::v2::Status::Ok {
-                data: api::v2::ProofResponse::Status { status, .. },
+            api::v3::Status::Ok {
+                data: api::v3::ProofResponse::Status { status, .. },
                 ..
             } => {
                 if matches!(status, TaskStatus::Registered | TaskStatus::WorkInProgress) {
@@ -134,8 +134,8 @@ pub async fn v2_complete_proof_request(client: &Client, request: &ProofRequestOp
             }
 
             // Proof generation is successfully completed
-            api::v2::Status::Ok {
-                data: api::v2::ProofResponse::Proof { proof },
+            api::v3::Status::Ok {
+                data: api::v3::ProofResponse::Proof { proof },
                 ..
             } => {
                 println!("proof generation completed, proof: {}", json!(proof));
@@ -143,7 +143,7 @@ pub async fn v2_complete_proof_request(client: &Client, request: &ProofRequestOp
             }
 
             // Proof generation failed
-            api::v2::Status::Error { message, error } => {
+            api::v3::Status::Error { message, error } => {
                 panic!("proof generation failed, message: {message}, error: {error:?}");
             }
         }
@@ -190,8 +190,8 @@ pub async fn v3_complete_aggregate_proof_request(
             .expect("failed to send request")
         {
             // Proof generation is in progress
-            api::v2::Status::Ok {
-                data: api::v2::ProofResponse::Status { status, .. },
+            api::v3::Status::Ok {
+                data: api::v3::ProofResponse::Status { status, .. },
                 ..
             } => {
                 assert!(
@@ -201,8 +201,8 @@ pub async fn v3_complete_aggregate_proof_request(
             }
 
             // Proof generation is successfully completed
-            api::v2::Status::Ok {
-                data: api::v2::ProofResponse::Proof { proof },
+            api::v3::Status::Ok {
+                data: api::v3::ProofResponse::Proof { proof },
                 ..
             } => {
                 println!(
@@ -213,7 +213,7 @@ pub async fn v3_complete_aggregate_proof_request(
             }
 
             // Proof generation failed
-            api::v2::Status::Error { message, error } => {
+            api::v3::Status::Error { message, error } => {
                 panic!("proof generation failed, message: {message}, error: {error:?}");
             }
         }
@@ -223,16 +223,16 @@ pub async fn v3_complete_aggregate_proof_request(
 }
 
 /// Assert that the report is in the expected format.
-pub async fn v2_assert_report(client: &Client) -> Vec<TaskReport> {
+pub async fn v3_assert_report(client: &Client) -> Vec<TaskReport> {
     let response = client
-        .get(&format!("/v2/proof/report"))
+        .get("/v3/proof/report")
         .await
         .expect("failed to send request");
     response.json().await.expect("failed to decode report body")
 }
 
 pub async fn get_status_of_proof_request(client: &Client, request: &ProofRequestOpt) -> TaskStatus {
-    let report = v2_assert_report(client).await;
+    let report = v3_assert_report(client).await;
     for (task_descriptor, task_status) in report.iter() {
         if let TaskDescriptor::SingleProof(proof_task_descriptor) = task_descriptor {
             if proof_task_descriptor.block_id == request.block_number.unwrap()
@@ -261,7 +261,7 @@ pub async fn get_status_of_aggregation_proof_request(
         proof_type: request.proof_type.clone().map(|p| p.to_string()),
     };
     let expected_task_descriptor: TaskDescriptor = TaskDescriptor::Aggregation(descriptor);
-    let report = v2_assert_report(client).await;
+    let report = v3_assert_report(client).await;
     for (task_descriptor, task_status) in &report {
         if task_descriptor == &expected_task_descriptor {
             return task_status.clone();

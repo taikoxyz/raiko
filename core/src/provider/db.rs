@@ -34,7 +34,7 @@ pub struct ProviderDb<'a, BDP: BlockDataProvider> {
 impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
     pub async fn new(
         provider: &'a BDP,
-        chain_spec: ChainSpec,
+        _chain_spec: ChainSpec,
         block_number: u64,
         initial_db_with_headers: Option<(MemDb, HashMap<u64, Header>)>,
     ) -> RaikoResult<Self> {
@@ -53,44 +53,36 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
             pending_slots: HashSet::new(),
             pending_block_hashes: HashSet::new(),
         };
-        if chain_spec.is_taiko() {
-            // Get the 256 history block hashes from the provider at first time for anchor
-            // transaction.
-            let start = block_number.saturating_sub(255);
-            let all_init_block_numbers = (start..=block_number)
-                .map(|block_number| (block_number, false))
-                .collect::<Vec<_>>();
-            // can filter out the block numbers that are already in the initial_db
-            // but need to handle the block header db as well
-            let absent_block_numbers = all_init_block_numbers
-                .into_iter()
-                .filter(|(block_number, _)| {
-                    !provider_db
-                        .initial_db
-                        .block_hashes
-                        .contains_key(block_number)
-                })
-                .collect::<Vec<(u64, bool)>>();
-            let initial_history_blocks = provider_db
-                .provider
-                .get_blocks(&absent_block_numbers)
-                .await?;
-            for block in initial_history_blocks {
-                let block_number: u64 = block
-                    .header
-                    .number
-                    .ok_or_else(|| RaikoError::RPC("No block number".to_owned()))?;
-                let block_hash = block
-                    .header
-                    .hash
-                    .ok_or_else(|| RaikoError::RPC("No block hash".to_owned()))?;
-                provider_db
-                    .initial_db
-                    .insert_block_hash(block_number, block_hash);
-                provider_db
-                    .initial_headers
-                    .insert(block_number, block.header.try_into().unwrap());
-            }
+        // Taiko-only: get the 256 history block hashes from the provider for anchor tx.
+        let start = block_number.saturating_sub(255);
+        let all_init_block_numbers = (start..=block_number)
+            .map(|block_number| (block_number, false))
+            .collect::<Vec<_>>();
+        let absent_block_numbers = all_init_block_numbers
+            .into_iter()
+            .filter(|(block_number, _)| {
+                !provider_db.initial_db.block_hashes.contains_key(block_number)
+            })
+            .collect::<Vec<(u64, bool)>>();
+        let initial_history_blocks = provider_db
+            .provider
+            .get_blocks(&absent_block_numbers)
+            .await?;
+        for block in initial_history_blocks {
+            let block_number: u64 = block
+                .header
+                .number
+                .ok_or_else(|| RaikoError::RPC("No block number".to_owned()))?;
+            let block_hash = block
+                .header
+                .hash
+                .ok_or_else(|| RaikoError::RPC("No block hash".to_owned()))?;
+            provider_db
+                .initial_db
+                .insert_block_hash(block_number, block_hash);
+            provider_db
+                .initial_headers
+                .insert(block_number, block.header.try_into().unwrap());
         }
         info!(
             "Initial new provider_db of parent block: {:?}",
