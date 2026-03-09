@@ -286,6 +286,12 @@
         "rpc": "https://taiko-transition-rpc.invalid",
         "beacon_rpc": null,
         "verifier_address_forks": {
+            "PACAYA": {
+                "SGX": "0xf92b97Ac8C1D8bfCFCB26CFb153a36aDb99471EF",
+                "SP1": "0xb179D4038DD6084c548EEf674DAC262F51264e5e",
+                "RISC0": "0xCF5CA135AC33D6Fc3CE7752e5c7449f6cE4d0925",
+                "SGXGETH": "0x17d9Ae481d901DDC08728E0B25307dAea1f8DE9D"
+            },
             "SHASTA": {
                 "SGX": "0xF6c749514c65D16b244A46A6eA4F691f15241ad3",
                 "RISC0": "0x15190EEf1934DFC909Cd8ae3479701cd644982F7",
