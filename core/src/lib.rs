@@ -54,16 +54,12 @@ impl Raiko {
             batch_id: self.request.batch_id,
             block_numbers: self.request.l2_block_numbers.clone(),
             l1_inclusion_block_number: self.request.l1_inclusion_block_number,
-            l1_chain_spec: self.l1_chain_spec.to_owned(),
-            taiko_chain_spec: self.taiko_chain_spec.to_owned(),
+            l1_chain_spec: self.l1_chain_spec.clone(),
+            taiko_chain_spec: self.taiko_chain_spec.clone(),
             prover_data: TaikoProverData {
                 graffiti: self.request.graffiti,
                 actual_prover: self.request.prover,
-                checkpoint: self
-                    .request
-                    .checkpoint
-                    .clone()
-                    .map(ShastaProposalCheckpoint::into),
+                checkpoint: self.request.checkpoint.clone().map(ShastaProposalCheckpoint::into),
                 last_anchor_block_number: self.request.last_anchor_block_number,
             },
             blob_proof_type: self.request.blob_proof_type.clone(),
@@ -95,32 +91,21 @@ impl Raiko {
         builder
             .execute_transactions(pool_tx, false)
             .expect("execute");
-        let result = builder.finalize();
 
-        match result {
-            Ok(header) => {
-                debug!("Verifying final state using provider data ...");
-                debug!(
-                    "Final block hash derived successfully. {}",
-                    header.hash_slow()
-                );
-                debug!("Final block header derived successfully. {header:?}");
-                // Check if the header is the expected one
-                check_header(&input.block.header, &header)?;
+        let header = builder.finalize().map_err(|e| {
+            warn!("Proving bad block construction!");
+            RaikoError::Guest(raiko_lib::prover::ProverError::GuestError(e.to_string()))
+        })?;
 
-                Ok(GuestOutput {
-                    header: header.clone(),
-                    hash: ProtocolInstance::new(input, &header, self.request.proof_type)?
-                        .instance_hash(),
-                })
-            }
-            Err(e) => {
-                warn!("Proving bad block construction!");
-                Err(RaikoError::Guest(
-                    raiko_lib::prover::ProverError::GuestError(e.to_string()),
-                ))
-            }
-        }
+        debug!("Verifying final state using provider data ...");
+        debug!("Final block hash derived successfully. {}", header.hash_slow());
+        debug!("Final block header derived successfully. {header:?}");
+        check_header(&input.block.header, &header)?;
+
+        Ok(GuestOutput {
+            header: header.clone(),
+            hash: ProtocolInstance::new(input, &header, self.request.proof_type)?.instance_hash(),
+        })
     }
 
     pub fn get_batch_output(&self, batch_input: &GuestBatchInput) -> RaikoResult<GuestBatchOutput> {
@@ -128,39 +113,30 @@ impl Raiko {
             "Generating {} output for batch id: {}",
             self.request.proof_type, batch_input.taiko.batch_id
         );
-        let pool_txs_list = generate_transactions_for_batch_blocks(&batch_input);
-        let blocks = batch_input
-            .inputs
-            .iter()
-            .zip(pool_txs_list)
-            .enumerate()
-            .try_fold(
-                Vec::new(),
-                |mut acc, (idx, input_and_txs)| -> RaikoResult<Vec<Block>> {
-                    let (input, txs_with_flag) = input_and_txs;
-                    let (pool_txs, _) = txs_with_flag;
-                    let output = self.single_output_for_batch(pool_txs, input, idx == 0)?;
-                    acc.push(output);
-                    Ok(acc)
-                },
-            )?;
-
-        blocks.windows(2).try_for_each(|window| {
-            let parent = &window[0];
-            let current = &window[1];
-            if parent.header.hash_slow() != current.header.parent_hash {
-                return Err(RaikoError::Guest(
-                    raiko_lib::prover::ProverError::GuestError("Parent hash mismatch".to_string()),
-                ));
-            }
-            Ok(())
-        })?;
+        let pool_txs_list = generate_transactions_for_batch_blocks(batch_input);
+        let blocks = self.build_batch_blocks(&batch_input.inputs, &pool_txs_list)?;
+        verify_parent_hash_chain(&blocks)?;
 
         Ok(GuestBatchOutput {
             blocks: blocks.clone(),
             hash: ProtocolInstance::new_batch(batch_input, blocks, self.request.proof_type)?
                 .instance_hash(),
         })
+    }
+
+    fn build_batch_blocks(
+        &self,
+        inputs: &[GuestInput],
+        pool_txs_list: &[(Vec<reth_primitives::TransactionSigned>, bool)],
+    ) -> RaikoResult<Vec<Block>> {
+        inputs
+            .iter()
+            .zip(pool_txs_list)
+            .enumerate()
+            .map(|(idx, (input, (pool_txs, _)))| {
+                self.single_output_for_batch(pool_txs.clone(), input, idx == 0)
+            })
+            .collect()
     }
 
     fn single_output_for_batch(
@@ -174,38 +150,27 @@ impl Raiko {
             .set_is_first_block_in_proposal(is_first_block_in_proposal);
 
         let mut pool_txs = vec![input.taiko.anchor_tx.clone().unwrap()];
-        pool_txs.extend_from_slice(&origin_pool_txs);
+        pool_txs.extend(origin_pool_txs);
 
         builder
             .execute_transactions(pool_txs, false)
             .expect("execute");
-        let result = builder.finalize_block();
+        let block = builder.finalize_block().map_err(|e| {
+            warn!("Proving bad block construction!");
+            RaikoError::Guest(raiko_lib::prover::ProverError::GuestError(e.to_string()))
+        })?;
 
-        match result {
-            Ok(block) => {
-                let header = block.header.clone();
-                debug!(
-                    "Verifying final block {} state using provider data ...",
-                    header.number
-                );
-                debug!(
-                    "Final block {} hash derived successfully. {}",
-                    header.number,
-                    header.hash_slow()
-                );
-                debug!("Final block derived successfully. {block:?}");
-                // Check if the header is the expected one
-                check_header(&input.block.header, &header)?;
+        let header = &block.header;
+        debug!("Verifying final block {} state using provider data ...", header.number);
+        debug!("Final block {} hash derived successfully. {}", header.number, header.hash_slow());
+        debug!("Final block derived successfully. {block:?}");
+        check_header(&input.block.header, header)?;
 
-                Ok(block.clone())
-            }
-            Err(e) => {
-                warn!("Proving bad block construction!");
-                Err(RaikoError::Guest(
-                    raiko_lib::prover::ProverError::GuestError(e.to_string()),
-                ))
-            }
-        }
+        Ok(block)
+    }
+
+    fn get_prover_config(&self) -> RaikoResult<Value> {
+        serde_json::to_value(&self.request).map_err(Into::into)
     }
 
     pub async fn prove(
@@ -214,7 +179,7 @@ impl Raiko {
         output: &GuestOutput,
         store: Option<&mut dyn IdWrite>,
     ) -> RaikoResult<Proof> {
-        let config = serde_json::to_value(&self.request)?;
+        let config = self.get_prover_config()?;
         run_prover(self.request.proof_type, input, output, &config, store).await
     }
 
@@ -224,7 +189,7 @@ impl Raiko {
         output: &GuestBatchOutput,
         store: Option<&mut dyn IdWrite>,
     ) -> RaikoResult<Proof> {
-        let config = serde_json::to_value(&self.request)?;
+        let config = self.get_prover_config()?;
         run_batch_prover(self.request.proof_type, input, output, &config, store).await
     }
 
@@ -234,7 +199,7 @@ impl Raiko {
         output: &GuestBatchOutput,
         store: Option<&mut dyn IdWrite>,
     ) -> RaikoResult<Proof> {
-        let config = serde_json::to_value(&self.request)?;
+        let config = self.get_prover_config()?;
         run_shasta_proposal_prover(self.request.proof_type, input, output, &config, store).await
     }
 
@@ -245,6 +210,18 @@ impl Raiko {
     ) -> RaikoResult<()> {
         cancel_proof(self.request.proof_type, proof_key, read).await
     }
+}
+
+fn verify_parent_hash_chain(blocks: &[Block]) -> RaikoResult<()> {
+    for window in blocks.windows(2) {
+        let (parent, current) = (&window[0], &window[1]);
+        if parent.header.hash_slow() != current.header.parent_hash {
+            return Err(RaikoError::Guest(
+                raiko_lib::prover::ProverError::GuestError("Parent hash mismatch".to_string()),
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn check_header(exp: &Header, header: &Header) -> Result<(), RaikoError> {
@@ -290,7 +267,7 @@ fn check_header(exp: &Header, header: &Header) -> Result<(), RaikoError> {
     );
     check_eq(&exp.extra_data, &header.extra_data, "extra_data");
 
-    // Make sure the blockhash from the node matches the one from the builder
+    // Block hash must match: node-provided header vs builder-derived header
     require_eq(
         &exp.hash_slow(),
         &header.hash_slow(),
@@ -299,8 +276,6 @@ fn check_header(exp: &Header, header: &Header) -> Result<(), RaikoError> {
 }
 
 fn check_eq<T: std::cmp::PartialEq + std::fmt::Debug>(expected: &T, actual: &T, message: &str) {
-    // printing out error, if any, but ignoring the result
-    // making sure it's not optimized out
     let _ = black_box(require_eq(expected, actual, message));
 }
 

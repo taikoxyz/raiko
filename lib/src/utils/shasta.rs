@@ -12,6 +12,7 @@ use crate::no_std::*;
 use crate::utils::blobs::{decode_blob_data, zlib_decompress_data};
 use crate::utils::shasta_rules::*;
 
+/// Builds a default block manifest for a derivation source when validation fails.
 fn make_default_manifest(
     guest_batch_input: &GuestBatchInput,
     last_parent_block_timestamp: u64,

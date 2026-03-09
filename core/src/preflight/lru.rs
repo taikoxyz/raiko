@@ -2,20 +2,19 @@
 use lazy_static::lazy_static;
 use std::{collections::HashMap, num::NonZeroUsize, sync::Mutex};
 
+use lru::LruCache;
 use raiko_lib::mem_db::MemDb;
 use reth_primitives::{Header, B256};
 use tracing::debug;
 
-use lru::LruCache;
-
 type ChainBlockCacheKey = (u64, B256);
 type ChainBlockCacheEntry = (MemDb, HashMap<u64, Header>);
 
+const LRU_CAPACITY: usize = 256;
+
 lazy_static! {
     static ref HISTORY_STATE_DB: Mutex<LruCache<ChainBlockCacheKey, ChainBlockCacheEntry>> =
-        Mutex::new(LruCache::<ChainBlockCacheKey, ChainBlockCacheEntry>::new(
-            NonZeroUsize::new(256).unwrap()
-        ));
+        Mutex::new(LruCache::new(NonZeroUsize::new(LRU_CAPACITY).unwrap()));
 }
 
 #[cfg(test)]

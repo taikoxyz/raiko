@@ -46,11 +46,11 @@ impl BlockMetaDataFork {
     }
 
     fn match_block_proposal(&self, other: &BlockProposedFork) -> bool {
-        match (self, other) {
-            (Self::Shasta(_), BlockProposedFork::Shasta(_)) => true,
-            (Self::None, BlockProposedFork::Nothing) => true,
-            _ => false,
-        }
+        matches!(
+            (self, other),
+            (Self::Shasta(_), BlockProposedFork::Shasta(_))
+                | (Self::None, BlockProposedFork::Nothing)
+        )
     }
 }
 
@@ -83,7 +83,7 @@ fn verify_blob(
             ensure!(*expected_versioned_hash == commitment_to_version_hash(commitment));
 
             let ct = CycleTracker::start("proof_of_equivalence");
-            let (x, y) = eip4844::proof_of_equivalence(blob_data, &expected_versioned_hash)?;
+            let (x, y) = eip4844::proof_of_equivalence(blob_data, expected_versioned_hash)?;
             ct.end();
             let verified = eip4844::verify_kzg_proof_impl(
                 *commitment,
@@ -99,8 +99,8 @@ fn verify_blob(
             let ct = CycleTracker::start("proof_of_commitment");
             ensure!(commitment == &eip4844::calc_kzg_proof_commitment(blob_data)?);
             ensure!(
-                *expected_versioned_hash
-                    == commitment_to_version_hash(&commitment.clone().try_into().unwrap())
+                *expected_versioned_hash == commitment_to_version_hash(commitment),
+                "blob versioned hash mismatch"
             );
             ct.end();
         }
@@ -268,6 +268,28 @@ fn verify_shasha_anchor_linkage(
     last_parent_hash == *expected_parent_hash
 }
 
+/// Validates input chain spec against known specs when chain_id is recognized.
+/// For unknown chain ids, skips check to allow tests with custom data.
+fn validate_chain_spec_against_known(chain_spec: &crate::consts::ChainSpec) -> Result<()> {
+    let Some(verified) = SupportedChainSpecs::default().get_chain_spec_with_chain_id(chain_spec.chain_id) else {
+        return Ok(());
+    };
+    ensure!(chain_spec.max_spec_id == verified.max_spec_id, "unexpected max_spec_id");
+    ensure!(
+        chain_spec.hard_forks == verified.hard_forks,
+        "unexpected hard_forks: {:?}, expected: {:?}",
+        chain_spec.hard_forks,
+        verified.hard_forks
+    );
+    ensure!(
+        chain_spec.eip_1559_constants == verified.eip_1559_constants,
+        "unexpected eip_1559_constants"
+    );
+    ensure!(chain_spec.l1_contract == verified.l1_contract, "unexpected l1_contract");
+    ensure!(chain_spec.l2_contract == verified.l2_contract, "unexpected l2_contract");
+    Ok(())
+}
+
 fn bypass_shasta_anchor_linkage(batch_input: &GuestBatchInput) -> bool {
     if !batch_input.taiko.l1_ancestor_headers.is_empty() {
         return false;
@@ -302,40 +324,7 @@ impl ProtocolInstance {
         verify_batch_mode_blob_usage(batch_input, proof_type)?;
 
         for input in &batch_input.inputs {
-            // If the passed in chain spec contains a known chain id, the chain spec NEEDS to match the
-            // one we expect, because the prover could otherwise just fill in any values.
-            // The chain id is used because that is the value that is put onchain,
-            // and so all other chain data needs to be derived from it.
-            // For unknown chain ids we just skip this check so that tests using test data can still pass.
-            // TODO: we should probably split things up in critical and non-critical parts
-            // in the chain spec itself so we don't have to manually all the ones we have to care about.
-            if let Some(verified_chain_spec) = SupportedChainSpecs::default()
-                .get_chain_spec_with_chain_id(input.chain_spec.chain_id)
-            {
-                ensure!(
-                    input.chain_spec.max_spec_id == verified_chain_spec.max_spec_id,
-                    "unexpected max_spec_id"
-                );
-                ensure!(
-                    input.chain_spec.hard_forks == verified_chain_spec.hard_forks,
-                    format!(
-                        "unexpected hard_forks: {:?}, expected: {:?}",
-                        input.chain_spec.hard_forks, verified_chain_spec.hard_forks
-                    )
-                );
-                ensure!(
-                    input.chain_spec.eip_1559_constants == verified_chain_spec.eip_1559_constants,
-                    "unexpected eip_1559_constants"
-                );
-                ensure!(
-                    input.chain_spec.l1_contract == verified_chain_spec.l1_contract,
-                    "unexpected l1_contract"
-                );
-                ensure!(
-                    input.chain_spec.l2_contract == verified_chain_spec.l2_contract,
-                    "unexpected l2_contract"
-                );
-            }
+            validate_chain_spec_against_known(&input.chain_spec)?;
         }
 
         // todo: move chain_spec into the batch input

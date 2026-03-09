@@ -390,22 +390,16 @@ impl std::str::FromStr for BatchMetadata {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parts: Vec<&str> = s.split(':').collect();
-        if parts.len() != 2 {
+        let [batch_id_str, l1_str] = parts.as_slice() else {
             return Err(anyhow::anyhow!(
                 "Invalid BatchMetadata format. Expected 'batch_id:l1_inclusion_block_number'"
             ));
-        }
-
-        let batch_id = parts[0]
-            .parse::<u64>()
-            .map_err(|_| anyhow::anyhow!("Invalid batch_id"))?;
-        let l1_inclusion_block_number = parts[1]
-            .parse::<u64>()
-            .map_err(|_| anyhow::anyhow!("Invalid l1_inclusion_block_number"))?;
-
+        };
         Ok(Self {
-            batch_id,
-            l1_inclusion_block_number,
+            batch_id: batch_id_str.parse().map_err(|_| anyhow::anyhow!("Invalid batch_id"))?,
+            l1_inclusion_block_number: l1_str
+                .parse()
+                .map_err(|_| anyhow::anyhow!("Invalid l1_inclusion_block_number"))?,
         })
     }
 }

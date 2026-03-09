@@ -9,6 +9,15 @@ use reth_primitives::revm_primitives::{AccountInfo, Bytecode};
 use std::collections::HashMap;
 use tracing::debug;
 
+/// Max blocks per eth_getBlockByNumber batch request.
+const BLOCK_BATCH_SIZE: usize = 32;
+/// Max accounts per eth_getTransactionCount/Balance/Code batch.
+const ACCOUNT_BATCH_SIZE: usize = 250;
+/// Max storage slots per eth_getStorageAt batch.
+const STORAGE_BATCH_SIZE: usize = 1000;
+/// Max storage proofs per eth_getProof batch.
+const PROOF_BATCH_LIMIT: usize = 1000;
+
 use crate::{
     interfaces::{RaikoError, RaikoResult},
     provider::BlockDataProvider,
@@ -65,10 +74,9 @@ impl BlockDataProvider for RpcBlockDataProvider {
     async fn get_blocks(&self, blocks_to_fetch: &[(u64, bool)]) -> RaikoResult<Vec<Block>> {
         let mut all_blocks = Vec::with_capacity(blocks_to_fetch.len());
 
-        let max_batch_size = 32;
-        for blocks_to_fetch in blocks_to_fetch.chunks(max_batch_size) {
+        for blocks_to_fetch in blocks_to_fetch.chunks(BLOCK_BATCH_SIZE) {
             let mut batch = self.client.new_batch();
-            let mut requests = Vec::with_capacity(max_batch_size);
+            let mut requests = Vec::with_capacity(BLOCK_BATCH_SIZE);
 
             for (block_number, full) in blocks_to_fetch {
                 requests.push(Box::pin(
@@ -91,7 +99,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
                 ))
             })?;
 
-            let mut blocks = Vec::with_capacity(max_batch_size);
+            let mut blocks = Vec::with_capacity(BLOCK_BATCH_SIZE);
             // Collect the data from the batch
             for request in requests {
                 blocks.push(
@@ -120,13 +128,11 @@ impl BlockDataProvider for RpcBlockDataProvider {
         );
         let mut all_accounts = Vec::with_capacity(accounts.len());
 
-        let max_batch_size = 250;
-        for accounts in accounts.chunks(max_batch_size) {
+        for accounts in accounts.chunks(ACCOUNT_BATCH_SIZE) {
             let mut batch = self.client.new_batch();
-
-            let mut nonce_requests = Vec::with_capacity(max_batch_size);
-            let mut balance_requests = Vec::with_capacity(max_batch_size);
-            let mut code_requests = Vec::with_capacity(max_batch_size);
+            let mut nonce_requests = Vec::with_capacity(ACCOUNT_BATCH_SIZE);
+            let mut balance_requests = Vec::with_capacity(ACCOUNT_BATCH_SIZE);
+            let mut code_requests = Vec::with_capacity(ACCOUNT_BATCH_SIZE);
 
             for address in accounts {
                 nonce_requests.push(Box::pin(
@@ -217,11 +223,10 @@ impl BlockDataProvider for RpcBlockDataProvider {
         );
         let mut all_values = Vec::with_capacity(accounts.len());
 
-        let max_batch_size = 1000;
-        for accounts in accounts.chunks(max_batch_size) {
+        for accounts in accounts.chunks(STORAGE_BATCH_SIZE) {
             let mut batch = self.client.new_batch();
 
-            let mut requests = Vec::with_capacity(max_batch_size);
+            let mut requests = Vec::with_capacity(STORAGE_BATCH_SIZE);
 
             for (address, key) in accounts {
                 requests.push(Box::pin(
@@ -243,7 +248,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
                 .await
                 .map_err(|e| RaikoError::RPC(format!("Error sending batch request {e}")))?;
 
-            let mut values = Vec::with_capacity(max_batch_size);
+            let mut values = Vec::with_capacity(STORAGE_BATCH_SIZE);
             // Collect the data from the batch
             for request in requests {
                 values.push(
@@ -277,7 +282,6 @@ impl BlockDataProvider for RpcBlockDataProvider {
 
         let mut accounts = accounts.clone();
 
-        let batch_limit = 1000;
         while !accounts.is_empty() {
             #[cfg(debug_assertions)]
             raiko_lib::inplace_print(&format!(
@@ -293,15 +297,15 @@ impl BlockDataProvider for RpcBlockDataProvider {
             let mut requests = Vec::new();
 
             let mut batch_size = 0;
-            while !accounts.is_empty() && batch_size < batch_limit {
+                while !accounts.is_empty() && batch_size < PROOF_BATCH_LIMIT {
                 let mut address_to_remove = None;
 
                 if let Some((address, keys)) = accounts.iter_mut().next() {
                     // Calculate how many keys we can still process
-                    let num_keys_to_process = if batch_size + keys.len() < batch_limit {
+                    let num_keys_to_process = if batch_size + keys.len() < PROOF_BATCH_LIMIT {
                         keys.len()
                     } else {
-                        batch_limit - batch_size
+                        PROOF_BATCH_LIMIT - batch_size
                     };
 
                     // If we can process all keys, remove the address from the map after the loop

@@ -186,7 +186,7 @@ async fn prepare_shasta_batch_input(
     }
 
     Ok(TaikoGuestBatchInput {
-        batch_id: batch_id,
+        batch_id,
         batch_proposed: BlockProposedFork::Shasta(shasta_event_data),
         l1_header: l1_state_header.try_into().unwrap(),
         l1_ancestor_headers: l1_ancestor_headers
@@ -194,7 +194,7 @@ async fn prepare_shasta_batch_input(
             .map(|header| header.clone().try_into().unwrap())
             .collect(),
         chain_spec: taiko_chain_spec.clone(),
-        prover_data: prover_data,
+        prover_data,
         l2_grandparent_header: grandparent_header,
         data_sources,
     })
@@ -405,7 +405,7 @@ pub async fn filter_blockchain_event(
     Ok(provider.get_logs(&filter).await?)
 }
 
-pub enum EventFilterConditioin {
+pub enum EventFilterCondition {
     #[allow(dead_code)]
     Hash(B256),
     Height(u64),
@@ -414,7 +414,7 @@ pub enum EventFilterConditioin {
 pub async fn filter_block_proposed_event(
     provider: &ReqwestProvider,
     chain_spec: ChainSpec,
-    filter_condition: EventFilterConditioin,
+    filter_condition: EventFilterCondition,
     block_num_or_batch_id: u64,
     fork: SpecId,
 ) -> Result<(u64, AlloyRpcTransaction, BlockProposedFork)> {
@@ -432,11 +432,11 @@ pub async fn filter_block_proposed_event(
     };
     // Setup the filter to get the relevant events
     let logs = filter_blockchain_event(provider, || match filter_condition {
-        EventFilterConditioin::Hash(block_hash) => Filter::new()
+        EventFilterCondition::Hash(block_hash) => Filter::new()
             .address(l1_address)
             .at_block_hash(block_hash)
             .event_signature(event_signature),
-        EventFilterConditioin::Height(block_number) => Filter::new()
+        EventFilterCondition::Height(block_number) => Filter::new()
             .address(l1_address)
             .from_block(block_number)
             .to_block(block_number)
@@ -552,7 +552,7 @@ pub async fn get_block_proposed_event_by_height(
     filter_block_proposed_event(
         provider,
         chain_spec,
-        EventFilterConditioin::Height(l1_inclusion_block_number),
+        EventFilterCondition::Height(l1_inclusion_block_number),
         block_num_or_batch_id,
         fork,
     )
@@ -618,22 +618,13 @@ pub async fn get_headers<BDP>(provider: &BDP, (a, b): (u64, u64)) -> RaikoResult
 where
     BDP: BlockDataProvider,
 {
-    // Get the block and the parent block
     let blocks = provider.get_blocks(&[(a, true), (b, false)]).await?;
-    let mut blocks = blocks.iter();
-    let Some(a) = blocks.next() else {
+    let [block_a, block_b] = blocks.as_slice() else {
         return Err(RaikoError::Preflight(
             "No block data for the requested block".to_owned(),
         ));
     };
-    let Some(b) = blocks.next() else {
-        return Err(RaikoError::Preflight(
-            "No block data for the requested block".to_owned(),
-        ));
-    };
-
-    // Convert the alloy block to a reth block
-    Ok((a.header.clone(), b.header.clone()))
+    Ok((block_a.header.clone(), block_b.header.clone()))
 }
 
 pub async fn get_max_anchor_headers<BDP>(

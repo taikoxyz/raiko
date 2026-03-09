@@ -159,14 +159,11 @@ pub enum BlockProposedFork {
 
 impl BlockProposedFork {
     pub fn blob_used(&self) -> bool {
-        match self {
-            BlockProposedFork::Shasta(event_data) => event_data
-                .proposal
-                .sources
-                .iter()
-                .all(|source| source.blobSlice.blobHashes.len() > 0),
-            _ => false,
-        }
+        matches!(self, BlockProposedFork::Shasta(event_data) if event_data
+            .proposal
+            .sources
+            .iter()
+            .all(|s| !s.blobSlice.blobHashes.is_empty()))
     }
 
     pub fn block_number(&self) -> u64 {
@@ -232,10 +229,7 @@ impl BlockProposedFork {
     }
 
     pub fn is_shasta(&self) -> bool {
-        match self {
-            BlockProposedFork::Shasta(_) => true,
-            _ => false,
-        }
+        matches!(self, BlockProposedFork::Shasta(_))
     }
 
     pub fn proposal_id(&self) -> u64 {
