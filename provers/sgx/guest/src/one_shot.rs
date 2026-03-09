@@ -130,7 +130,7 @@ pub fn bootstrap(global_opts: GlobalOpts) -> Result<()> {
 pub async fn one_shot(
     global_opts: GlobalOpts,
     args: OneShotArgs,
-    input: GuestInput,
+    mut input: GuestInput,
 ) -> Result<Value> {
     // Make sure this SGX instance was bootstrapped
     let prev_privkey = load_bootstrap(&global_opts.secrets_dir)
@@ -143,7 +143,7 @@ pub async fn one_shot(
     let new_instance = public_key_to_address(&new_pubkey);
 
     // Process the block
-    let header = calculate_block_header(&input);
+    let header = calculate_block_header(&mut input);
     // Calculate the public input hash
     let pi = ProtocolInstance::new(&input, &header, ProofType::Sgx)?.sgx_instance(new_instance);
     let pi_hash = pi.instance_hash();
@@ -198,14 +198,14 @@ pub fn load_bootstrap_privkey(secrets_dir: &Path) -> Result<(SecretKey, PublicKe
 pub async fn one_shot_batch(
     global_opts: GlobalOpts,
     args: OneShotArgs,
-    batch_input: GuestBatchInput,
+    mut batch_input: GuestBatchInput,
 ) -> Result<Value> {
     println!("Global options: {global_opts:?}, OneShot options: {args:?}");
     let (prev_privkey, new_pubkey, new_instance) =
         load_bootstrap_privkey(&global_opts.secrets_dir)?;
 
     // Process the block
-    let final_blocks = calculate_batch_blocks_final_header(&batch_input);
+    let final_blocks = calculate_batch_blocks_final_header(&mut batch_input);
     // Calculate the public input hash
     let pi = ProtocolInstance::new_batch(&batch_input, final_blocks, ProofType::Sgx)?
         .sgx_instance(new_instance);

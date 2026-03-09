@@ -23,7 +23,7 @@ impl Pool {
         request_entity: RequestEntity,
         status: StatusWithContext,
     ) -> Result<(), String> {
-        tracing::info!("RedisPool.add: {request_key}, {status}");
+        tracing::debug!("RedisPool.add: {request_key}, {status}");
         let request_entity_and_status = RequestEntityAndStatus {
             entity: request_entity,
             status,
@@ -40,7 +40,7 @@ impl Pool {
     }
 
     pub fn remove(&mut self, request_key: &RequestKey) -> Result<usize, String> {
-        tracing::info!("RedisPool.remove: {request_key}");
+        tracing::debug!("RedisPool.remove: {request_key}");
         let result: usize = self
             .conn()
             .map_err(|e| e.to_string())?
@@ -76,14 +76,14 @@ impl Pool {
                     );
                 }
                 _ => {
-                    tracing::info!(
+                    tracing::debug!(
                         "RedisPool.get_status: {request_key}, {}",
                         status_with_context
                     );
                 }
             }
         } else {
-            tracing::info!("RedisPool.get_status: {request_key}, None");
+            tracing::warn!("RedisPool.get_status: {request_key}, None");
         }
         result
     }
@@ -103,7 +103,7 @@ impl Pool {
                         );
                     }
                     _ => {
-                        tracing::info!("RedisPool.update_status: {request_key}, {status}");
+                        tracing::debug!("RedisPool.update_status: {request_key}, {status}");
                     }
                 }
                 self.add(request_key, entity, status)?;
@@ -133,7 +133,7 @@ impl IdStore for Pool {
     async fn read_id(&mut self, proof_key: ProofKey) -> ProverResult<String> {
         let hack_request_key = proof_key_to_hack_request_key(proof_key);
 
-        tracing::info!("RedisPool.read_id: {hack_request_key}");
+        tracing::debug!("RedisPool.read_id: {hack_request_key}");
 
         let result: RedisResult<String> = self
             .conn()
@@ -151,7 +151,7 @@ impl IdWrite for Pool {
     async fn store_id(&mut self, proof_key: ProofKey, id: String) -> ProverResult<()> {
         let hack_request_key = proof_key_to_hack_request_key(proof_key);
 
-        tracing::info!("RedisPool.store_id: {hack_request_key}, {id}");
+        tracing::debug!("RedisPool.store_id: {hack_request_key}, {id}");
 
         self.conn()
             .map_err(|e| e.to_string())?
@@ -163,7 +163,7 @@ impl IdWrite for Pool {
     async fn remove_id(&mut self, proof_key: ProofKey) -> ProverResult<()> {
         let hack_request_key = proof_key_to_hack_request_key(proof_key);
 
-        tracing::info!("RedisPool.remove_id: {hack_request_key}");
+        tracing::debug!("RedisPool.remove_id: {hack_request_key}");
 
         self.conn()
             .map_err(|e| e.to_string())?

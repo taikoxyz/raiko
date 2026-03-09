@@ -72,7 +72,10 @@ impl Executor {
 
     #[cfg(feature = "sp1")]
     pub fn sp1_placement(&self, dest: &str) -> anyhow::Result<()> {
-        use sp1_sdk::{CpuProver, HashableKey, Prover};
+        use sp1_sdk::{
+            blocking::{CpuProver, Prover},
+            Elf, HashableKey,
+        };
         use std::fs;
 
         let root = crate::ROOT_DIR.get().expect("No reference to ROOT_DIR");
@@ -83,6 +86,8 @@ impl Executor {
         }
 
         for src in &self.artifacts {
+            use sp1_sdk::ProvingKey;
+
             let mut name = file_name(src);
             if self.test {
                 name = format!(
@@ -97,13 +102,16 @@ impl Executor {
             )?;
 
             println!("Write elf from\n {src:?}\nto\n {dest:?}");
-            let elf = std::fs::read(&dest.join(&name.replace('_', "-")))?;
+            let elf = Elf::from(std::fs::read(&dest.join(&name.replace('_', "-")))?);
             let prover = CpuProver::new();
-            let key_pair = prover.setup(&elf);
-            println!("sp1 elf vk bn256 is: {}", key_pair.1.bytes32());
+            let key_pair = prover.setup(elf)?;
+            println!(
+                "sp1 elf vk bn256 is: {}",
+                key_pair.verifying_key().bytes32()
+            );
             println!(
                 "sp1 elf vk hash_bytes is: {}",
-                hex::encode(key_pair.1.hash_bytes())
+                hex::encode(key_pair.verifying_key().hash_bytes())
             );
         }
 

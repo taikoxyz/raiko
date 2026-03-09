@@ -28,5 +28,5 @@
 !/redis-derive
 !/gaiko
 
-/provers/sp1/guest/target
-/provers/risc0/guest/target
+# Exclude all target directories (build artifacts)
+**/target

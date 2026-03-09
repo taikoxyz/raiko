@@ -118,7 +118,7 @@ if [ "$1" == "risc0" ]; then
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building Risc0 prover"
-            cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder 2>&1 | tee /tmp/risc0_build_output.txt
+            cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder 2>&1 
         else
             echo "Building test elfs for Risc0 prover"
             cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder --features test,bench
@@ -150,7 +150,7 @@ if [ "$1" == "sp1" ]; then
     elif [ -z "${RUN}" ]; then
         if [ -z "${TEST}" ]; then
             echo "Building Sp1 prover"
-            cargo ${TOOLCHAIN_SP1} run --bin sp1-builder 2>&1 | tee /tmp/sp1_build_output.txt
+            cargo ${TOOLCHAIN_SP1} run --bin sp1-builder 2>&1 
         else
             echo "Building test elfs for Sp1 prover"
             cargo ${TOOLCHAIN_SP1} run --bin sp1-builder --features test,bench

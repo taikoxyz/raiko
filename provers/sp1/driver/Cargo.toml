@@ -24,7 +24,7 @@ alloy-sol-types = { workspace = true, optional = true }
 alloy-eips = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
-sp1-sdk = { workspace = true, optional = true }
+sp1-sdk = { workspace = true, optional = true, features = ["blocking"] }
 sp1-prover = { workspace = true, optional = true }
 sp1-primitives = { workspace = true, optional = true }
 anyhow = { workspace = true, optional = true }
@@ -69,3 +69,4 @@ enable = [
 ]
 foundry-verify = []
 enable-verifier = []
+network = ["sp1-sdk/network"]

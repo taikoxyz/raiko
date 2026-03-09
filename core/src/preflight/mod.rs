@@ -157,7 +157,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
     info!("preflight: provider db done");
 
     // Now re-execute the transactions in the block to collect all required data
-    let mut builder = RethBlockBuilder::new(&input, provider_db);
+    let mut builder = RethBlockBuilder::new(input.clone(), provider_db);
     info!("preflight: builder done");
 
     let pool_tx = generate_transactions(
@@ -429,7 +429,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                 .await?;
 
                 // Now re-execute the transactions in the block to collect all required data
-                let mut builder = RethBlockBuilder::new(&input, provider_db);
+                let mut builder = RethBlockBuilder::new(input.clone(), provider_db);
 
                 // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
                 let mut pool_txs = vec![anchor_tx.clone()];

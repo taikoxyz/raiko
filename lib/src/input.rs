@@ -521,7 +521,7 @@ mod test {
     #[test]
     fn test_guest_input_se_de() {
         let input = GuestInput {
-            block: Block::default(),
+            block: TaikoBlock::default(),
             chain_spec: ChainSpec::default(),
             parent_header: Header::default(),
             parent_state_trie: MptNode::default(),
@@ -538,7 +538,7 @@ mod test {
     #[test]
     fn test_guest_input_value_sede() {
         let input = GuestInput {
-            block: Block::default(),
+            block: TaikoBlock::default(),
             chain_spec: ChainSpec::default(),
             parent_header: Header::default(),
             parent_state_trie: MptNode::default(),

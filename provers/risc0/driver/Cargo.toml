@@ -68,7 +68,7 @@ enable = [
 ]
 
 
-# cuda = ["risc0-zkvm?/cuda"]
+cuda = ["risc0-zkvm?/cuda"]
 # metal = ["risc0-zkvm?/metal"]
 bench = []
 

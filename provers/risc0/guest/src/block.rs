@@ -8,9 +8,9 @@ use risc0_zkvm::guest::env;
 
 // deprecated after pacaya
 fn main() {
-    let input: GuestInput = env::read();
+    let mut input: GuestInput = env::read();
 
-    let header = calculate_block_header(&input);
+    let header = calculate_block_header(&mut input);
     let pi = ProtocolInstance::new(&input, &header, ProofType::Risc0)
         .unwrap()
         .instance_hash();

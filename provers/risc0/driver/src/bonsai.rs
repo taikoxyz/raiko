@@ -193,6 +193,7 @@ pub async fn maybe_prove<I: Serialize, O: Eq + Debug + Serialize + DeserializeOw
                 elf,
                 assumption_instances,
                 param.profile,
+                &ProverOpts::groth16(),
             ) {
                 Ok(receipt) => (Default::default(), receipt, false),
                 Err(e) => {
@@ -359,6 +360,7 @@ pub fn prove_locally(
     elf: &[u8],
     assumptions: Vec<impl Into<AssumptionReceipt>>,
     profile: bool,
+    opts: &ProverOpts,
 ) -> ProverResult<Receipt> {
     debug!("Proving with segment_limit_po2 = {segment_limit_po2:?}");
     debug!(
@@ -400,8 +402,7 @@ pub fn prove_locally(
             .map_err(|e| ProverError::GuestError(e.to_string()))?
     };
 
-    let prover = get_prover_server(&ProverOpts::groth16())
-        .map_err(|e| ProverError::GuestError(e.to_string()))?;
+    let prover = get_prover_server(opts).map_err(|e| ProverError::GuestError(e.to_string()))?;
 
     let receipt = prover
         .prove_session(&VerifierContext::default(), &session)

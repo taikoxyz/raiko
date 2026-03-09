@@ -37,7 +37,7 @@ async fn main() {
     // Deserialize the input.
     let mut input: GuestInput = serde_json::from_str(&json).unwrap();
 
-    let header = calculate_block_header(&input);
+    let header = calculate_block_header(&mut input);
 
     let _pi = ProtocolInstance::new(&input, &header, ProofType::Sp1)
         .unwrap()

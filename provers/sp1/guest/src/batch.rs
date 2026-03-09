@@ -9,11 +9,11 @@ use raiko_lib::{
 pub fn main() {
     let mut ct = CycleTracker::start("input");
     let input = sp1_zkvm::io::read_vec();
-    let batch_input = bincode::deserialize::<GuestBatchInput>(&input).unwrap();
+    let mut batch_input = bincode::deserialize::<GuestBatchInput>(&input).unwrap();
     ct.end();
 
     ct = CycleTracker::start("calculate_batch_blocks_final_header");
-    let final_blocks = calculate_batch_blocks_final_header(&batch_input);
+    let final_blocks = calculate_batch_blocks_final_header(&mut batch_input);
     ct.end();
 
     ct = CycleTracker::start("batch_instance_hash");

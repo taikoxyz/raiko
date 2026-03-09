@@ -64,25 +64,60 @@ impl Backend {
         }
     }
 
+    /// Drain all completed requests from the channel (non-blocking).
+    async fn drain_completions(&self, done_rx: &mut mpsc::Receiver<RequestKey>) {
+        while let Ok(request_key) = done_rx.try_recv() {
+            self.complete_request(request_key).await;
+        }
+    }
+
+    /// Mark a single request as complete in the queue.
+    async fn complete_request(&self, request_key: RequestKey) {
+        let mut queue = self.queue.lock().await;
+        queue.complete(request_key);
+    }
+
     pub async fn serve_in_background(self) {
         let (done_tx, mut done_rx) = mpsc::channel(1000);
 
         loop {
-            // Handle completed requests
-            while let Ok(request_key) = done_rx.try_recv() {
-                let mut queue = self.queue.lock().await;
-                queue.complete(request_key);
+            // Drain all completions first (non-blocking)
+            self.drain_completions(&mut done_rx).await;
+
+            // Check if there are requests in the queue
+            let has_requests = {
+                let queue = self.queue.lock().await;
+                !queue.is_empty()
+            };
+
+            if !has_requests {
+                // Nothing to do — wait for new work or a completion
+                tokio::select! {
+                    _ = self.notifier.notified() => continue,
+                    Some(key) = done_rx.recv() => {
+                        self.complete_request(key).await;
+                        continue;
+                    }
+                }
             }
 
-            // Try to get a request from queue first (non-blocking check)
-            let (request_key, request_entity) = {
+            // There are requests — wait for a GPU slot while staying responsive
+            let gpu_permit = loop {
+                tokio::select! {
+                    permit = self.gpu_semaphore.acquire() => break permit,
+                    Some(key) = done_rx.recv() => self.complete_request(key).await,
+                }
+            };
+
+            // Pull highest-priority request with GPU slot in hand
+            let next = {
                 let mut queue = self.queue.lock().await;
-                if let Some((request_key, request_entity)) = queue.try_next() {
-                    (request_key, request_entity)
-                } else {
-                    drop(queue);
-                    // No requests in queue, wait for new requests
-                    self.notifier.notified().await;
+                queue.try_next()
+            };
+            let (request_key, request_entity) = match next {
+                Some(pair) => pair,
+                None => {
+                    drop(gpu_permit);
                     continue;
                 }
             };
@@ -90,14 +125,20 @@ impl Backend {
             let request_key_ = request_key.clone();
             let mut pool_ = self.pool.clone();
             let chain_specs = self.chain_specs.clone();
-            let gpu_semaphore = self.gpu_semaphore.clone();
             let mock_key = self.mock_key.clone();
 
-            let handle = tokio::spawn(async move {
-                // Acquire GPU permit (combines semaphore permit + optional GPU number assignment)
-                // This ensures concurrency control and GPU allocation in one step
-                let gpu_permit = gpu_semaphore.acquire().await;
+            // Clones for the watcher task (must be created before request_key is moved)
+            let request_key_for_watcher = request_key;
+            let done_tx_ = done_tx.clone();
+            let notifier_ = self.notifier.clone();
+            let mut pool_for_panic = self.pool.clone();
 
+            let _ = pool_.update_status(
+                request_key_for_watcher.clone(),
+                StatusWithContext::new(Status::WorkInProgress, chrono::Utc::now()),
+            );
+
+            let handle = tokio::spawn(async move {
                 let result = match request_entity {
                     RequestEntity::SingleProof(entity) => {
                         do_prove_single(
@@ -196,22 +237,34 @@ impl Backend {
                     request_key_.clone(),
                     StatusWithContext::new(status, chrono::Utc::now()),
                 );
+
+                // GPU permit is automatically dropped here, releasing the semaphore
+                drop(gpu_permit);
             });
 
-            let mut pool_ = self.pool.clone();
-            let done_tx_ = done_tx.clone();
-            let notifier_ = self.notifier.clone();
-
+            // Spawn a watcher task that handles both success and panic
             tokio::spawn(async move {
-                if let Err(e) = handle.await {
-                    tracing::error!("Actor thread errored while proving {request_key}: {e:?}");
-                    let status = Status::Failed {
-                        error: e.to_string(),
-                    };
-                    let _ = pool_.update_status(request_key.clone(), status.clone().into());
+                match handle.await {
+                    Ok(()) => {
+                        let _ = done_tx_.send(request_key_for_watcher).await;
+                    }
+                    Err(join_err) => {
+                        // Task panicked — mark as failed and release the queue slot
+                        tracing::error!(
+                            "Proving task panicked for {request_key_for_watcher}: {join_err}"
+                        );
+                        let _ = pool_for_panic.update_status(
+                            request_key_for_watcher.clone(),
+                            StatusWithContext::new(
+                                Status::Failed {
+                                    error: format!("proving task panicked: {join_err}"),
+                                },
+                                chrono::Utc::now(),
+                            ),
+                        );
+                        let _ = done_tx_.send(request_key_for_watcher).await;
+                    }
                 }
-
-                let _res = done_tx_.send(request_key.clone()).await;
                 notifier_.notify_one();
             });
         }

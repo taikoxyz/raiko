@@ -9,11 +9,11 @@ use raiko_lib::{
 pub fn main() {
     let mut ct = CycleTracker::start("input");
     let input = sp1_zkvm::io::read_vec();
-    let input = bincode::deserialize::<GuestInput>(&input).unwrap();
+    let mut input = bincode::deserialize::<GuestInput>(&input).unwrap();
     ct.end();
 
     ct = CycleTracker::start("calculate_block_header");
-    let header = calculate_block_header(&input);
+    let header = calculate_block_header(&mut input);
     ct.end();
 
     ct = CycleTracker::start("ProtocolInstance");

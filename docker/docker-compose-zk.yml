@@ -4,24 +4,27 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile.zk
-    image: nethermind.jfrog.io/core-oci-local-staging/raiko-zk:latest
+    image: docker.io/nethermind/surge-raiko-zk:latest
     container_name: raiko-zk
     network_mode: host
     env_file:
       - .env
     environment:
       ZK: "true"
-      SP1_PLONK_CIRCUIT_PATH: "${HOME}/.sp1/circuits/plonk"
+      SP1_GROTH16_CIRCUIT_PATH: "${HOME}/.sp1/circuits/groth16"
       RAIKO_CONF_DIR: "/raiko/config/devnet"
       BASE_CONFIG_FILE: "config.json"
       BASE_CHAINSPEC_FILE: "chain_spec_list.json"
+      HOME: "${HOME}"
+    restart: unless-stopped
     runtime: nvidia
     privileged: true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ../host/config:/raiko/config
       - /tmp:/tmp
-      - ${HOME}/.sp1/circuits/plonk:${HOME}/.sp1/circuits/plonk
+      - ${HOME}/.sp1:${HOME}/.sp1
+      - ${HOME}/.risc0:${HOME}/.risc0
     depends_on:
       - redis-zk
   redis-zk:
