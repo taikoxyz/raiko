@@ -17,8 +17,7 @@ pub enum Action {
 impl Action {
     pub fn request_key(&self) -> &RequestKey {
         match self {
-            Action::Prove { request_key, .. } => request_key,
-            Action::Cancel { request_key, .. } => request_key,
+            Action::Prove { request_key, .. } | Action::Cancel { request_key, .. } => request_key,
         }
     }
 }

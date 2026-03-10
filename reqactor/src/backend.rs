@@ -154,37 +154,13 @@ impl Backend {
                 let _permit = permit;
                 let timeout_secs = request_timeout.as_secs();
                 let result = match timeout(request_timeout, async {
-                    match request_entity {
-                        RequestEntity::SingleProof(_)
-                        | RequestEntity::Aggregation(_)
-                        | RequestEntity::BatchProof(_)
-                        | RequestEntity::GuestInput(_)
-                        | RequestEntity::BatchGuestInput(_) => Err(
-                            "legacy single-block and batch proving are removed; use Shasta only"
-                                .to_string(),
-                        ),
-                        RequestEntity::ShastaGuestInput(entity) => {
-                            do_generate_shasta_proposal_guest_input(
-                                &mut pool_,
-                                &chain_specs,
-                                request_key_.clone(),
-                                entity,
-                            )
-                            .await
-                        }
-                        RequestEntity::ShastaProof(entity) => {
-                            do_prove_shasta_proposal(
-                                &mut pool_,
-                                &chain_specs,
-                                request_key_.clone(),
-                                entity,
-                            )
-                            .await
-                        }
-                        RequestEntity::ShastaAggregation(entity) => {
-                            do_shasta_aggregation(&mut pool_, request_key_.clone(), entity).await
-                        }
-                    }
+                    dispatch_proof_request(
+                        &mut pool_,
+                        &chain_specs,
+                        request_key_.clone(),
+                        request_entity,
+                    )
+                    .await
                 })
                 .await
                 {
@@ -200,18 +176,7 @@ impl Backend {
                         Err(message)
                     }
                 };
-                let status = match result {
-                    Ok(proof) => {
-                        let proof_str = format!("{}", proof);
-                        tracing::info!(
-                            "Actor Backend successfully proved {request_key_}. Proof: {proof_str}"
-                        );
-                        Status::Success { proof }
-                    }
-                    Err(e) => Status::Failed {
-                        error: e.to_string(),
-                    },
-                };
+                let status = result_to_status(&result, &request_key_);
                 let _ = pool_.update_status(
                     request_key_.clone(),
                     StatusWithContext::new(status, chrono::Utc::now()),
@@ -225,16 +190,59 @@ impl Backend {
             tokio::spawn(async move {
                 if let Err(e) = handle.await {
                     tracing::error!("Actor thread errored while proving {request_key}: {e:?}");
-                    let status = Status::Failed {
-                        error: e.to_string(),
-                    };
-                    let _ = pool_.update_status(request_key.clone(), status.clone().into());
+                    let status =
+                        StatusWithContext::new(Status::Failed { error: e.to_string() }, chrono::Utc::now());
+                    let _ = pool_.update_status(request_key.clone(), status);
                 }
-
-                let _res = done_tx_.send(request_key.clone()).await;
+                let _ = done_tx_.send(request_key).await;
                 notifier_.notify_one();
             });
         }
+    }
+}
+
+/// Dispatches the request to the appropriate proof handler.
+async fn dispatch_proof_request(
+    pool: &mut Pool,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: RequestEntity,
+) -> Result<raiko_lib::prover::Proof, String> {
+    match request_entity {
+        RequestEntity::SingleProof(_)
+        | RequestEntity::Aggregation(_)
+        | RequestEntity::BatchProof(_)
+        | RequestEntity::GuestInput(_)
+        | RequestEntity::BatchGuestInput(_) => Err(
+            "legacy single-block and batch proving are removed; use Shasta only".to_string(),
+        ),
+        RequestEntity::ShastaGuestInput(entity) => {
+            do_generate_shasta_proposal_guest_input(pool, chain_specs, request_key, entity).await
+        }
+        RequestEntity::ShastaProof(entity) => {
+            do_prove_shasta_proposal(pool, chain_specs, request_key, entity).await
+        }
+        RequestEntity::ShastaAggregation(entity) => {
+            do_shasta_aggregation(pool, request_key, entity).await
+        }
+    }
+}
+
+/// Converts proof result to pool status.
+fn result_to_status(
+    result: &Result<raiko_lib::prover::Proof, String>,
+    request_key: &RequestKey,
+) -> Status {
+    match result {
+        Ok(proof) => {
+            tracing::info!("Actor Backend successfully proved {request_key}. Proof: {proof}");
+            Status::Success {
+                proof: proof.clone(),
+            }
+        }
+        Err(e) => Status::Failed {
+            error: e.clone(),
+        },
     }
 }
 

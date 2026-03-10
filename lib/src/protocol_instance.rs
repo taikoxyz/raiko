@@ -27,7 +27,7 @@ use crate::{
     prover::{ProofCarryData, ShastaTransitionInput, TransitionInputData},
     CycleTracker,
 };
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 #[derive(Debug, Clone)]
 pub enum BlockMetaDataFork {
