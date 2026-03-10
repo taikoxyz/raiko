@@ -19,9 +19,9 @@ pub const ANCHOR_MAX_OFFSET: usize = 128;
 pub const MAINNET_ANCHOR_MAX_OFFSET: usize = 512;
 
 /// Returns the maximum anchor block number offset for the given chain ID.
-/// Mainnet uses 512; Hoodi and other chains use 128.
+/// Mainnet and Transition use 512; Hoodi and other chains use 128.
 pub fn anchor_max_offset_for_chain(chain_id: u64) -> usize {
-    if chain_id == TAIKO_MAINNET_CHAIN_ID {
+    if is_mainnet_like_chain(chain_id) {
         MAINNET_ANCHOR_MAX_OFFSET
     } else {
         ANCHOR_MAX_OFFSET
@@ -317,9 +317,9 @@ const HOODI_TIMESTAMP_MAX_OFFSET: u64 = 12 * 128;
 const MAINNET_TIMESTAMP_MAX_OFFSET: u64 = 12 * 512;
 
 /// Returns the maximum timestamp offset from proposal origin for the given chain ID.
-/// Mainnet uses 6144; Hoodi and other chains use 1536.
+/// Mainnet and Transition use 6144; Hoodi and other chains use 1536.
 pub fn timestamp_max_offset_for_chain(chain_id: u64) -> u64 {
-    if chain_id == TAIKO_MAINNET_CHAIN_ID {
+    if is_mainnet_like_chain(chain_id) {
         MAINNET_TIMESTAMP_MAX_OFFSET
     } else {
         HOODI_TIMESTAMP_MAX_OFFSET
@@ -489,11 +489,18 @@ pub const MAINNET_MIN_BASE_FEE_SHASTA: u64 = 10_000_000;
 pub const MAX_BASE_FEE_SHASTA: u64 = 1_000_000_000;
 /// Taiko mainnet chain ID (EIP-4396 min base fee uses MAINNET_MIN_BASE_FEE_SHASTA)
 pub const TAIKO_MAINNET_CHAIN_ID: u64 = 167000;
+/// Taiko transition network chain ID (uses mainnet-like parameters)
+pub const TAIKO_TRANSITION_CHAIN_ID: u64 = 167014;
+
+/// Returns true if the chain uses mainnet-like parameters (anchor offset 512, timestamp offset 6144, min base fee 0.01 gwei).
+fn is_mainnet_like_chain(chain_id: u64) -> bool {
+    chain_id == TAIKO_MAINNET_CHAIN_ID || chain_id == TAIKO_TRANSITION_CHAIN_ID
+}
 
 /// Returns the minimum base fee (inclusive) for Shasta blocks for the given chain ID.
-/// Mainnet uses 0.01 gwei; all other chains use 0.005 gwei.
+/// Mainnet and Transition use 0.01 gwei; all other chains use 0.005 gwei.
 pub fn min_base_fee_for_shasta_chain(chain_id: u64) -> u64 {
-    if chain_id == TAIKO_MAINNET_CHAIN_ID {
+    if is_mainnet_like_chain(chain_id) {
         MAINNET_MIN_BASE_FEE_SHASTA
     } else {
         MIN_BASE_FEE_SHASTA
