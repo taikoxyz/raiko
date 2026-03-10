@@ -1,6 +1,6 @@
 use crate::common::{
-    complete_aggregate_proof_request, complete_proof_request, make_aggregate_proof_request,
-    make_proof_request, setup, v2_assert_report,
+    complete_batch_proof_request, make_aggregate_proof_request,
+    make_batch_proof_request, setup, v3_assert_report, v3_complete_aggregate_proof_request,
 };
 use raiko_host::server::api;
 use raiko_lib::consts::Network;
@@ -9,41 +9,43 @@ use raiko_tasks::TaskStatus;
 
 #[ignore]
 #[tokio::test]
-async fn test_v2_mainnet_aggregate_native() {
-    v2_mainnet_aggregate(Network::TaikoMainnet, ProofType::Native).await;
+async fn test_v3_mainnet_aggregate_native() {
+    v3_mainnet_aggregate(Network::TaikoMainnet, ProofType::Native).await;
 }
 
 #[ignore]
 #[cfg(feature = "risc0")]
 #[test_log::test(tokio::test)]
-async fn test_v2_mainnet_aggregate_risc0() {
-    v2_mainnet_aggregate(Network::TaikoMainnet, ProofType::Risc0).await;
+async fn test_v3_mainnet_aggregate_risc0() {
+    v3_mainnet_aggregate(Network::TaikoMainnet, ProofType::Risc0).await;
 }
 
-async fn v2_mainnet_aggregate(network: Network, proof_type: ProofType) {
+async fn v3_mainnet_aggregate(network: Network, proof_type: ProofType) {
     setup_mock_zkvm_elf();
 
-    let api_version = "v2";
 
-    let block_numbers = vec![crate::test::TEST_BLOCK_NUMBER];
+    let batch_ids = vec![crate::test::TEST_BLOCK_NUMBER];
 
     let (_server, client) = setup().await;
-    let requests: Vec<_> = block_numbers
+    let requests: Vec<_> = batch_ids
         .iter()
-        .map(|block_number| make_proof_request(&network, &proof_type, *block_number))
+        .map(|batch_id| {
+            let l1_inclusion_block_number = batch_id + 1; // Use next block as L1 inclusion
+            make_batch_proof_request(&network, &proof_type, *batch_id, l1_inclusion_block_number)
+        })
         .collect();
-    let mut proofs = Vec::with_capacity(block_numbers.len());
+    let mut proofs = Vec::with_capacity(batch_ids.len());
 
     for request in requests {
-        let status: api::v2::Status = client
-            .post("/v2/proof", &request)
+        let status: api::v3::Status = client
+            .post("/v3/proof/batch", &request)
             .await
             .expect("failed to send request");
         assert!(
             matches!(
                 status,
-                api::v2::Status::Ok {
-                    data: api::v2::ProofResponse::Status {
+                api::v3::Status::Ok {
+                    data: api::v3::ProofResponse::Status {
                         status: TaskStatus::Registered
                             | TaskStatus::WorkInProgress
                             | TaskStatus::Success,
@@ -55,14 +57,13 @@ async fn v2_mainnet_aggregate(network: Network, proof_type: ProofType) {
             "status: {status:?}"
         );
 
-        let proof = complete_proof_request(api_version, &client, &request).await;
+        let proof = complete_batch_proof_request(&client, &request).await;
         proofs.push(proof);
     }
 
     let aggregate_request =
-        make_aggregate_proof_request(&network, &proof_type, block_numbers, proofs).await;
+        make_aggregate_proof_request(&network, &proof_type, batch_ids, proofs).await;
 
-    // NOTE: Only v3 supports aggregate proof
     let status: api::v3::Status = client
         .post("/v3/proof/aggregate", &aggregate_request)
         .await
@@ -83,11 +84,10 @@ async fn v2_mainnet_aggregate(network: Network, proof_type: ProofType) {
         "status: {status:?}"
     );
 
-    // NOTE: Only v3 supports aggregate proof
-    complete_aggregate_proof_request("v3", &client, &aggregate_request).await;
+    v3_complete_aggregate_proof_request(&client, &aggregate_request).await;
 
     // santy check for report format
-    v2_assert_report(&client).await;
+    v3_assert_report(&client).await;
 }
 
 // Use mock zkvm elf for testing
