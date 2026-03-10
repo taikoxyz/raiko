@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    // ops::DerefMut,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -124,43 +123,56 @@ impl Actor {
     ) -> Result<StatusWithContext, String> {
         let pool_status_opt = self.pool_get_status(&request_key).await?;
 
-        // Return successful status if the request is already succeeded
-        if matches!(
-            pool_status_opt.as_ref().map(|s| s.status()),
-            Some(Status::Success { .. })
-        ) {
+        if pool_status_opt
+            .as_ref()
+            .is_some_and(|s| matches!(s.status(), Status::Success { .. }))
+        {
             return Ok(pool_status_opt.unwrap());
         }
 
-        // Mark the request as registered in the pool
         let status = StatusWithContext::new(Status::Registered, start_time);
-        if pool_status_opt.is_none() {
-            self.pool_add_new(request_key.clone(), request_entity.clone(), status.clone())
-                .await?;
-        } else {
-            self.pool_update_status(request_key.clone(), status.clone())
-                .await?;
-        }
+        self.ensure_pool_registered(&request_key, &request_entity, &status, pool_status_opt.is_none())
+            .await?;
 
-        // Push the request into the queue and notify to start the action
-        let mut queue = self.queue.lock().await;
-        if !queue.contains(&request_key) {
-            match queue.add_pending(request_key.clone(), request_entity) {
-                Ok(()) => {
-                    self.notify.notify_one();
-                }
-                Err(error_msg) => {
-                    // If queue is at capacity, update the status to Failed
-                    let failed_status =
-                        StatusWithContext::new(Status::Failed { error: error_msg }, start_time);
-                    self.pool_update_status(request_key.clone(), failed_status.clone())
-                        .await?;
-                    return Ok(failed_status);
-                }
+        let queue_result = {
+            let mut queue = self.queue.lock().await;
+            if queue.contains(&request_key) {
+                Ok(())
+            } else {
+                queue.add_pending(request_key.clone(), request_entity)
+            }
+        };
+
+        match queue_result {
+            Ok(()) => {
+                self.notify.notify_one();
+                Ok(status)
+            }
+            Err(error_msg) => {
+                let failed_status =
+                    StatusWithContext::new(Status::Failed { error: error_msg }, start_time);
+                self.pool_update_status(request_key, failed_status.clone())
+                    .await?;
+                Ok(failed_status)
             }
         }
+    }
 
-        return Ok(status);
+    /// Add or update pool entry so the request is marked as Registered.
+    async fn ensure_pool_registered(
+        &self,
+        request_key: &RequestKey,
+        request_entity: &RequestEntity,
+        status: &StatusWithContext,
+        is_new: bool,
+    ) -> Result<(), String> {
+        if is_new {
+            self.pool_add_new(request_key.clone(), request_entity.clone(), status.clone())
+                .await
+        } else {
+            self.pool_update_status(request_key.clone(), status.clone())
+                .await
+        }
     }
 
     pub async fn pause(&self) -> Result<(), String> {

@@ -66,25 +66,8 @@ impl Pool {
         &mut self,
         request_key: &RequestKey,
     ) -> Result<Option<StatusWithContext>, String> {
-        let result = self.get(request_key).map(|v| v.map(|v| v.1));
-        if let Ok(Some(ref status_with_context)) = &result {
-            match &status_with_context.status() {
-                Status::Failed { error } => {
-                    tracing::error!(
-                        "RedisPool.get_status: {request_key}, Failed with error: {}",
-                        error
-                    );
-                }
-                _ => {
-                    tracing::info!(
-                        "RedisPool.get_status: {request_key}, {}",
-                        status_with_context
-                    );
-                }
-            }
-        } else {
-            tracing::info!("RedisPool.get_status: {request_key}, None");
-        }
+        let result = self.get(request_key).map(|v| v.map(|(_, status)| status));
+        log_get_status(request_key, &result);
         result
     }
 
@@ -95,17 +78,7 @@ impl Pool {
     ) -> Result<StatusWithContext, String> {
         match self.get(&request_key)? {
             Some((entity, old_status)) => {
-                match &status.status() {
-                    Status::Failed { error } => {
-                        tracing::error!(
-                            "RedisPool.update_status: {request_key}, Failed with error: {}",
-                            error
-                        );
-                    }
-                    _ => {
-                        tracing::info!("RedisPool.update_status: {request_key}, {status}");
-                    }
-                }
+                log_update_status(&request_key, &status);
                 self.add(request_key, entity, status)?;
                 Ok(old_status)
             }
@@ -123,8 +96,34 @@ impl Pool {
                 result.insert(key, status);
             }
         }
-
         Ok(result)
+    }
+}
+
+/// Logs get_status result for tracing.
+fn log_get_status(
+    request_key: &RequestKey,
+    result: &Result<Option<StatusWithContext>, String>,
+) {
+    match result {
+        Ok(Some(ref ctx)) => match ctx.status() {
+            Status::Failed { ref error } => {
+                tracing::error!("RedisPool.get_status: {request_key}, Failed with error: {error}");
+            }
+            _ => tracing::info!("RedisPool.get_status: {request_key}, {ctx}"),
+        },
+        Ok(None) => tracing::info!("RedisPool.get_status: {request_key}, None"),
+        Err(_) => {}
+    }
+}
+
+/// Logs update_status for tracing.
+fn log_update_status(request_key: &RequestKey, status: &StatusWithContext) {
+    match status.status() {
+        Status::Failed { ref error } => {
+            tracing::error!("RedisPool.update_status: {request_key}, Failed with error: {error}");
+        }
+        _ => tracing::info!("RedisPool.update_status: {request_key}, {status}"),
     }
 }
 

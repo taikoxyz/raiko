@@ -49,39 +49,44 @@ impl Queue {
         request_key: RequestKey,
         request_entity: RequestEntity,
     ) -> Result<(), String> {
-        // Check if queue is at capacity
         if self.is_at_capacity() {
             return Err("Reached the maximum queue size, please try again later".to_string());
         }
 
-        if self.queued_keys.insert(request_key.clone()) {
-            // Check priority and add to appropriate queue using pattern matching
-            match &request_key {
-                RequestKey::Aggregation(_) => {
-                    tracing::info!("Adding aggregation request to high priority queue");
-                    self.agg_queue.push_back((request_key, request_entity));
-                }
-                RequestKey::BatchProof(_) => {
-                    tracing::info!("Adding batch proof request to medium priority queue");
-                    self.batch_queue.push_back((request_key, request_entity));
-                }
-                _ => {
-                    self.preflight_queue
-                        .push_back((request_key, request_entity));
-                }
-            }
+        if !self.queued_keys.insert(request_key.clone()) {
+            return Ok(());
         }
+
+        let queue = self.priority_queue_for(&request_key);
+        queue.push_back((request_key, request_entity));
         Ok(())
     }
 
-    /// Attempts to move a request from either the high, medium or low priority queue into the in-flight set
-    /// and starts processing it. High priority requests are processed first.
+    /// Returns the appropriate queue for the given request key (agg > batch > preflight).
+    fn priority_queue_for(
+        &mut self,
+        request_key: &RequestKey,
+    ) -> &mut VecDeque<(RequestKey, RequestEntity)> {
+        match request_key {
+            RequestKey::Aggregation(_) => {
+                tracing::info!("Adding aggregation request to high priority queue");
+                &mut self.agg_queue
+            }
+            RequestKey::BatchProof(_) => {
+                tracing::info!("Adding batch proof request to medium priority queue");
+                &mut self.batch_queue
+            }
+            _ => &mut self.preflight_queue,
+        }
+    }
+
+    /// Pops the next request (agg > batch > preflight) and marks it in-progress.
     pub fn try_next(&mut self) -> Option<(RequestKey, RequestEntity)> {
-        let (request_key, request_entity) = self.agg_queue.pop_front().or_else(|| {
-            self.batch_queue
-                .pop_front()
-                .or_else(|| self.preflight_queue.pop_front())
-        })?;
+        let (request_key, request_entity) = self
+            .agg_queue
+            .pop_front()
+            .or_else(|| self.batch_queue.pop_front())
+            .or_else(|| self.preflight_queue.pop_front())?;
 
         self.working_in_progress.insert(request_key.clone());
         Some((request_key, request_entity))
