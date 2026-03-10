@@ -172,7 +172,7 @@ impl BlockProposedFork {
                 .proposal
                 .sources
                 .iter()
-                .all(|source| source.blobSlice.blobHashes.len() > 0),
+                .any(|source| !source.blobSlice.blobHashes.is_empty()),
             _ => false,
         }
     }
