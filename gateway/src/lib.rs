@@ -2,7 +2,7 @@ pub mod config;
 pub mod router;
 pub mod shasta;
 
-pub use config::Config;
+pub use config::{BackendConfig, Cli, Config, DefaultsConfig};
 pub use router::{app, AppState};
 pub use shasta::{
     backend_index, route_key_from_body, route_key_from_body_with_defaults, ShastaRouteDefaults,
@@ -139,22 +139,26 @@ mod tests {
         assert!(!route_key.aggregate);
     }
 
+    fn test_config() -> Config {
+        Config {
+            bind: "127.0.0.1:8080".to_string(),
+            backend: BackendConfig {
+                urls: vec!["http://localhost:8088".to_string()],
+                shared_url: None,
+            },
+            defaults: DefaultsConfig {
+                network: "taiko".to_string(),
+                l1_network: "ethereum".to_string(),
+                proof_type: "native".to_string(),
+                prover: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8".to_string(),
+                aggregate: false,
+            },
+        }
+    }
+
     #[tokio::test]
     async fn router_accepts_versioned_shasta_path() {
-        let app = app(AppState::new(Config {
-            bind: "127.0.0.1:8080".to_string(),
-            backend_replicas: 1,
-            backend_statefulset: "raiko".to_string(),
-            backend_headless_service: "raiko-headless".to_string(),
-            backend_service: "raiko-service".to_string(),
-            backend_namespace: "default".to_string(),
-            backend_port: 8080,
-            default_network: "taiko".to_string(),
-            default_l1_network: "ethereum".to_string(),
-            default_proof_type: "native".to_string(),
-            default_prover: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8".to_string(),
-            default_aggregate: false,
-        }));
+        let app = app(AppState::new(test_config()));
 
         let response = app
             .oneshot(
@@ -171,20 +175,7 @@ mod tests {
 
     #[tokio::test]
     async fn router_exposes_health_routes() {
-        let app = app(AppState::new(Config {
-            bind: "127.0.0.1:8080".to_string(),
-            backend_replicas: 1,
-            backend_statefulset: "raiko".to_string(),
-            backend_headless_service: "raiko-headless".to_string(),
-            backend_service: "raiko-service".to_string(),
-            backend_namespace: "default".to_string(),
-            backend_port: 8080,
-            default_network: "taiko".to_string(),
-            default_l1_network: "ethereum".to_string(),
-            default_proof_type: "native".to_string(),
-            default_prover: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8".to_string(),
-            default_aggregate: false,
-        }));
+        let app = app(AppState::new(test_config()));
 
         let response = app
             .oneshot(Request::get("/health").body(Body::empty()).unwrap())

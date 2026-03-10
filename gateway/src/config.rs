@@ -1,57 +1,93 @@
+use crate::ShastaRouteDefaults;
+use anyhow::{Context, Result};
 use clap::Parser;
+use serde::Deserialize;
+use std::path::PathBuf;
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Config {
+    #[serde(default = "default_bind")]
+    pub bind: String,
+    pub backend: BackendConfig,
+    #[serde(default)]
+    pub defaults: DefaultsConfig,
+}
+
+fn default_bind() -> String {
+    "0.0.0.0:8080".to_string()
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BackendConfig {
+    /// URLs for consistency-hashed routing (one per backend replica)
+    pub urls: Vec<String>,
+    /// URL for passthrough (list, query, etc.). Defaults to urls[0] when omitted (single-replica).
+    pub shared_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct DefaultsConfig {
+    #[serde(default)]
+    pub network: String,
+    #[serde(default)]
+    pub l1_network: String,
+    #[serde(default = "default_proof_type")]
+    pub proof_type: String,
+    #[serde(default = "default_prover")]
+    pub prover: String,
+    #[serde(default)]
+    pub aggregate: bool,
+}
+
+fn default_proof_type() -> String {
+    "native".to_string()
+}
+
+fn default_prover() -> String {
+    "0x70997970C51812dc3A010C7d01b50e0d17dc79C8".to_string()
+}
 
 #[derive(Debug, Clone, Parser)]
-pub struct Config {
-    #[arg(long, env = "SHASTA_GATEWAY_BIND", default_value = "0.0.0.0:8080")]
-    pub bind: String,
-    #[arg(long, env = "SHASTA_GATEWAY_BACKEND_REPLICAS")]
-    pub backend_replicas: usize,
-    #[arg(long, env = "SHASTA_GATEWAY_BACKEND_STATEFULSET", default_value = "raiko")]
-    pub backend_statefulset: String,
-    #[arg(
-        long,
-        env = "SHASTA_GATEWAY_BACKEND_HEADLESS_SERVICE",
-        default_value = "raiko-headless"
-    )]
-    pub backend_headless_service: String,
-    #[arg(
-        long,
-        env = "SHASTA_GATEWAY_BACKEND_SERVICE",
-        default_value = "raiko-service"
-    )]
-    pub backend_service: String,
-    #[arg(long, env = "SHASTA_GATEWAY_BACKEND_NAMESPACE", default_value = "default")]
-    pub backend_namespace: String,
-    #[arg(long, env = "SHASTA_GATEWAY_BACKEND_PORT", default_value_t = 8080)]
-    pub backend_port: u16,
-    #[arg(long, env = "SHASTA_GATEWAY_DEFAULT_NETWORK", default_value = "")]
-    pub default_network: String,
-    #[arg(long, env = "SHASTA_GATEWAY_DEFAULT_L1_NETWORK", default_value = "")]
-    pub default_l1_network: String,
-    #[arg(long, env = "SHASTA_GATEWAY_DEFAULT_PROOF_TYPE", default_value = "")]
-    pub default_proof_type: String,
-    #[arg(long, env = "SHASTA_GATEWAY_DEFAULT_PROVER", default_value = "")]
-    pub default_prover: String,
-    #[arg(long, env = "SHASTA_GATEWAY_DEFAULT_AGGREGATE", default_value_t = false)]
-    pub default_aggregate: bool,
+pub struct Cli {
+    /// Path to config file (toml)
+    #[arg(short, long)]
+    pub config: PathBuf,
 }
 
 impl Config {
-    pub fn backend_url(&self, index: usize) -> String {
-        format!(
-            "http://{}-{}.{}.{}.svc.cluster.local:{}",
-            self.backend_statefulset,
-            index,
-            self.backend_headless_service,
-            self.backend_namespace,
-            self.backend_port,
-        )
+    pub fn load(path: &PathBuf) -> Result<Self> {
+        let s = std::fs::read_to_string(path)
+            .with_context(|| format!("failed to read config from {}", path.display()))?;
+        let config: Config =
+            toml::from_str(&s).with_context(|| format!("failed to parse config from {}", path.display()))?;
+        if config.backend.urls.is_empty() {
+            anyhow::bail!("backend.urls must not be empty");
+        }
+        Ok(config)
     }
 
-    pub fn shared_backend_url(&self) -> String {
-        format!(
-            "http://{}.{}.svc.cluster.local:{}",
-            self.backend_service, self.backend_namespace, self.backend_port,
-        )
+    pub fn backend_url(&self, index: usize) -> Option<&str> {
+        self.backend.urls.get(index).map(String::as_str)
+    }
+
+    pub fn shared_backend_url(&self) -> &str {
+        self.backend
+            .shared_url
+            .as_deref()
+            .unwrap_or_else(|| self.backend.urls.first().map(String::as_str).unwrap_or(""))
+    }
+
+    pub fn backend_replicas(&self) -> usize {
+        self.backend.urls.len()
+    }
+
+    pub fn route_defaults(&self) -> ShastaRouteDefaults {
+        ShastaRouteDefaults {
+            l1_network: self.defaults.l1_network.clone(),
+            network: self.defaults.network.clone(),
+            proof_type: self.defaults.proof_type.clone(),
+            prover: self.defaults.prover.clone(),
+            aggregate: self.defaults.aggregate,
+        }
     }
 }

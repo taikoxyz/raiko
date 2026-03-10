@@ -1,4 +1,4 @@
-use crate::{backend_index, route_key_from_body_with_defaults, Config, ShastaRouteDefaults};
+use crate::{backend_index, route_key_from_body_with_defaults, Config};
 use axum::{
     body::{Body, Bytes},
     extract::State,
@@ -46,21 +46,16 @@ async fn forward_shasta_request(
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response, (StatusCode, String)> {
-    let route_key = route_key_from_body_with_defaults(
-        &body,
-        &ShastaRouteDefaults {
-            l1_network: state.config.default_l1_network.clone(),
-            network: state.config.default_network.clone(),
-            proof_type: state.config.default_proof_type.clone(),
-            prover: state.config.default_prover.clone(),
-            aggregate: state.config.default_aggregate,
-        },
-    )
-    .map_err(|error| (StatusCode::BAD_REQUEST, error.to_string()))?;
-    let backend_index = backend_index(&route_key, state.config.backend_replicas);
-    let backend_url = format!("{}{}", state.config.backend_url(backend_index), uri);
+    let route_key = route_key_from_body_with_defaults(&body, &state.config.route_defaults())
+        .map_err(|error| (StatusCode::BAD_REQUEST, error.to_string()))?;
+    let backend_index = backend_index(&route_key, state.config.backend_replicas());
+    let backend_base = state
+        .config
+        .backend_url(backend_index)
+        .ok_or_else(|| (StatusCode::INTERNAL_SERVER_ERROR, "no backend for index".to_string()))?;
+    let backend_url = format!("{backend_base}{uri}");
 
-    tracing::info!("Forwarding shasta request to backend {backend_index}: {backend_url}");
+    tracing::info!("Forwarding to backend {backend_index}: {backend_url}");
 
     forward_request(&state.client, &headers, Method::POST, backend_url, body).await
 }
