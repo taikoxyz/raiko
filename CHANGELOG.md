@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.1](https://github.com/taikoxyz/raiko/compare/v1.16.0...v1.16.1) (2026-03-10)
+
+
+### Bug Fixes
+
+* **raiko:** transition network has same settings as mainnet ([#677](https://github.com/taikoxyz/raiko/issues/677)) ([84eb2f3](https://github.com/taikoxyz/raiko/commit/84eb2f3e0ed207c63571e4184501780c68ad3b3e))
+
 ## [1.16.0](https://github.com/taikoxyz/raiko/compare/v1.15.0...v1.16.0) (2026-03-07)
 
 
