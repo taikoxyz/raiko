@@ -279,8 +279,8 @@
             "elasticity_multiplier": "0x2"
         },
         "l1_contract": {
-            "PACAYA": "0x07700C3bC1B0EE3D311E7D642d364242fd537906",
-            "SHASTA": "0x2C34D466f6f57043B534D9b24DD032e905a95f50"
+            "PACAYA": "0x079fd827004C7c06617EB32d5a55CC3e6d85e8DD",
+            "SHASTA": "0x01D9ED596F5Fc3D5C6AC19EF8bF806E398229B40"
         },
         "l2_contract": "0x1670140000000000000000000000000000010001",
         "rpc": "https://taiko-transition-rpc.invalid",
