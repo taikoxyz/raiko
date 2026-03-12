@@ -9,6 +9,7 @@ const BLOB_FIELD_ELEMENT_NUM: usize = 4096;
 const BLOB_FIELD_ELEMENT_BYTES: usize = 32;
 pub(crate) const BLOB_DATA_CAPACITY: usize = BLOB_FIELD_ELEMENT_NUM * BLOB_FIELD_ELEMENT_BYTES;
 // max call data bytes
+#[allow(dead_code)]
 pub(crate) const CALL_DATA_CAPACITY: usize =
     BLOB_FIELD_ELEMENT_NUM * (BLOB_FIELD_ELEMENT_BYTES - 1);
 const BLOB_VERSION_OFFSET: usize = 1;
@@ -23,8 +24,8 @@ pub fn decode_blob_data(blob_buf: &[u8]) -> Vec<u8> {
     }
 
     // decode the 3-byte big-endian length value into a 4-byte integer
-    let output_len = (u32::from(blob_buf[2]) << 16
-        | u32::from(blob_buf[3]) << 8
+    let output_len = ((u32::from(blob_buf[2]) << 16)
+        | (u32::from(blob_buf[3]) << 8)
         | u32::from(blob_buf[4])) as usize;
 
     if output_len > MAX_BLOB_DATA_SIZE {
@@ -78,6 +79,7 @@ pub fn decode_blob_data(blob_buf: &[u8]) -> Vec<u8> {
     output[0..output_len].to_vec()
 }
 
+/// Decodes one field element from the blob: validates top 2 bits are zero, copies 31 bytes.
 fn decode_field_element(
     b: &[u8],
     opos: usize,
@@ -95,6 +97,7 @@ fn decode_field_element(
     Ok((b[ipos], opos + 32, ipos + 32))
 }
 
+/// Reassembles 4 high bytes from field elements into 3 output bytes (BLS scalar packing).
 fn reassemble_bytes(
     opos: usize,
     encoded_byte: [u8; 4],

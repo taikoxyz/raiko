@@ -30,7 +30,6 @@ pub fn hash_checkpoint(checkpoint: &Checkpoint) -> B256 {
            result := keccak256(m, 0x20 * N)
        }
 */
-
 /// Returns `keccak256(abi.encode(value0, value1))` - equivalent to Solidity's EfficientHashLib.hash
 pub fn hash_two_values(value0: B256, value1: B256) -> B256 {
     hash_values_impl(&[value0, value1])
@@ -216,40 +215,21 @@ pub fn hash_derivation_source(source: &crate::input::shasta::DerivationSource) -
     )
 }
 
-/// Hash a blob slice using the same logic as the Solidity implementation
+/// Hash a blob slice using the same logic as the Solidity implementation.
 fn hash_blob_slice(blob_slice: &crate::input::shasta::BlobSlice) -> B256 {
-    // Hash the blob hashes array first
-    let blob_hashes_hash = if blob_slice.blobHashes.is_empty() {
-        EMPTY_BYTES_HASH
-    } else if blob_slice.blobHashes.len() == 1 {
-        hash_two_values(
-            U256::from(blob_slice.blobHashes.len()).into(),
-            blob_slice.blobHashes[0],
-        )
-    } else if blob_slice.blobHashes.len() == 2 {
-        hash_three_values(
-            U256::from(blob_slice.blobHashes.len()).into(),
-            blob_slice.blobHashes[0],
-            blob_slice.blobHashes[1],
-        )
-    } else {
-        // For larger arrays, use memory-optimized approach
-        let array_length = blob_slice.blobHashes.len();
-        let buffer_size = 32 + (array_length * 32);
-        let mut buffer = Vec::with_capacity(buffer_size);
-
-        // Write array length at start of buffer
-        buffer.extend_from_slice(&U256::from(array_length).to_be_bytes::<32>());
-
-        // Write each blob hash directly to buffer
-        for blob_hash in &blob_slice.blobHashes {
-            buffer.extend_from_slice(blob_hash.as_slice());
+    let blob_hashes_hash = match blob_slice.blobHashes.as_slice() {
+        [] => EMPTY_BYTES_HASH,
+        [h0] => hash_two_values(U256::from(1u64).into(), *h0),
+        [h0, h1] => hash_three_values(U256::from(2u64).into(), *h0, *h1),
+        hashes => {
+            let mut buffer = Vec::with_capacity(32 + hashes.len() * 32);
+            buffer.extend_from_slice(&U256::from(hashes.len()).to_be_bytes::<32>());
+            for h in hashes {
+                buffer.extend_from_slice(h.as_slice());
+            }
+            keccak(&buffer).into()
         }
-
-        keccak(&buffer).into()
     };
-
-    // Hash the three values: blob_hashes_hash, offset, timestamp
     hash_three_values(
         blob_hashes_hash,
         U256::from(blob_slice.offset).into(),

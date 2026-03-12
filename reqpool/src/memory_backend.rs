@@ -14,6 +14,15 @@ use lru::LruCache;
 type SingleStorage = Arc<Mutex<LruCache<Value, Value>>>;
 type GlobalStorage = Mutex<HashMap<String, SingleStorage>>;
 
+const DEFAULT_MEMORY_BACKEND_CAPACITY: usize = 512;
+
+fn parse_memory_backend_capacity() -> usize {
+    std::env::var("MEMORY_BACKEND_SIZE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(DEFAULT_MEMORY_BACKEND_CAPACITY)
+}
+
 lazy_static! {
     // #{redis_url => single_storage}
     //
@@ -29,17 +38,13 @@ pub struct MemoryBackend {
 impl MemoryBackend {
     pub fn new(redis_url: String) -> Self {
         let mut global = GLOBAL_STORAGE.lock().unwrap();
-
-        let mem_capacity = std::env::var("MEMORY_BACKEND_SIZE")
-            .unwrap_or("2048".to_string())
-            .parse::<usize>()
-            .unwrap_or_else(|_| 2048);
+        let capacity = parse_memory_backend_capacity();
         Self {
             storage: global
                 .entry(redis_url)
                 .or_insert_with(|| {
                     Arc::new(Mutex::new(LruCache::new(
-                        NonZeroUsize::new(mem_capacity).unwrap(),
+                        NonZeroUsize::new(capacity).unwrap(),
                     )))
                 })
                 .clone(),

@@ -12,6 +12,7 @@ use crate::no_std::*;
 use crate::utils::blobs::{decode_blob_data, zlib_decompress_data};
 use crate::utils::shasta_rules::*;
 
+/// Builds a default block manifest for a derivation source when validation fails.
 fn make_default_manifest(
     guest_batch_input: &GuestBatchInput,
     last_parent_block_timestamp: u64,
@@ -117,7 +118,7 @@ pub fn generate_transactions_for_shasta_blocks(
                 match DerivationSourceManifest::decode(&mut protocol_manifest_bytes.as_ref()) {
                     Ok(manifest)
                         if validate_normal_proposal_manifest(
-                            &guest_batch_input,
+                            guest_batch_input,
                             &manifest,
                             last_anchor_block_number,
                         ) =>
@@ -137,7 +138,7 @@ pub fn generate_transactions_for_shasta_blocks(
                             min_base_fee,
                         ) {
                             warn!("shasta block base fee is invalid, need double check");
-                            assert!(false, "shasta block base fee is invalid");
+                            panic!("shasta block base fee is invalid");
                         }
                         manifest
                     }

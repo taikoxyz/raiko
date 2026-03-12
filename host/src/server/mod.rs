@@ -12,7 +12,7 @@ pub mod metrics;
 pub mod utils;
 
 pub use handler::{cancel, cancel_aggregation, prove, prove_aggregation};
-pub use utils::{to_v2_cancel_status, to_v2_status, to_v3_cancel_status, to_v3_status};
+pub use utils::to_v3_status;
 
 /// Starts the HTTP server.
 pub async fn serve(

@@ -15,10 +15,6 @@ path = "src/zk_op.rs"
 # path = "src/block.rs"
 
 [[bin]]
-name = "sp1-aggregation"
-path = "src/aggregation.rs"
-
-[[bin]]
 name = "sp1-batch"
 path = "src/batch.rs"
 

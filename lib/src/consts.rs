@@ -83,6 +83,19 @@ impl SupportedChainSpecs {
             .find(|spec| spec.chain_id == chain_id)
             .cloned()
     }
+
+    /// Validates that all L2 chain specs (used for proving) are Taiko. Fails early at startup.
+    /// L1 chains (l2_contract=null) may have is_taiko=false.
+    pub fn validate_taiko_only(&self) -> Result<()> {
+        for (name, spec) in &self.0 {
+            if spec.l2_contract.is_some() && !spec.is_taiko() {
+                bail!(
+                    "Chain spec '{name}' is an L2 chain but has is_taiko=false; this prover only supports Taiko (Shasta) chains"
+                );
+            }
+        }
+        Ok(())
+    }
 }
 
 /// The condition at which a fork is activated.
@@ -196,48 +209,48 @@ impl ChainSpec {
         &self.eip_1559_constants
     }
 
-    pub fn spec_id(&self, block_no: BlockNumber, timestamp: u64) -> Option<SpecId> {
-        for (spec_id, fork) in self.hard_forks.iter().rev() {
-            if fork.active(block_no, timestamp) {
-                return Some(*spec_id);
-            }
-        }
-        None
+    /// Returns the first active fork (by block/timestamp) when iterating in reverse order.
+    fn active_fork_spec_id(&self, block_num: u64, timestamp: u64) -> Option<SpecId> {
+        self.hard_forks
+            .iter()
+            .rev()
+            .find(|(_, fork)| fork.active(block_num, timestamp))
+            .map(|(spec_id, _)| *spec_id)
     }
 
+    pub fn spec_id(&self, block_no: BlockNumber, timestamp: u64) -> Option<SpecId> {
+        self.active_fork_spec_id(block_no, timestamp)
+    }
+
+    /// Returns verifier address for the first active fork that has verifier config.
     pub fn get_fork_verifier_address(
         &self,
         block_num: u64,
         block_timestamp: u64,
         proof_type: ProofType,
     ) -> Result<Address> {
-        // fall down to the first fork that is active as default
         for (spec_id, fork) in self.hard_forks.iter().rev() {
             if fork.active(block_num, block_timestamp) {
                 if let Some(fork_verifier) = self.verifier_address_forks.get(spec_id) {
                     return fork_verifier
                         .get(&proof_type)
                         .ok_or_else(|| anyhow!("Verifier type not found"))
-                        .and_then(|address| {
-                            address.ok_or_else(|| anyhow!("Verifier address not found"))
-                        });
+                        .and_then(|a| a.ok_or_else(|| anyhow!("Verifier address not found")));
                 }
             }
         }
-
         Err(anyhow!("fork verifier is not active"))
     }
 
+    /// Returns L1 contract address for the first active fork that has one.
     pub fn get_fork_l1_contract_address(&self, block_num: u64) -> Result<Address> {
-        // fall down to the first fork that is active as default
         for (spec_id, fork) in self.hard_forks.iter().rev() {
-            if fork.active(block_num, 0u64) {
-                if let Some(l1_address) = self.l1_contract.get(spec_id) {
-                    return Ok(*l1_address);
+            if fork.active(block_num, 0) {
+                if let Some(addr) = self.l1_contract.get(spec_id) {
+                    return Ok(*addr);
                 }
             }
         }
-
         Err(anyhow!("fork l1 contract is not active"))
     }
 
@@ -320,14 +333,9 @@ mod tests {
         let taiko_mainnet_spec = SupportedChainSpecs::default()
             .get_chain_spec(&Network::TaikoMainnet.to_string())
             .unwrap();
-        assert_eq!(taiko_mainnet_spec.active_fork(0, 0).unwrap(), SpecId::HEKLA);
         assert_eq!(
-            taiko_mainnet_spec.active_fork(538303, 0).unwrap(),
-            SpecId::HEKLA
-        );
-        assert_eq!(
-            taiko_mainnet_spec.active_fork(538304, 0).unwrap(),
-            SpecId::ONTAKE
+            taiko_mainnet_spec.active_fork(0, 1_775_135_700).unwrap(),
+            SpecId::SHASTA
         );
     }
 
@@ -344,18 +352,15 @@ mod tests {
             address!("532efbf6d62720d0b2a2bb9d11066e8588cae6d9")
         );
 
-        let hekla_mainnet_spec = SupportedChainSpecs::default()
-            .get_chain_spec(&Network::TaikoA7.to_string())
+        let taiko_mainnet_spec = SupportedChainSpecs::default()
+            .get_chain_spec(&Network::TaikoMainnet.to_string())
             .unwrap();
-        let verifier_address =
-            hekla_mainnet_spec.get_fork_verifier_address(12345, 0u64, ProofType::Sgx);
-        assert!(verifier_address.is_err()); // deprecated fork has no verifier address
-        let verifier_address = hekla_mainnet_spec
-            .get_fork_verifier_address(15_537_394, 0u64, ProofType::Sgx)
+        let verifier_address = taiko_mainnet_spec
+            .get_fork_verifier_address(0, 1_775_135_700, ProofType::Sgx)
             .unwrap();
         assert_eq!(
             verifier_address,
-            address!("a8cD459E3588D6edE42177193284d40332c3bcd4")
+            address!("a1018Ba2e22139076f91dA2A856B2CAB22d968F6")
         );
     }
 
@@ -368,6 +373,42 @@ mod tests {
             .get_fork_verifier_address(15_537_394, 0u64, ProofType::Native)
             .unwrap_or_default();
         assert_eq!(verifier_address, Address::ZERO);
+    }
+
+    #[test]
+    fn shasta_only_taiko_specs() {
+        let specs = SupportedChainSpecs::default();
+        assert!(
+            specs
+                .get_chain_spec(&Network::TaikoA7.to_string())
+                .is_none(),
+            "taiko_a7 should not be present in shasta-only defaults"
+        );
+
+        for network in ["taiko_mainnet", "taiko_hoodi", "taiko_transition"] {
+            let spec = specs.get_chain_spec(network).unwrap();
+            assert_eq!(spec.max_spec_id, SpecId::SHASTA);
+            assert_eq!(
+                spec.hard_forks.len(),
+                1,
+                "{network} should only expose SHASTA"
+            );
+            assert_eq!(
+                spec.hard_forks.keys().copied().collect::<Vec<_>>(),
+                vec![SpecId::SHASTA]
+            );
+            assert_eq!(
+                spec.l1_contract.keys().copied().collect::<Vec<_>>(),
+                vec![SpecId::SHASTA]
+            );
+            assert_eq!(
+                spec.verifier_address_forks
+                    .keys()
+                    .copied()
+                    .collect::<Vec<_>>(),
+                vec![SpecId::SHASTA]
+            );
+        }
     }
 
     #[ignore = "devnet spec changes frequently"]
@@ -480,9 +521,9 @@ mod tests {
         );
         assert!(
             merged_specs
-                .get_chain_spec(&Network::TaikoA7.to_string())
+                .get_chain_spec(&Network::TaikoMainnet.to_string())
                 .is_some(),
-            "existed chain spec TaikoA7 is changed by merge"
+            "existed chain spec TaikoMainnet is changed by merge"
         );
     }
 }

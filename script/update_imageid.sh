@@ -108,12 +108,10 @@ extract_sp1_vk_hash() {
     local build_output="$1"
     local binary_name="$2"
     
-    # Extract VK hash based on binary order (aggregation first, batch second, shasta aggregation third)
+    # Extract VK hash based on binary order (batch first, shasta aggregation second)
     local vk_hash=""
-    if [ "$binary_name" = "sp1-aggregation" ]; then
+    if [ "$binary_name" = "sp1-batch" ]; then
         vk_hash=$(echo "$build_output" | grep "sp1 elf vk hash_bytes is:" | sed 's/.*sp1 elf vk hash_bytes is: //' | head -1)
-    elif [ "$binary_name" = "sp1-batch" ]; then
-        vk_hash=$(echo "$build_output" | grep "sp1 elf vk hash_bytes is:" | sed 's/.*sp1 elf vk hash_bytes is: //' | sed -n '2p')
     elif [ "$binary_name" = "sp1-shasta-aggregation" ]; then
         vk_hash=$(echo "$build_output" | grep "sp1 elf vk hash_bytes is:" | sed 's/.*sp1 elf vk hash_bytes is: //' | tail -1)
     fi
@@ -370,15 +368,6 @@ update_env_file() {
     fi
     
     # Update SP1 VK hashes if provided
-    if [ -n "$SP1_AGGREGATION_VK_HASH" ]; then
-        if grep -q "^SP1_AGGREGATION_VK_HASH=" "$env_file"; then
-            sed -i "s/^SP1_AGGREGATION_VK_HASH=.*/SP1_AGGREGATION_VK_HASH=$SP1_AGGREGATION_VK_HASH/" "$env_file"
-        else
-            echo "SP1_AGGREGATION_VK_HASH=$SP1_AGGREGATION_VK_HASH" >> "$env_file"
-        fi
-        print_status "Updated SP1_AGGREGATION_VK_HASH in $env_file: $SP1_AGGREGATION_VK_HASH"
-    fi
-    
     if [ -n "$SP1_BATCH_VK_HASH" ]; then
         if grep -q "^SP1_BATCH_VK_HASH=" "$env_file"; then
             sed -i "s/^SP1_BATCH_VK_HASH=.*/SP1_BATCH_VK_HASH=$SP1_BATCH_VK_HASH/" "$env_file"
@@ -483,20 +472,17 @@ extract_sp1_hashes_from_output() {
     fi
     
     # Extract VK hashes
-    local aggregation_vk_hash=$(extract_sp1_vk_hash "$build_output" "sp1-aggregation")
     local batch_vk_hash=$(extract_sp1_vk_hash "$build_output" "sp1-batch")
     local shasta_vk_hash=$(extract_sp1_vk_hash "$build_output" "sp1-shasta-aggregation")
 
-    if [ -z "$aggregation_vk_hash" ] || [ -z "$batch_vk_hash" ]; then
+    if [ -z "$batch_vk_hash" ]; then
         print_error "Failed to extract SP1 VK hashes from build output"
         return 1
     fi
 
-    SP1_AGGREGATION_VK_HASH="$aggregation_vk_hash"
     SP1_SHASTA_AGGREGATION_VK_HASH="$shasta_vk_hash"
     SP1_BATCH_VK_HASH="$batch_vk_hash"
     print_status "Extracted SP1 VK hashes:"
-    print_status "  Aggregation: $aggregation_vk_hash"
     if [ -n "$shasta_vk_hash" ]; then
         print_status "  Shasta Aggregation: $shasta_vk_hash"
     fi
@@ -514,7 +500,6 @@ main() {
     BOUNDLESS_AGGREGATION_ID=""
     BOUNDLESS_BATCH_ID=""
     BOUNDLESS_SHASTA_AGGREGATION_ID=""
-    SP1_AGGREGATION_VK_HASH=""
     SP1_BATCH_VK_HASH=""
     SP1_SHASTA_AGGREGATION_VK_HASH=""
     

@@ -1,18 +1,72 @@
-use axum::Router;
-use raiko_lib::prover::Proof;
+use axum::{response::IntoResponse, Json, Router};
+use raiko_lib::{proof_type::ProofType, prover::Proof};
 use raiko_tasks::TaskStatus;
-use utoipa::OpenApi;
+use serde::{Deserialize, Serialize};
+use utoipa::{OpenApi, ToSchema};
 use utoipa_scalar::{Scalar, Servable};
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::server::api::v1::{self, GuestOutputDoc};
 use raiko_reqactor::Actor;
 
-// re-export v2 types
-pub use crate::server::api::v2::CancelStatus;
-pub use crate::server::api::v2::ProofResponse;
-pub use crate::server::api::v2::PruneStatus;
-pub use crate::server::api::v2::Status;
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[serde(untagged)]
+pub enum ProofResponse {
+    Status {
+        /// The status of the submitted task.
+        status: TaskStatus,
+    },
+    Proof {
+        /// The proof.
+        proof: Proof,
+    },
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[serde(tag = "status", rename_all = "lowercase")]
+pub enum Status {
+    Ok {
+        #[serde(with = "raiko_lib::proof_type::lowercase")]
+        proof_type: ProofType,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        batch_id: Option<u64>,
+        data: ProofResponse,
+    },
+    Error {
+        error: String,
+        message: String,
+    },
+}
+
+macro_rules! impl_json_into_response {
+    ($t:ty) => {
+        impl IntoResponse for $t {
+            fn into_response(self) -> axum::response::Response {
+                Json(serde_json::to_value(self).unwrap()).into_response()
+            }
+        }
+    };
+}
+
+impl_json_into_response!(Status);
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[serde(tag = "status", rename_all = "lowercase")]
+pub enum CancelStatus {
+    Ok,
+    Error { error: String, message: String },
+}
+
+impl_json_into_response!(CancelStatus);
+
+#[derive(Debug, Serialize, ToSchema, Deserialize)]
+#[serde(tag = "status", rename_all = "lowercase")]
+pub enum PruneStatus {
+    Ok,
+    Error { error: String, message: String },
+}
+
+impl_json_into_response!(PruneStatus);
 
 mod proof;
 
