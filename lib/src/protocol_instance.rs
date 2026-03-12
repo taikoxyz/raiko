@@ -271,10 +271,15 @@ fn verify_shasha_anchor_linkage(
 /// Validates input chain spec against known specs when chain_id is recognized.
 /// For unknown chain ids, skips check to allow tests with custom data.
 fn validate_chain_spec_against_known(chain_spec: &crate::consts::ChainSpec) -> Result<()> {
-    let Some(verified) = SupportedChainSpecs::default().get_chain_spec_with_chain_id(chain_spec.chain_id) else {
+    let Some(verified) =
+        SupportedChainSpecs::default().get_chain_spec_with_chain_id(chain_spec.chain_id)
+    else {
         return Ok(());
     };
-    ensure!(chain_spec.max_spec_id == verified.max_spec_id, "unexpected max_spec_id");
+    ensure!(
+        chain_spec.max_spec_id == verified.max_spec_id,
+        "unexpected max_spec_id"
+    );
     ensure!(
         chain_spec.hard_forks == verified.hard_forks,
         "unexpected hard_forks: {:?}, expected: {:?}",
@@ -285,8 +290,14 @@ fn validate_chain_spec_against_known(chain_spec: &crate::consts::ChainSpec) -> R
         chain_spec.eip_1559_constants == verified.eip_1559_constants,
         "unexpected eip_1559_constants"
     );
-    ensure!(chain_spec.l1_contract == verified.l1_contract, "unexpected l1_contract");
-    ensure!(chain_spec.l2_contract == verified.l2_contract, "unexpected l2_contract");
+    ensure!(
+        chain_spec.l1_contract == verified.l1_contract,
+        "unexpected l1_contract"
+    );
+    ensure!(
+        chain_spec.l2_contract == verified.l2_contract,
+        "unexpected l2_contract"
+    );
     Ok(())
 }
 
@@ -584,7 +595,7 @@ fn shasta_aggregation_commitment_hash(
     verifier_address: Address,
     sgx_instance: Address,
 ) -> B256 {
-    let prove_input_hash = hash_commitment(&prove_input);
+    let prove_input_hash = hash_commitment(prove_input);
     hash_public_input(prove_input_hash, chain_id, verifier_address, sgx_instance)
 }
 

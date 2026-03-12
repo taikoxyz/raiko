@@ -50,6 +50,7 @@ impl Executor {
                         .iter_mut()
                         .find(|a| file_name(&test).contains(&file_name(a).replace('-', "_")))
                     else {
+                        let _ = child.wait();
                         bail!("Failed to find test artifact");
                     };
 
@@ -91,13 +92,14 @@ impl Executor {
                 );
             }
 
+            let dest_path = dest.join(name.replace('_', "-"));
             fs::copy(
                 root.join(src.to_str().expect("File name is not valid UTF-8")),
-                &dest.join(&name.replace('_', "-")),
+                &dest_path,
             )?;
 
             println!("Write elf from\n {src:?}\nto\n {dest:?}");
-            let elf = std::fs::read(&dest.join(&name.replace('_', "-")))?;
+            let elf = std::fs::read(&dest_path)?;
             let prover = CpuProver::new();
             let key_pair = prover.setup(&elf);
             println!("sp1 elf vk bn256 is: {}", key_pair.1.bytes32());
@@ -132,7 +134,7 @@ impl Executor {
             }
 
             let mut dest_file =
-                fs::File::create(&dest_dir.join(&format!("{}.rs", name.replace('-', "_"))))
+                fs::File::create(dest_dir.join(format!("{}.rs", name.replace('-', "_"))))
                     .expect("Couldn't create destination file");
 
             let guest = GuestListEntry::build(

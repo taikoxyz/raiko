@@ -101,10 +101,7 @@ impl Pool {
 }
 
 /// Logs get_status result for tracing.
-fn log_get_status(
-    request_key: &RequestKey,
-    result: &Result<Option<StatusWithContext>, String>,
-) {
+fn log_get_status(request_key: &RequestKey, result: &Result<Option<StatusWithContext>, String>) {
     match result {
         Ok(Some(ref ctx)) => match ctx.status() {
             Status::Failed { ref error } => {

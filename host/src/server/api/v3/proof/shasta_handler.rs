@@ -38,9 +38,12 @@ async fn resolve_zk_any_proof_type(
         return Ok(None);
     }
 
-    let proposals = shasta_request_opt["proposals"].as_array().ok_or(
-        RaikoError::InvalidRequestConfig("Missing proposals".to_string()),
-    )?;
+    let proposals =
+        shasta_request_opt["proposals"]
+            .as_array()
+            .ok_or(RaikoError::InvalidRequestConfig(
+                "Missing proposals".to_string(),
+            ))?;
     let first_batch = proposals.first().ok_or(RaikoError::InvalidRequestConfig(
         "batches is empty".to_string(),
     ))?;
@@ -95,9 +98,7 @@ async fn shasta_batch_handler(
     );
 
     // For zk_any request, draw proof type from block hash; return early if not drawn.
-    if let Some(early_status) =
-        resolve_zk_any_proof_type(&actor, &mut shasta_request_opt).await?
-    {
+    if let Some(early_status) = resolve_zk_any_proof_type(&actor, &mut shasta_request_opt).await? {
         return Ok(early_status);
     }
 
@@ -222,7 +223,7 @@ fn finalize_shasta_request(
 ) -> Result<ShastaProofRequest, RaikoError> {
     let mut opts = serde_json::to_value(actor.default_request_config())?;
     // Override the existing proof request config from the config file and command line
-    // options with the request from the client, and convert to a BatchProofRequest.
+    // options with the request from the client, and convert to ShastaProofRequest.
     merge(&mut opts, &shasta_request_opt);
 
     let shasta_request_opt: ShastaProofRequestOpt = serde_json::from_value(opts)?;

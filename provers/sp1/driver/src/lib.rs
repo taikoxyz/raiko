@@ -9,11 +9,11 @@ use raiko_lib::{
     },
     libhash::hash_shasta_subproof_input,
     proof_type::ProofType,
+    protocol_instance::validate_shasta_proof_carry_data_vec,
     prover::{
         IdStore, IdWrite, Proof, ProofCarryData, ProofKey, Prover, ProverConfig, ProverError,
         ProverResult,
     },
-    protocol_instance::validate_shasta_proof_carry_data_vec,
     Measurement,
 };
 use reth_primitives::B256;
@@ -336,9 +336,9 @@ impl Prover for Sp1Prover {
             .proofs
             .iter()
             .map(|proof| {
-                proof.extra_data
-                    .clone()
-                    .ok_or_else(|| ProverError::GuestError("missing shasta proof carry data".into()))
+                proof.extra_data.clone().ok_or_else(|| {
+                    ProverError::GuestError("missing shasta proof carry data".into())
+                })
             })
             .collect::<Result<Vec<_>, _>>()?;
         let block_inputs = build_shasta_block_inputs(&input.proofs, &proof_carry_data_vec)?;
@@ -485,9 +485,7 @@ fn build_shasta_block_inputs(
     let mut block_inputs = Vec::with_capacity(proofs.len());
     for (idx, (proof, carry)) in proofs.iter().zip(proof_carry_data_vec).enumerate() {
         let proof_input = proof.input.ok_or_else(|| {
-            ProverError::GuestError(
-                "missing public input for shasta aggregation proof".to_string(),
-            )
+            ProverError::GuestError("missing public input for shasta aggregation proof".to_string())
         })?;
         let expected = hash_shasta_subproof_input(carry);
         if proof_input != expected {

@@ -30,7 +30,6 @@ pub fn hash_checkpoint(checkpoint: &Checkpoint) -> B256 {
            result := keccak256(m, 0x20 * N)
        }
 */
-
 /// Returns `keccak256(abi.encode(value0, value1))` - equivalent to Solidity's EfficientHashLib.hash
 pub fn hash_two_values(value0: B256, value1: B256) -> B256 {
     hash_values_impl(&[value0, value1])

@@ -59,7 +59,11 @@ impl Raiko {
             prover_data: TaikoProverData {
                 graffiti: self.request.graffiti,
                 actual_prover: self.request.prover,
-                checkpoint: self.request.checkpoint.clone().map(ShastaProposalCheckpoint::into),
+                checkpoint: self
+                    .request
+                    .checkpoint
+                    .clone()
+                    .map(ShastaProposalCheckpoint::into),
                 last_anchor_block_number: self.request.last_anchor_block_number,
             },
             blob_proof_type: self.request.blob_proof_type.clone(),
@@ -74,9 +78,7 @@ impl Raiko {
         //TODO: read fork from config
         let preflight_data = self.get_batch_preflight_data();
         info!("Generating batch input for batch {}", self.request.batch_id);
-        batch_preflight(provider, preflight_data)
-            .await
-            .map_err(Into::<RaikoError>::into)
+        batch_preflight(provider, preflight_data).await
     }
 
     pub fn get_output(&self, input: &GuestInput) -> RaikoResult<GuestOutput> {
@@ -98,7 +100,10 @@ impl Raiko {
         })?;
 
         debug!("Verifying final state using provider data ...");
-        debug!("Final block hash derived successfully. {}", header.hash_slow());
+        debug!(
+            "Final block hash derived successfully. {}",
+            header.hash_slow()
+        );
         debug!("Final block header derived successfully. {header:?}");
         check_header(&input.block.header, &header)?;
 
@@ -161,8 +166,15 @@ impl Raiko {
         })?;
 
         let header = &block.header;
-        debug!("Verifying final block {} state using provider data ...", header.number);
-        debug!("Final block {} hash derived successfully. {}", header.number, header.hash_slow());
+        debug!(
+            "Verifying final block {} state using provider data ...",
+            header.number
+        );
+        debug!(
+            "Final block {} hash derived successfully. {}",
+            header.number,
+            header.hash_slow()
+        );
         debug!("Final block derived successfully. {block:?}");
         check_header(&input.block.header, header)?;
 
@@ -528,5 +540,4 @@ mod tests {
         let aggregated_proof = aggregate_single_shasta_proof(&proof_request, &proof).await;
         println!("aggregated shasta proof: {aggregated_proof:?}");
     }
-
 }

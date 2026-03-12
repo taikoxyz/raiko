@@ -118,7 +118,7 @@ pub fn generate_transactions_for_shasta_blocks(
                 match DerivationSourceManifest::decode(&mut protocol_manifest_bytes.as_ref()) {
                     Ok(manifest)
                         if validate_normal_proposal_manifest(
-                            &guest_batch_input,
+                            guest_batch_input,
                             &manifest,
                             last_anchor_block_number,
                         ) =>
@@ -138,7 +138,7 @@ pub fn generate_transactions_for_shasta_blocks(
                             min_base_fee,
                         ) {
                             warn!("shasta block base fee is invalid, need double check");
-                            assert!(false, "shasta block base fee is invalid");
+                            panic!("shasta block base fee is invalid");
                         }
                         manifest
                     }

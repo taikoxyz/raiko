@@ -297,7 +297,7 @@ impl BlockDataProvider for RpcBlockDataProvider {
             let mut requests = Vec::new();
 
             let mut batch_size = 0;
-                while !accounts.is_empty() && batch_size < PROOF_BATCH_LIMIT {
+            while !accounts.is_empty() && batch_size < PROOF_BATCH_LIMIT {
                 let mut address_to_remove = None;
 
                 if let Some((address, keys)) = accounts.iter_mut().next() {

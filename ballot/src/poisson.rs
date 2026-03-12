@@ -20,6 +20,7 @@ impl PoissionDrawer {
         let mut last_draw_time = HashMap::new();
 
         for (ptype, (_rate, per_day)) in config {
+            #[allow(clippy::clone_on_copy)]
             per_day_limit.insert(ptype.clone(), per_day as usize);
             let interval = if per_day == 0 {
                 0
@@ -60,7 +61,7 @@ impl PoissionDrawer {
             .get(proof_type)
             .cloned()
             .unwrap_or_default();
-        let delta = now.signed_duration_since(&last_time).num_seconds();
+        let delta = now.signed_duration_since(last_time).num_seconds();
         if delta <= 0 {
             return false;
         }

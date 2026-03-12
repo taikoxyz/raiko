@@ -57,9 +57,7 @@ impl Status {
     }
 }
 
-#[derive(
-    PartialEq, Debug, Clone, Deserialize, Serialize, Eq, RedisValue, Getters,
-)]
+#[derive(PartialEq, Debug, Clone, Deserialize, Serialize, Eq, RedisValue, Getters)]
 /// The status of a request with context
 pub struct StatusWithContext {
     /// The status of the request

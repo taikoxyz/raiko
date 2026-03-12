@@ -103,15 +103,12 @@ pub struct GuestOutputDoc {
 
 #[must_use]
 pub fn create_docs() -> utoipa::openapi::OpenApi {
-    [
-        health::create_docs(),
-        metrics::create_docs(),
-    ]
-    .into_iter()
-    .fold(Docs::openapi(), |mut doc, sub_doc| {
-        doc.merge(sub_doc);
-        doc
-    })
+    [health::create_docs(), metrics::create_docs()]
+        .into_iter()
+        .fold(Docs::openapi(), |mut doc, sub_doc| {
+            doc.merge(sub_doc);
+            doc
+        })
 }
 
 pub fn create_router(_concurrency_limit: usize) -> Router<Actor> {

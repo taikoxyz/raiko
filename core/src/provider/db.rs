@@ -60,7 +60,10 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
         let absent_block_numbers = all_init_block_numbers
             .into_iter()
             .filter(|(block_number, _)| {
-                !provider_db.initial_db.block_hashes.contains_key(block_number)
+                !provider_db
+                    .initial_db
+                    .block_hashes
+                    .contains_key(block_number)
             })
             .collect::<Vec<(u64, bool)>>();
         let initial_history_blocks = provider_db
@@ -163,7 +166,7 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
     }
 }
 
-impl<'a, BDP: BlockDataProvider> Database for ProviderDb<'a, BDP> {
+impl<BDP: BlockDataProvider> Database for ProviderDb<'_, BDP> {
     type Error = ProviderError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -299,13 +302,13 @@ impl<'a, BDP: BlockDataProvider> Database for ProviderDb<'a, BDP> {
     }
 }
 
-impl<'a, BDP: BlockDataProvider> DatabaseCommit for ProviderDb<'a, BDP> {
+impl<BDP: BlockDataProvider> DatabaseCommit for ProviderDb<'_, BDP> {
     fn commit(&mut self, changes: HashMap<Address, Account>) {
         self.current_db.commit(changes);
     }
 }
 
-impl<'a, BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<'a, BDP> {
+impl<BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<'_, BDP> {
     async fn fetch_data(&mut self) -> bool {
         let valid_run = self.is_valid_run();
 

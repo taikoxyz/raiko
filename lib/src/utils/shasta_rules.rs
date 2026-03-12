@@ -224,7 +224,7 @@ pub(crate) fn validate_normal_proposal_manifest(
         return false;
     }
 
-    if !validate_shasta_manifest_block_timesatmp(&manifest.blocks, &input) {
+    if !validate_shasta_manifest_block_timesatmp(&manifest.blocks, input) {
         warn!("validate_shasta_block_timesatmp failed");
         return false;
     }
@@ -453,10 +453,7 @@ fn calc_next_shasta_base_fee(
             .unwrap_or(0);
 
         if adjustment < 1 {
-            return clamp_shasta_base_fee_with_min(
-                parent_base_fee.saturating_add(1),
-                min_base_fee,
-            );
+            return clamp_shasta_base_fee_with_min(parent_base_fee.saturating_add(1), min_base_fee);
         }
         clamp_shasta_base_fee_with_min(parent_base_fee.saturating_add(adjustment), min_base_fee)
     } else {

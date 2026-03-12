@@ -1,7 +1,4 @@
-use crate::{
-    interfaces::HostResult,
-    server::api::v3,
-};
+use crate::{interfaces::HostResult, server::api::v3};
 use raiko_core::{interfaces::RaikoError, provider::get_task_data};
 use raiko_lib::{primitives::keccak::keccak, proof_type::ProofType};
 use raiko_reqactor::Actor;

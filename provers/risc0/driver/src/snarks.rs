@@ -17,11 +17,11 @@ use std::{str::FromStr, sync::Arc};
 use alloy_primitives::B256;
 use alloy_sol_types::{sol, SolValue};
 use anyhow::Result;
-use hex;
 use bonsai_sdk::blocking::Client;
 use ethers_contract::abigen;
 use ethers_core::types::H160;
 use ethers_providers::{Http, Provider, RetryClient};
+use hex;
 use log::{error, info};
 use raiko_lib::primitives::keccak::keccak;
 use risc0_zkvm::{

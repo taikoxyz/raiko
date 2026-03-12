@@ -8,9 +8,7 @@ use raiko_core::{
 };
 use raiko_lib::{
     consts::SupportedChainSpecs,
-    input::{
-        AggregationGuestOutput, GuestBatchInput, ShastaAggregationGuestInput,
-    },
+    input::{AggregationGuestOutput, GuestBatchInput, ShastaAggregationGuestInput},
     prover::{IdWrite, Proof},
     utils::shasta_guest_input::{
         decode_guest_input_from_prover_arg_value, encode_guest_input_to_compress_b64_str,
@@ -116,8 +114,12 @@ impl Backend {
             tokio::spawn(async move {
                 if let Err(e) = handle.await {
                     tracing::error!("Actor thread errored while proving {request_key}: {e:?}");
-                    let status =
-                        StatusWithContext::new(Status::Failed { error: e.to_string() }, chrono::Utc::now());
+                    let status = StatusWithContext::new(
+                        Status::Failed {
+                            error: e.to_string(),
+                        },
+                        chrono::Utc::now(),
+                    );
                     let _ = pool_.update_status(request_key.clone(), status);
                 }
                 let _ = done_tx_.send(request_key).await;
@@ -139,9 +141,9 @@ async fn dispatch_proof_request(
         | RequestEntity::Aggregation(_)
         | RequestEntity::BatchProof(_)
         | RequestEntity::GuestInput(_)
-        | RequestEntity::BatchGuestInput(_) => Err(
-            "legacy single-block and batch proving are removed; use Shasta only".to_string(),
-        ),
+        | RequestEntity::BatchGuestInput(_) => {
+            Err("legacy single-block and batch proving are removed; use Shasta only".to_string())
+        }
         RequestEntity::ShastaGuestInput(entity) => {
             do_generate_shasta_proposal_guest_input(pool, chain_specs, request_key, entity).await
         }
@@ -166,9 +168,7 @@ fn result_to_status(
                 proof: proof.clone(),
             }
         }
-        Err(e) => Status::Failed {
-            error: e.clone(),
-        },
+        Err(e) => Status::Failed { error: e.clone() },
     }
 }
 
