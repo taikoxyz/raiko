@@ -4,6 +4,8 @@ set -euo pipefail
 MODE="${1:-tg}"                     # tg | slack
 LOG_FILE="${2:-/var/log/app.log}"   # log file path
 PATTERN="${3:-ERROR|FATAL|EXCEPTION}"
+MAX_ALERTS="${4:-100}"              # stop sending after this many alerts
+[[ "$MAX_ALERTS" =~ ^[0-9]+$ ]] || { echo "max_alerts must be a non-negative integer"; exit 1; }
 
 HOST="$(hostname)"
 now() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
@@ -29,13 +31,15 @@ send_slack() {
 
 case "$MODE" in
   tg|slack) ;;
-  *) echo "Usage: $0 <tg|slack> [log_file] [pattern]"; exit 1 ;;
+  *) echo "Usage: $0 <tg|slack> [log_file] [pattern] [max_alerts]"; exit 1 ;;
 esac
 
 # -n0 = only new lines from now on. Change to -n +1 to replay existing lines.
+count=0
 tail -n0 -F "$LOG_FILE" \
 | grep --line-buffered -E -i "$PATTERN" \
 | while IFS= read -r line; do
+    if ((count >= MAX_ALERTS)); then printf '[stopped] max_alerts=%s reached\n' "$MAX_ALERTS"; exit 0; fi
     msg="[$(now)] [$HOST] $line"
     if [[ "$MODE" == "tg" ]]; then
       send_tg "$msg"
@@ -44,4 +48,5 @@ tail -n0 -F "$LOG_FILE" \
       send_slack "$msg"
       printf '[sent][slack] %s\n' "$msg"
     fi
+    count=$((count + 1))
   done
