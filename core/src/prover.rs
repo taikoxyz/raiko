@@ -142,9 +142,12 @@ impl Prover for NativeProver {
             proofs: input
                 .proofs
                 .iter()
-                .map(|proof| RawProof {
-                    input: proof.input.clone().unwrap(),
-                    proof: Default::default(),
+                .map(|proof| {
+                    #[allow(clippy::clone_on_copy)]
+                    RawProof {
+                        input: proof.input.clone().unwrap(),
+                        proof: Default::default(),
+                    }
                 })
                 .collect(),
             proof_carry_data_vec: input

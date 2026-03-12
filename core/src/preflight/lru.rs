@@ -1,4 +1,3 @@
-#![cfg(feature = "statedb_lru")]
 use lazy_static::lazy_static;
 use std::{collections::HashMap, num::NonZeroUsize, sync::Mutex};
 

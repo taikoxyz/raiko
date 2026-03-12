@@ -379,14 +379,20 @@ mod tests {
     fn shasta_only_taiko_specs() {
         let specs = SupportedChainSpecs::default();
         assert!(
-            specs.get_chain_spec(&Network::TaikoA7.to_string()).is_none(),
+            specs
+                .get_chain_spec(&Network::TaikoA7.to_string())
+                .is_none(),
             "taiko_a7 should not be present in shasta-only defaults"
         );
 
         for network in ["taiko_mainnet", "taiko_hoodi", "taiko_transition"] {
             let spec = specs.get_chain_spec(network).unwrap();
             assert_eq!(spec.max_spec_id, SpecId::SHASTA);
-            assert_eq!(spec.hard_forks.len(), 1, "{network} should only expose SHASTA");
+            assert_eq!(
+                spec.hard_forks.len(),
+                1,
+                "{network} should only expose SHASTA"
+            );
             assert_eq!(
                 spec.hard_forks.keys().copied().collect::<Vec<_>>(),
                 vec![SpecId::SHASTA]

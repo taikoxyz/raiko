@@ -17,8 +17,7 @@ use raiko_lib::{
     inplace_print,
     input::{
         shasta::{Proposed as ShastaProposed, ShastaEventData},
-        BlobProofType, BlockProposedFork, InputDataSource, TaikoGuestBatchInput,
-        TaikoProverData,
+        BlobProofType, BlockProposedFork, InputDataSource, TaikoGuestBatchInput, TaikoProverData,
     },
     primitives::eip4844::{self, commitment_to_version_hash, KZG_SETTINGS},
     utils::shasta_rules::anchor_max_offset_for_chain,
@@ -36,8 +35,8 @@ use crate::{
 };
 
 /// Optimize data gathering by executing the transactions multiple times so data can be requested in batches
-pub async fn execute_txs<'a, BDP>(
-    builder: &mut RethBlockBuilder<ProviderDb<'a, BDP>>,
+pub async fn execute_txs<BDP>(
+    builder: &mut RethBlockBuilder<ProviderDb<'_, BDP>>,
     pool_txs: Vec<reth_primitives::TransactionSigned>,
 ) -> RaikoResult<()>
 where
@@ -126,6 +125,7 @@ pub async fn parse_l1_batch_proposal_tx_for_shasta_fork(
 }
 
 /// Prepare Shasta batch input
+#[allow(clippy::too_many_arguments)]
 async fn prepare_shasta_batch_input(
     shasta_event_data: raiko_lib::input::shasta::ShastaEventData,
     batch_id: u64,
@@ -200,6 +200,7 @@ async fn prepare_shasta_batch_input(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn prepare_taiko_chain_batch_input_shasta(
     l1_chain_spec: &ChainSpec,
     taiko_chain_spec: &ChainSpec,
@@ -258,6 +259,7 @@ async fn prepare_taiko_chain_batch_input_shasta(
 }
 
 /// Prepare the input for a Taiko chain
+#[allow(clippy::too_many_arguments)]
 pub async fn prepare_taiko_chain_batch_input(
     l1_chain_spec: &ChainSpec,
     taiko_chain_spec: &ChainSpec,
@@ -422,8 +424,8 @@ pub async fn filter_block_proposed_event(
     let l1_address = chain_spec
         .l1_contract
         .get(&fork)
-        .ok_or_else(|| anyhow!("L1 contract address not found for fork {fork:?}"))?
-        .clone();
+        .copied()
+        .ok_or_else(|| anyhow!("L1 contract address not found for fork {fork:?}"))?;
 
     // Get the event signature (value can differ between chains)
     let event_signature = match fork {
@@ -507,11 +509,6 @@ pub async fn filter_block_proposed_event(
                 .await
                 .expect("couldn't query the propose tx")
                 .expect("Could not find the propose tx");
-
-            let block_propose_event = match block_propose_event {
-                BlockProposedFork::Shasta(event_data) => BlockProposedFork::Shasta(event_data),
-                _ => block_propose_event,
-            };
 
             return Ok((log.block_number.unwrap(), tx, block_propose_event));
         } else {

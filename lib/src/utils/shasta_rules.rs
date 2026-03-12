@@ -224,7 +224,7 @@ pub(crate) fn validate_normal_proposal_manifest(
         return false;
     }
 
-    if !validate_shasta_manifest_block_timesatmp(&manifest.blocks, &input) {
+    if !validate_shasta_manifest_block_timesatmp(&manifest.blocks, input) {
         warn!("validate_shasta_block_timesatmp failed");
         return false;
     }

@@ -1,105 +1,76 @@
 # API
 
-## `POST /v2/proof`
+> **Note:** As of the Shasta-only refactor (2026-03), the API has been simplified. See [CHANGELOG-shasta-only-refactor.md](CHANGELOG-shasta-only-refactor.md) for migration details.
+
+## Current Endpoints
+
+- `POST /v3/proof/batch/shasta` — Shasta batch proof (supports aggregation via `aggregate: true`)
+- `GET /v3/proof/report` — Task status report
+- `GET /v3/proof/list` — List proofs
+- `POST /v3/proof/prune` — Prune tasks
+
+The same proof routes are also available at `/proof/*` (without the `/v3` prefix).
+
+---
+
+## `POST /v3/proof/batch/shasta`
+
+Submit a Shasta batch proof task. Supports aggregation when `aggregate: true`.
 
 ### Request Parameters
 
-- proof_type(string), the type of proof to prove. Allowed values: `zk_any`, `native`, `sgx`, `risc0`, `sp1`. When using `zk_any`, the server will automatically determine the proof type (risc0 or sp1) based on the request parameters.
-
-> NOTE: The support of `zk_any` is introduced in https://github.com/taikoxyz/raiko/pull/454
-
-### Response Parameters
-
-- proof_type(string), the type of proof that was proven. Allowed values: `native`, `sgx`, `risc0`, `sp1`. When requesting a `zk_any` proof, the server will automatically determine the proof type (risc0 or sp1) based on the request parameters, then return the proof type in the response.
-
-> NOTE: The `proof_type` field in response is introduced in https://github.com/taikoxyz/raiko/pull/454
-
-### Example
-
-```sh
-curl --location \
-     --request POST http://localhost:8091/v2/proof \
-     --header 'Content-Type: application/json' \
-     --data-raw '{
-         "network": "taiko_a7",
-         "proof_type": "zk_any",
-         "l1_network": "holesky",
-         "block_numbers": [[4, null], [5, null]],
-         "block_number": 4,
-         "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-       }'
-```
-
-Response:
-
-```json
-{"data":{"status":"registered"},"proof_type":"risc0","status":"ok"}
-```
-
-Error response:
-
-```json
-{"data":{"status":"zk_any_not_drawn"},"proof_type":"native","status":"ok"}
-```
-
-## `POST /v3/proof/batch`
-
-Submit a batch proof task with requested config, get task status, or get proof value.
-
-### Request Parameters
-
-- batches(array of objects): An array of batch metadata objects, each containing:
-  - batch_id(number): The batch ID to generate a proof for.
-  - l1_inclusion_block_number(number): The L1 block number where the batch was proposed.
-- aggregate(boolean, optional): Whether to aggregate the proofs of all batches. Default is false.
-- network(string): The L2 network to generate the proof for (e.g., "taiko_a7").
-- l1_network(string): The L1 network to generate the proof for (e.g., "holesky").
-- graffiti(string): A 32-byte hex string used as graffiti.
+- proposals(array of objects): An array of Shasta proposal metadata, each containing:
+  - proposal_id(number): The proposal ID.
+  - l1_inclusion_block_number(number): The L1 block number where the proposal was included.
+  - l2_block_numbers(array of numbers): L2 block numbers in this proposal.
+  - last_anchor_block_number(number): Last anchor block number.
+  - checkpoint(object, optional): `{ block_number, block_hash, state_root }`.
+- aggregate(boolean, optional): Whether to aggregate the proofs of all proposals. Default is false.
+- network(string): The L2 network (e.g., "taiko_a7").
+- l1_network(string): The L1 network (e.g., "holesky").
+- graffiti(string, optional): A 32-byte hex string. Defaults to zero.
 - prover(address): The Ethereum address of the prover.
-- proof_type(string): The type of proof to generate. Allowed values: `native`, `sgx`, `risc0`, `sp1`, "zk_any"
-- blob_proof_type(string): The type of blob proof. Allowed values: `kzg_versioned_hash`, `proof_of_equivalence`.
-- prover_args(object, optional): Additional prover-specific parameters:
-  - native(object, optional): Native prover specific options.
-  - sgx(object, optional): SGX prover specific options.
-  - sp1(object, optional): SP1 prover specific options.
-  - risc0(object, optional): RISC0 prover specific options.
+- proof_type(string): `native`, `sgx`, `risc0`, `sp1`, or `zk_any`.
+- blob_proof_type(string, optional): `kzg_versioned_hash` or `proof_of_equivalence`. Default: `proof_of_equivalence`.
+- prover_args(object, optional): Prover-specific options (native, sgx, sp1, risc0).
 
 ### Response Parameters
 
-- status(string): The status of the request. Possible values: "ok", "error".
-- data(object): The response data containing:
-  - status(string): The status of the proof generation. Possible values: "registered", "success", "failed".
-  - proof(object, optional): The generated proof if status is "success".
-- proof_type(string): The type of proof that was generated.
+- status(string): "ok" or "error".
+- data(object): Contains `status` ("registered", "success", "failed") and optionally `proof` when done.
+- proof_type(string): The proof type used.
 
 ### Example
 
 ```sh
 curl --location \
-     --request POST http://localhost:8080/v3/proof/batch \
+     --request POST http://localhost:8080/v3/proof/batch/shasta \
      --header 'Content-Type: application/json' \
      --data-raw '{
          "network": "taiko_a7",
          "l1_network": "holesky",
-         "batches": [
-           {"batch_id": 429, "l1_inclusion_block_number": 2071},
-           {"batch_id": 213, "l1_inclusion_block_number": 1656}
+         "proposals": [
+           {
+             "proposal_id": 429,
+             "l1_inclusion_block_number": 2071,
+             "l2_block_numbers": [100, 101, 102],
+             "last_anchor_block_number": 99,
+             "checkpoint": null
+           }
          ],
-         "aggregate": true,
+         "aggregate": false,
          "proof_type": "sgx"
        }'
 ```
 
-This example will generate a proof for batch 429 and 213, and **aggregate** them into a single proof, as the request parameter `aggregate` is set to `true`.
-
 Response:
 
 ```json
-{"data":{"status":"registered"},"proof_type":"risc0","status":"ok"}
+{"data":{"status":"registered"},"proof_type":"sgx","status":"ok"}
 ```
 
 Success response (when proof is ready):
 
 ```json
-{"data": {"status": "success", "proof": ...}, "proof_type": "risc0", "status": "ok"}
+{"data": {"status": "success", "proof": ...}, "proof_type": "sgx", "status": "ok"}
 ```

@@ -325,7 +325,10 @@ impl RethBlockBuilder<MemDb> {
     /// Finalizes the block building and returns the full block.
     pub fn finalize_block(&mut self) -> Result<Block> {
         let state_root = self.calculate_state_root()?;
-        ensure!(self.input.block.state_root == state_root, "state root mismatch");
+        ensure!(
+            self.input.block.state_root == state_root,
+            "state root mismatch"
+        );
         Ok(self.input.block.clone())
     }
 

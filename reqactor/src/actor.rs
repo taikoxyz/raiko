@@ -131,8 +131,13 @@ impl Actor {
         }
 
         let status = StatusWithContext::new(Status::Registered, start_time);
-        self.ensure_pool_registered(&request_key, &request_entity, &status, pool_status_opt.is_none())
-            .await?;
+        self.ensure_pool_registered(
+            &request_key,
+            &request_entity,
+            &status,
+            pool_status_opt.is_none(),
+        )
+        .await?;
 
         let queue_result = {
             let mut queue = self.queue.lock().await;

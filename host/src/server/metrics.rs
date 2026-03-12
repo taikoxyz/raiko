@@ -4,7 +4,7 @@
 // This is already reflected in the code below and should be used for all tracing in this file.
 
 use crate::metrics;
-use raiko_core::interfaces::{BatchProofRequest, ShastaProofRequest};
+use raiko_core::interfaces::ShastaProofRequest;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -119,56 +119,6 @@ impl Default for MetricsCollector {
 // Global metrics collector instance
 lazy_static::lazy_static! {
     pub static ref METRICS_COLLECTOR: MetricsCollector = MetricsCollector::new();
-}
-
-/// Generate a unique request ID
-pub fn generate_request_id(api_key: &str, batch_request: &BatchProofRequest) -> String {
-    let request = format!(
-        "{}_{}_batch_{}+{}",
-        if batch_request.aggregate {
-            "aggregate"
-        } else {
-            "single"
-        },
-        batch_request.proof_type,
-        batch_request.batches.first().unwrap().batch_id,
-        batch_request.batches.len(),
-    );
-
-    format!("{}_request_{}", api_key, request)
-}
-
-/// Convenience function: record request start
-pub fn record_batch_request_in(api_key_owner: &str, batch_request: &BatchProofRequest) {
-    let request_id = generate_request_id(api_key_owner, batch_request);
-    METRICS_COLLECTOR.record_request_in(&request_id, api_key_owner);
-}
-
-/// Convenience function: record request end
-pub fn record_batch_request_out(
-    api_key_owner: &str,
-    batch_request: &BatchProofRequest,
-    has_proof: bool,
-) {
-    let request_id = generate_request_id(api_key_owner, batch_request);
-    // record the increment of the request duration for prometheus counter metrics
-    if let Some(duration_inc) = METRICS_COLLECTOR.record_request_out(&request_id, has_proof) {
-        let batch_desc = format!(
-            "{}+{}",
-            batch_request.batches.first().unwrap().batch_id,
-            batch_request.batches.len()
-        );
-
-        // record accumulated preconfimer proof generation increment
-        metrics::accumulate_caller_proof_time_cost(api_key_owner, duration_inc);
-        // record current proof generation increment, see if this task can not be done in time
-        metrics::accumulate_single_proof_gen_time(
-            batch_request.aggregate,
-            &batch_request.proof_type,
-            &batch_desc,
-            duration_inc,
-        );
-    }
 }
 
 /// Generate a unique request ID

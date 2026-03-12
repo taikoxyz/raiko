@@ -71,4 +71,3 @@ pub async fn validate_input(
         ))
     }
 }
-

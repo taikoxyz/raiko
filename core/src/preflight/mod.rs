@@ -25,9 +25,7 @@ use tracing::{debug, info};
 
 use util::{execute_txs, get_batch_blocks_and_parent_data, prepare_taiko_chain_batch_input};
 
-pub use util::{
-    parse_l1_batch_proposal_tx_for_shasta_fork,
-};
+pub use util::parse_l1_batch_proposal_tx_for_shasta_fork;
 
 #[cfg(feature = "statedb_lru")]
 use lru::{load_state_db, save_state_db};
@@ -151,6 +149,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         .unwrap_or(PREFETCH_CHUNK_SIZE_DEFAULT);
 
     let mut handles = Vec::new();
+    #[allow(clippy::type_complexity)]
     let tasks: Vec<(
         (reth_primitives::Block, alloy_rpc_types::Block),
         (Vec<TransactionSigned>, bool),
