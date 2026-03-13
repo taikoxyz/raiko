@@ -350,7 +350,9 @@ pub async fn shasta_aggregate(
     let expected_instance = Address::from_slice(&input.proofs[0].proof.clone()[4..24]);
     assert_eq!(expected_instance, sgx_instance);
 
-    assert!(validate_shasta_aggregate_proof_carry_data(&input));
+    if !validate_shasta_aggregate_proof_carry_data(&input) {
+        bail!("invalid shasta proof carry data for aggregation (see stderr for details)");
+    }
 
     // Verify the proofs
     for (i, proof) in input.proofs.iter().enumerate() {
