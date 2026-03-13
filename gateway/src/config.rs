@@ -2,6 +2,7 @@ use crate::ShastaRouteDefaults;
 use anyhow::{Context, Result};
 use clap::Parser;
 use serde::Deserialize;
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -11,6 +12,10 @@ pub struct Config {
     pub backend: BackendConfig,
     #[serde(default)]
     pub defaults: DefaultsConfig,
+    /// JSON map of name -> key, e.g. {"taiko": "raiko_xxx", "chainbound": "raiko_yyy"}.
+    /// Empty or absent = no API key check.
+    #[serde(default)]
+    pub api_keys: Option<String>,
 }
 
 fn default_bind() -> String {
@@ -88,6 +93,18 @@ impl Config {
             proof_type: self.defaults.proof_type.clone(),
             prover: self.defaults.prover.clone(),
             aggregate: self.defaults.aggregate,
+        }
+    }
+
+    /// Returns set of valid API keys. Empty set = API key check disabled.
+    pub fn valid_api_keys(&self) -> HashSet<String> {
+        let s = match self.api_keys.as_deref() {
+            None | Some("") => return HashSet::new(),
+            Some(s) => s.trim(),
+        };
+        match serde_json::from_str::<std::collections::HashMap<String, String>>(s) {
+            Ok(map) => map.into_values().collect(),
+            Err(_) => HashSet::new(),
         }
     }
 }

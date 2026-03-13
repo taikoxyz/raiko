@@ -10,6 +10,7 @@ use axum::{
     routing::{any, get, post},
     Router,
 };
+use std::collections::HashSet;
 
 const SHASTA_PATH: &str = "/proof/batch/shasta";
 const SHASTA_V3_PATH: &str = "/v3/proof/batch/shasta";
@@ -46,6 +47,8 @@ async fn forward_shasta_request(
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response, (StatusCode, String)> {
+    check_api_key(&state.config.valid_api_keys(), &headers)
+        .map_err(|e| (StatusCode::UNAUTHORIZED, e))?;
     let route_key = route_key_from_body_with_defaults(&body, &state.config.route_defaults())
         .map_err(|error| (StatusCode::BAD_REQUEST, error.to_string()))?;
     let backend_index = backend_index(&route_key, state.config.backend_replicas());
@@ -67,6 +70,8 @@ async fn forward_passthrough_request(
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response, (StatusCode, String)> {
+    check_api_key(&state.config.valid_api_keys(), &headers)
+        .map_err(|e| (StatusCode::UNAUTHORIZED, e))?;
     let backend_url = format!("{}{}", state.config.shared_backend_url(), uri);
     forward_request(&state.client, &headers, method, backend_url, body).await
 }
@@ -110,6 +115,20 @@ async fn forward_request(
         .await
         .map_err(|error| (StatusCode::BAD_GATEWAY, error.to_string()))?;
 
+    if !status.is_success() {
+        let body_preview = String::from_utf8_lossy(body.as_ref());
+        let preview = if body_preview.len() > 500 {
+            format!("{}...", &body_preview[..500])
+        } else {
+            body_preview.to_string()
+        };
+        tracing::warn!(
+            status = %status,
+            body = %preview,
+            "Backend returned error"
+        );
+    }
+
     let mut response = Response::builder().status(status);
     if let Some(content_type) = content_type {
         response = response.header(CONTENT_TYPE, content_type);
@@ -126,4 +145,34 @@ async fn health() -> &'static str {
 
 fn header_value_to_str(value: &HeaderValue) -> Option<&str> {
     value.to_str().ok()
+}
+
+/// Returns Ok(()) if API key is valid or check is disabled. Err(msg) if invalid/missing.
+fn check_api_key(valid_keys: &HashSet<String>, headers: &HeaderMap) -> Result<(), String> {
+    if valid_keys.is_empty() {
+        return Ok(());
+    }
+    let key = extract_api_key_from_headers(headers);
+    if key.is_empty() {
+        tracing::warn!("No API key provided");
+        return Err("No API key provided".to_string());
+    }
+    if valid_keys.contains(&key) {
+        Ok(())
+    } else {
+        tracing::warn!(key = %key, "Invalid API key");
+        Err("Invalid API key".to_string())
+    }
+}
+
+fn extract_api_key_from_headers(headers: &HeaderMap) -> String {
+    if let Some(v) = headers.get("x-api-key").and_then(header_value_to_str) {
+        return v.trim().to_string();
+    }
+    if let Some(v) = headers.get(AUTHORIZATION).and_then(header_value_to_str) {
+        if let Some(bearer) = v.strip_prefix("Bearer ").or_else(|| v.strip_prefix("bearer ")) {
+            return bearer.trim().to_string();
+        }
+    }
+    String::new()
 }

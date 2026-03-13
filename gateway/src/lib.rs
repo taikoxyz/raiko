@@ -153,6 +153,7 @@ mod tests {
                 prover: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8".to_string(),
                 aggregate: false,
             },
+            api_keys: None,
         }
     }
 
