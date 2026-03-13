@@ -24,7 +24,7 @@ pub fn create_shasta_requests(
             l2_block_numbers,
             last_anchor_block_number,
         } = proposal;
-        // Create Shasta input request key
+        // Create Shasta input request key (prover not in key; we override when passing to prover backend)
         let input_request_key = RequestKey::ShastaGuestInput(ShastaInputRequestKey::new(
             *proposal_id, // proposal_id
             batch_request.l1_network.clone(),

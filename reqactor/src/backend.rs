@@ -607,7 +607,7 @@ pub async fn do_prove_shasta_proposal(
         .await
         .map_err(|err| format!("failed to create raiko: {err:?}"))?;
 
-    let input = if let Some(shasta_guest_input) =
+    let mut input = if let Some(shasta_guest_input) =
         raiko.request.prover_args.get(PROVER_ARG_SHASTA_GUEST_INPUT)
     {
         decode_guest_input_from_prover_arg_value(shasta_guest_input)?
@@ -617,6 +617,9 @@ pub async fn do_prove_shasta_proposal(
             .await
             .map_err(|err| format!("failed to generate shasta guest input: {err:?}"))?
     };
+
+    // Override prover so cached guest input (shared across provers) uses the requesting prover
+    input.taiko.prover_data.actual_prover = *request_entity.guest_input_entity().actual_prover();
 
     // Generate the output for the batch
     let output = raiko
