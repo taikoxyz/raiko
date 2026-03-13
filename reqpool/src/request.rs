@@ -57,9 +57,7 @@ impl Status {
     }
 }
 
-#[derive(
-    PartialEq, Debug, Clone, Deserialize, Serialize, Eq, RedisValue, Getters,
-)]
+#[derive(PartialEq, Debug, Clone, Deserialize, Serialize, Eq, RedisValue, Getters)]
 /// The status of a request with context
 pub struct StatusWithContext {
     /// The status of the request
@@ -519,6 +517,20 @@ impl RequestKey {
             RequestKey::ShastaGuestInput(_) => None, // ShastaGuestInput doesn't have image_id
             RequestKey::ShastaProof(key) => key.image_id.as_ref(),
             RequestKey::ShastaAggregation(key) => key.image_id.as_ref(),
+        }
+    }
+
+    /// Ordering key for preflight queue: lower values are processed first.
+    /// Shasta uses proposal_id; others use block_number/batch_id.
+    pub fn ordering_key(&self) -> Option<u64> {
+        match self {
+            RequestKey::ShastaGuestInput(key) => Some(*key.proposal_id()),
+            RequestKey::ShastaProof(key) => Some(*key.guest_input_key().proposal_id()),
+            RequestKey::ShastaAggregation(key) => key.block_numbers().first().copied(),
+            RequestKey::SingleProof(key) => Some(*key.block_number()),
+            RequestKey::BatchGuestInput(key) => Some(*key.batch_id()),
+            RequestKey::GuestInput(key) => Some(*key.block_number()),
+            RequestKey::Aggregation(_) | RequestKey::BatchProof(_) => None,
         }
     }
 }
