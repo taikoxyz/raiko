@@ -509,17 +509,14 @@ fn bypass_shasta_anchor_linkage(batch_input: &GuestBatchInput) -> bool {
     if !batch_input.taiko.l1_ancestor_headers.is_empty() {
         return false;
     }
-    let mut anchors = batch_input
-        .inputs
-        .iter()
-        .filter_map(|input| {
-            input
-                .taiko
-                .anchor_tx
-                .as_ref()
-                .and_then(|tx| decode_anchor_shasta(tx.input()).ok())
-                .map(|data| data._checkpoint.blockNumber)
-        });
+    let mut anchors = batch_input.inputs.iter().filter_map(|input| {
+        input
+            .taiko
+            .anchor_tx
+            .as_ref()
+            .and_then(|tx| decode_anchor_shasta(tx.input()).ok())
+            .map(|data| data._checkpoint.blockNumber)
+    });
     let Some(first_anchor) = anchors.next() else {
         return false;
     };
@@ -921,6 +918,7 @@ pub fn validate_shasta_aggregate_proof_carry_data(
 
 pub fn validate_shasta_proof_carry_data_vec(proof_carry_data_vec: &[ProofCarryData]) -> bool {
     if proof_carry_data_vec.is_empty() {
+        tracing::warn!("empty shasta proof carry data vec");
         return false;
     }
 
@@ -928,6 +926,11 @@ pub fn validate_shasta_proof_carry_data_vec(proof_carry_data_vec: &[ProofCarryDa
     for item in proof_carry_data_vec.iter() {
         // Commitment uses a single `actualProver` field; make the range unambiguous.
         if item.transition_input.actual_prover != expected_actual_prover {
+            tracing::warn!(
+                "mismatched actual prover: {:?}, expected: {:?}",
+                item.transition_input.actual_prover,
+                expected_actual_prover
+            );
             return false;
         }
     }
@@ -937,24 +940,49 @@ pub fn validate_shasta_proof_carry_data_vec(proof_carry_data_vec: &[ProofCarryDa
         let next = &w[1];
         // Ensure proposal ids are sequential
         if prev.transition_input.proposal_id + 1 != next.transition_input.proposal_id {
+            tracing::warn!(
+                "mismatched proposal id: {:?}, expected: {:?}",
+                prev.transition_input.proposal_id,
+                next.transition_input.proposal_id
+            );
             return false;
         }
 
         // Ensure proposal hashes chain correctly
         if prev.transition_input.proposal_hash != next.transition_input.parent_proposal_hash {
+            tracing::warn!(
+                "mismatched proposal hash: {:?}, expected: {:?}",
+                prev.transition_input.proposal_hash,
+                next.transition_input.parent_proposal_hash
+            );
             return false;
         }
 
         if prev.chain_id != next.chain_id {
+            tracing::warn!(
+                "mismatched chain id: {:?}, expected: {:?}",
+                prev.chain_id,
+                next.chain_id
+            );
             return false;
         }
 
         if prev.verifier != next.verifier {
+            tracing::warn!(
+                "mismatched verifier: {:?}, expected: {:?}",
+                prev.verifier,
+                next.verifier
+            );
             return false;
         }
 
         // Continuity: prev checkpoint must match next parent checkpoint hash.
         if prev.transition_input.checkpoint.blockHash != next.transition_input.parent_block_hash {
+            tracing::warn!(
+                "mismatched checkpoint block hash: {:?}, expected: {:?}",
+                prev.transition_input.checkpoint.blockHash,
+                next.transition_input.parent_block_hash
+            );
             return false;
         }
     }
@@ -966,6 +994,7 @@ pub fn build_shasta_commitment_from_proof_carry_data_vec(
     proof_carry_data_vec: &[ProofCarryData],
 ) -> Option<Commitment> {
     if !validate_shasta_proof_carry_data_vec(proof_carry_data_vec) {
+        tracing::warn!("invalid shasta proof carry data vec");
         return None;
     }
     let last = proof_carry_data_vec.last()?;
