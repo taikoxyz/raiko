@@ -4,7 +4,9 @@ use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_ansi(false)
+        .init();
 
     let cli = Cli::parse();
     let config = Config::load(&cli.config)?;

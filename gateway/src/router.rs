@@ -115,17 +115,23 @@ async fn forward_request(
         .await
         .map_err(|error| (StatusCode::BAD_GATEWAY, error.to_string()))?;
 
+    let body_preview = String::from_utf8_lossy(body.as_ref());
+    let preview = if body_preview.len() > 500 {
+        format!("{}...", &body_preview[..500])
+    } else {
+        body_preview.to_string()
+    };
+
     if !status.is_success() {
-        let body_preview = String::from_utf8_lossy(body.as_ref());
-        let preview = if body_preview.len() > 500 {
-            format!("{}...", &body_preview[..500])
-        } else {
-            body_preview.to_string()
-        };
         tracing::warn!(
             status = %status,
             body = %preview,
-            "Backend returned error"
+            "Backend returned HTTP error"
+        );
+    } else if is_error_response_body(body.as_ref()) {
+        tracing::warn!(
+            body = %preview,
+            "Backend returned 200 with error in body"
         );
     }
 
@@ -163,6 +169,28 @@ fn check_api_key(valid_keys: &HashSet<String>, headers: &HeaderMap) -> Result<()
         tracing::warn!(key = %key, "Invalid API key");
         Err("Invalid API key".to_string())
     }
+}
+
+/// Returns true if the response body indicates an error (raiko returns 200 with error in JSON body).
+fn is_error_response_body(body: &[u8]) -> bool {
+    let Ok(v) = serde_json::from_slice::<serde_json::Value>(body) else {
+        return false;
+    };
+    let obj = v.as_object();
+    let Some(obj) = obj else {
+        return false;
+    };
+    // raiko v2/v3 Status::Error: {"status": "error", "error": "...", "message": "..."}
+    if let Some(status) = obj.get("status").and_then(|s| s.as_str()) {
+        if status.eq_ignore_ascii_case("error") {
+            return true;
+        }
+    }
+    // HostError / legacy: {"error": "...", "message": "..."}
+    if obj.contains_key("error") && obj.contains_key("message") {
+        return true;
+    }
+    false
 }
 
 fn extract_api_key_from_headers(headers: &HeaderMap) -> String {
