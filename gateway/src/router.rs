@@ -122,6 +122,8 @@ async fn forward_request(
         body_preview.to_string()
     };
 
+    tracing::info!(status = %status, body = %preview, "Backend response");
+
     if !status.is_success() {
         tracing::warn!(
             status = %status,
@@ -171,6 +173,20 @@ fn check_api_key(valid_keys: &HashSet<String>, headers: &HeaderMap) -> Result<()
     }
 }
 
+/// TaskStatus variants that indicate failure (raiko returns 200 with error in data.status).
+const TASK_STATUS_ERROR_KEYS: &[&str] = &[
+    "anyhow_error",
+    "guest_prover_failure",
+    "network_failure",
+    "io_failure",
+    "proof_failure_generic",
+    "proof_failure_out_of_memory",
+    "invalid_or_unsupported_block",
+    "task_db_corruption",
+    "unspecified_failure_reason",
+    "system_paused",
+];
+
 /// Returns true if the response body indicates an error (raiko returns 200 with error in JSON body).
 fn is_error_response_body(body: &[u8]) -> bool {
     let Ok(v) = serde_json::from_slice::<serde_json::Value>(body) else {
@@ -189,6 +205,17 @@ fn is_error_response_body(body: &[u8]) -> bool {
     // HostError / legacy: {"error": "...", "message": "..."}
     if obj.contains_key("error") && obj.contains_key("message") {
         return true;
+    }
+    // raiko Status::Ok with data.status = TaskStatus error variant
+    // e.g. {"status":"ok","data":{"status":{"anyhow_error":"..."}}}
+    if let Some(data) = obj.get("data").and_then(|d| d.as_object()) {
+        if let Some(task_status) = data.get("status") {
+            if let Some(ts_obj) = task_status.as_object() {
+                if ts_obj.keys().any(|k| TASK_STATUS_ERROR_KEYS.contains(&k.as_str())) {
+                    return true;
+                }
+            }
+        }
     }
     false
 }
