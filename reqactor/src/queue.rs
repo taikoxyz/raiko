@@ -1,5 +1,30 @@
 use raiko_reqpool::{RequestEntity, RequestKey};
-use std::collections::{HashSet, VecDeque};
+use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashSet, VecDeque};
+
+/// Wrapper for preflight items: min-heap by ordering_key (proposal_id/block_number).
+#[derive(Debug)]
+struct PreflightItem(RequestKey, RequestEntity);
+
+impl PartialEq for PreflightItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == Ordering::Equal
+    }
+}
+impl Eq for PreflightItem {}
+impl PartialOrd for PreflightItem {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for PreflightItem {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let a = self.0.ordering_key().unwrap_or(u64::MAX);
+        let b = other.0.ordering_key().unwrap_or(u64::MAX);
+        // Reverse so BinaryHeap (max-heap) becomes min-heap: smaller key = higher priority
+        b.cmp(&a)
+    }
+}
 
 /// Queue of requests to be processed
 #[derive(Debug)]
@@ -8,8 +33,8 @@ pub struct Queue {
     agg_queue: VecDeque<(RequestKey, RequestEntity)>,
     /// Medium priority pending for batch proof requests
     batch_queue: VecDeque<(RequestKey, RequestEntity)>,
-    /// Low priority pending for preflight requests
-    preflight_queue: VecDeque<(RequestKey, RequestEntity)>,
+    /// Low priority pending for preflight requests, min-heap by proposal_id/block_number
+    preflight_queue: BinaryHeap<PreflightItem>,
     /// Requests that are currently being worked on
     working_in_progress: HashSet<RequestKey>,
     /// Requests that have been pushed to the queue or are in-flight
@@ -23,7 +48,7 @@ impl Queue {
         Self {
             agg_queue: VecDeque::new(),
             batch_queue: VecDeque::new(),
-            preflight_queue: VecDeque::new(),
+            preflight_queue: BinaryHeap::new(),
             working_in_progress: HashSet::new(),
             queued_keys: HashSet::new(),
             max_queue_size,
@@ -67,7 +92,7 @@ impl Queue {
                 }
                 _ => {
                     self.preflight_queue
-                        .push_back((request_key, request_entity));
+                        .push(PreflightItem(request_key, request_entity));
                 }
             }
         }
@@ -76,11 +101,12 @@ impl Queue {
 
     /// Attempts to move a request from either the high, medium or low priority queue into the in-flight set
     /// and starts processing it. High priority requests are processed first.
+    /// Preflight queue is a min-heap: pop returns smallest proposal_id/block_number.
     pub fn try_next(&mut self) -> Option<(RequestKey, RequestEntity)> {
         let (request_key, request_entity) = self.agg_queue.pop_front().or_else(|| {
             self.batch_queue
                 .pop_front()
-                .or_else(|| self.preflight_queue.pop_front())
+                .or_else(|| self.preflight_queue.pop().map(|p| (p.0, p.1)))
         })?;
 
         self.working_in_progress.insert(request_key.clone());

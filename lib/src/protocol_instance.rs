@@ -509,17 +509,14 @@ fn bypass_shasta_anchor_linkage(batch_input: &GuestBatchInput) -> bool {
     if !batch_input.taiko.l1_ancestor_headers.is_empty() {
         return false;
     }
-    let mut anchors = batch_input
-        .inputs
-        .iter()
-        .filter_map(|input| {
-            input
-                .taiko
-                .anchor_tx
-                .as_ref()
-                .and_then(|tx| decode_anchor_shasta(tx.input()).ok())
-                .map(|data| data._checkpoint.blockNumber)
-        });
+    let mut anchors = batch_input.inputs.iter().filter_map(|input| {
+        input
+            .taiko
+            .anchor_tx
+            .as_ref()
+            .and_then(|tx| decode_anchor_shasta(tx.input()).ok())
+            .map(|data| data._checkpoint.blockNumber)
+    });
     let Some(first_anchor) = anchors.next() else {
         return false;
     };
@@ -914,6 +911,12 @@ pub fn validate_shasta_aggregate_proof_carry_data(
 ) -> bool {
     // The carry vector is meant to be a per-proof sidecar; treat mismatched sizes as invalid.
     if aggregation_input.proofs.len() != aggregation_input.proof_carry_data_vec.len() {
+        let msg = format!(
+            "shasta PCD validation failed: proofs.len()={} != proof_carry_data_vec.len()={}",
+            aggregation_input.proofs.len(),
+            aggregation_input.proof_carry_data_vec.len()
+        );
+        error!("{msg}");
         return false;
     }
     validate_shasta_proof_carry_data_vec(&aggregation_input.proof_carry_data_vec)
@@ -921,40 +924,93 @@ pub fn validate_shasta_aggregate_proof_carry_data(
 
 pub fn validate_shasta_proof_carry_data_vec(proof_carry_data_vec: &[ProofCarryData]) -> bool {
     if proof_carry_data_vec.is_empty() {
+        let msg = "shasta PCD validation failed: empty proof_carry_data_vec";
+        error!("{msg}");
         return false;
     }
 
+    let proposal_ids: Vec<u64> = proof_carry_data_vec
+        .iter()
+        .map(|p| p.transition_input.proposal_id)
+        .collect();
+    debug!(
+        "validating shasta PCD: len={}, proposal_ids={:?}, actual_prover={:?}",
+        proof_carry_data_vec.len(),
+        proposal_ids,
+        proof_carry_data_vec[0].transition_input.actual_prover
+    );
+
     let expected_actual_prover = proof_carry_data_vec[0].transition_input.actual_prover;
-    for item in proof_carry_data_vec.iter() {
+    for (i, item) in proof_carry_data_vec.iter().enumerate() {
         // Commitment uses a single `actualProver` field; make the range unambiguous.
         if item.transition_input.actual_prover != expected_actual_prover {
+            let msg = format!(
+                "shasta PCD validation failed at index {}: mismatched actual_prover, got {:?}, expected {:?}",
+                i,
+                item.transition_input.actual_prover,
+                expected_actual_prover
+            );
+            error!("{msg}");
             return false;
         }
     }
 
-    for w in proof_carry_data_vec.windows(2) {
+    for (i, w) in proof_carry_data_vec.windows(2).enumerate() {
         let prev = &w[0];
         let next = &w[1];
         // Ensure proposal ids are sequential
         if prev.transition_input.proposal_id + 1 != next.transition_input.proposal_id {
+            let msg = format!(
+                "shasta PCD validation failed at pair [{},{}]: proposal_id not sequential, prev={}, next={} (expected {})",
+                i, i + 1,
+                prev.transition_input.proposal_id,
+                next.transition_input.proposal_id,
+                prev.transition_input.proposal_id + 1
+            );
+            error!("{msg}");
             return false;
         }
 
         // Ensure proposal hashes chain correctly
         if prev.transition_input.proposal_hash != next.transition_input.parent_proposal_hash {
+            let msg = format!(
+                "shasta PCD validation failed at pair [{},{}]: proposal_hash chain broken, prev.proposal_hash={:?} != next.parent_proposal_hash={:?}",
+                i, i + 1,
+                prev.transition_input.proposal_hash,
+                next.transition_input.parent_proposal_hash
+            );
+            error!("{msg}");
             return false;
         }
 
         if prev.chain_id != next.chain_id {
+            let msg =
+                format!(
+                "shasta PCD validation failed at pair [{},{}]: chain_id mismatch, prev={}, next={}",
+                i, i + 1, prev.chain_id, next.chain_id
+            );
+            error!("{msg}");
             return false;
         }
 
         if prev.verifier != next.verifier {
+            let msg = format!(
+                "shasta PCD validation failed at pair [{},{}]: verifier mismatch, prev={:?}, next={:?}",
+                i, i + 1, prev.verifier, next.verifier
+            );
+            error!("{msg}");
             return false;
         }
 
         // Continuity: prev checkpoint must match next parent checkpoint hash.
         if prev.transition_input.checkpoint.blockHash != next.transition_input.parent_block_hash {
+            let msg = format!(
+                "shasta PCD validation failed at pair [{},{}]: checkpoint block hash chain broken, prev.checkpoint.blockHash={:?} != next.parent_block_hash={:?}",
+                i, i + 1,
+                prev.transition_input.checkpoint.blockHash,
+                next.transition_input.parent_block_hash
+            );
+            error!("{msg}");
             return false;
         }
     }
@@ -966,6 +1022,9 @@ pub fn build_shasta_commitment_from_proof_carry_data_vec(
     proof_carry_data_vec: &[ProofCarryData],
 ) -> Option<Commitment> {
     if !validate_shasta_proof_carry_data_vec(proof_carry_data_vec) {
+        error!(
+            "build_shasta_commitment failed: validate_shasta_proof_carry_data_vec returned false (see above for specific reason)"
+        );
         return None;
     }
     let last = proof_carry_data_vec.last()?;

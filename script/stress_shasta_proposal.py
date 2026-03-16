@@ -16,6 +16,8 @@ import sys
 import os
 from shasta_event_decoder import ShastaEventDecoder
 
+MAX_BLOCKS_PER_PROPOSAL = 192
+
 
 @dataclass
 class RaikoResponse:
@@ -85,6 +87,8 @@ class BatchMonitor:
         # Cache for proposal block numbers: proposal_id -> l1_block_number
         # Used for both normal proposals and bond proposals
         self.proposal_block_cache: Dict[int, Optional[int]] = {}
+        # Cache parsed anchor info so boundary probes do not re-query the same block.
+        self.anchor_info_cache: Dict[int, Optional[AnchorTxInfo]] = {}
         # Queue for proposals waiting to be aggregated
         self.pending_proposals: list[Dict[str, Any]] = []
         # Aggregate running count
@@ -130,6 +134,7 @@ class BatchMonitor:
             abi = json.load(f)
         l1_w3 = Web3(Web3.HTTPProvider(l1_rpc, {"timeout": 10}))
         l1_w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+        self.l1_w3 = l1_w3
         if l1_w3.is_connected():
             self.logger.info(f"Connected to l1 node {l1_rpc}")
         self.evt_contract = l1_w3.eth.contract(address=evt_address, abi=abi["abi"])
@@ -235,11 +240,13 @@ class BatchMonitor:
             # Try web3.py contract decoding first if available
             if self.l2_contract is not None:
                 try:
-                    self.logger.info(f"Attempting Web3.py decoding for tx input (length: {len(tx_input)} chars)")
+                    self.logger.debug(
+                        f"Attempting Web3.py decoding for tx input (length: {len(tx_input)} chars)"
+                    )
                     
                     # Decode the function call
                     func_obj, func_params = self.l2_contract.decode_function_input(tx_input)
-                    self.logger.info(f"Successfully decoded function: {func_obj.fn_name}")
+                    self.logger.debug(f"Successfully decoded function: {func_obj.fn_name}")
                     
                     # Check if it's anchorV4
                     if func_obj.fn_name == "anchorV4":
@@ -265,7 +272,7 @@ class BatchMonitor:
                             self.logger.debug(f"Extracted anchor_number from checkpoint attribute: {anchor_number}")
                         
                         if anchor_number is not None:
-                            self.logger.info(
+                            self.logger.debug(
                                 f"✓ Decoded via ABI: anchor_number={anchor_number}"
                             )
                             return anchor_number
@@ -375,6 +382,62 @@ class BatchMonitor:
             self.logger.debug(traceback.format_exc())
             return None
 
+    def format_l2_block_range(self, l2_block_numbers: list[int]) -> str:
+        if not l2_block_numbers:
+            return "(0 blocks)"
+        if len(l2_block_numbers) == 1:
+            return f"{l2_block_numbers[0]} (1 block)"
+        return (
+            f"{l2_block_numbers[0]}..{l2_block_numbers[-1]} "
+            f"({len(l2_block_numbers)} blocks)"
+        )
+
+    def format_proposal_context(
+        self,
+        *,
+        proposal_id: int,
+        l2_block_numbers: list[int],
+        l1_inclusion_block: Optional[int] = None,
+        last_anchor_block_number: Optional[int] = None,
+        current_l1_height: Optional[int] = None,
+    ) -> str:
+        parts = [
+            f"proposal {proposal_id}",
+            f"L2 {self.format_l2_block_range(l2_block_numbers)}",
+        ]
+        if l1_inclusion_block is not None:
+            parts.append(f"L1 inclusion {l1_inclusion_block}")
+        if last_anchor_block_number is not None:
+            parts.append(f"last_anchor_block_number={last_anchor_block_number}")
+        if current_l1_height is not None:
+            parts.append(f"current_l1_height={current_l1_height}")
+        return ", ".join(parts)
+
+    async def get_last_anchor_block_number(self, l2_block_numbers: list[int]) -> int:
+        if not l2_block_numbers:
+            return 0
+
+        first_block = l2_block_numbers[0]
+        if first_block == 0:
+            self.logger.info(
+                "First block is 0, no parent block available, using default last_anchor_block_number=0"
+            )
+            return 0
+
+        parent_block = first_block - 1
+        parent_anchor_info = await self.get_anchor_info(parent_block)
+        if parent_anchor_info is not None:
+            last_anchor_block_number = parent_anchor_info.anchor_number
+            self.logger.info(
+                f"Found last_anchor_block_number={last_anchor_block_number} from parent block {parent_block}"
+            )
+            return last_anchor_block_number
+
+        self.logger.warning(
+            f"Could not parse parent block {parent_block}, using default last_anchor_block_number=0"
+        )
+        return 0
+
     def group_blocks_by_proposal_id(
         self, anchor_infos: list[AnchorTxInfo]
     ) -> list[ProposalGroup]:
@@ -413,6 +476,114 @@ class BatchMonitor:
             groups.append(current_group)
         
         return groups
+
+    async def get_anchor_info(self, l2_block_number: int) -> Optional[AnchorTxInfo]:
+        if l2_block_number in self.anchor_info_cache:
+            return self.anchor_info_cache[l2_block_number]
+
+        anchor_info = await self.parse_l2_block_anchor_tx(l2_block_number)
+        if anchor_info is not None:
+            self.anchor_info_cache[l2_block_number] = anchor_info
+        return anchor_info
+
+    async def search_proposal_boundary_in_window(
+        self,
+        proposal_id: int,
+        *,
+        search_start: int,
+        search_end: int,
+        find_start: bool,
+    ) -> int:
+        """
+        Binary search the contiguous proposal range within a bounded window.
+        `find_start=True` returns the leftmost matching block, otherwise the
+        rightmost matching block.
+        """
+        low = search_start
+        high = search_end
+
+        while low < high:
+            mid = (low + high) // 2 if find_start else (low + high + 1) // 2
+            mid_info = await self.get_anchor_info(mid)
+            matches = mid_info is not None and mid_info.proposal_id == proposal_id
+
+            if find_start:
+                if matches:
+                    high = mid
+                else:
+                    low = mid + 1
+            else:
+                if matches:
+                    low = mid
+                else:
+                    high = mid - 1
+
+        return low
+
+    async def find_proposal_end_block_in_window(
+        self, start_block: int, proposal_id: int, search_end: int
+    ) -> int:
+        """
+        Find the end of the current proposal within a bounded window.
+        The protocol caps a proposal to 192 blocks, so we only need to search
+        [start_block, start_block + 191] and verify the next block boundary.
+        """
+        window_end = min(search_end, start_block + MAX_BLOCKS_PER_PROPOSAL - 1)
+        window_end_info = await self.get_anchor_info(window_end)
+
+        if window_end_info is not None and window_end_info.proposal_id == proposal_id:
+            next_block = window_end + 1
+            if next_block <= search_end:
+                next_info = await self.get_anchor_info(next_block)
+                if next_info is not None and next_info.proposal_id == proposal_id:
+                    self.logger.warning(
+                        f"Proposal {proposal_id} still matches at block {next_block} after "
+                        f"{MAX_BLOCKS_PER_PROPOSAL} blocks; falling back to forward scan"
+                    )
+                    return await self.find_proposal_end_block(
+                        window_end,
+                        proposal_id,
+                        max_forward=max(1, search_end - window_end),
+                    )
+                if next_info is not None and next_info.proposal_id != proposal_id + 1:
+                    self.logger.warning(
+                        f"Proposal boundary check mismatch at block {next_block}: "
+                        f"expected proposal {proposal_id + 1}, got {next_info.proposal_id}"
+                    )
+            return window_end
+
+        return await self.search_proposal_boundary_in_window(
+            proposal_id,
+            search_start=start_block,
+            search_end=window_end,
+            find_start=False,
+        )
+
+    async def iter_proposal_groups(self, start_block: int, end_block: int):
+        cursor = start_block
+        while cursor <= end_block:
+            anchor_info = await self.get_anchor_info(cursor)
+            if anchor_info is None:
+                self.logger.warning(
+                    f"Failed to parse anchor tx from L2 block {cursor}, skipping"
+                )
+                cursor += 1
+                continue
+
+            proposal_end = await self.find_proposal_end_block_in_window(
+                cursor, anchor_info.proposal_id, end_block
+            )
+            group = ProposalGroup(
+                proposal_id=anchor_info.proposal_id,
+                anchor_number=anchor_info.anchor_number,
+                l2_block_numbers=list(range(cursor, proposal_end + 1)),
+            )
+            self.logger.info(
+                f"Discovered proposal {group.proposal_id}: "
+                f"L2 blocks {group.l2_block_numbers[0]}..{group.l2_block_numbers[-1]}"
+            )
+            yield group
+            cursor = proposal_end + 1
 
     async def find_l1_inclusion_block(
         self, proposal_id: int, anchor_number: int
@@ -795,6 +966,8 @@ class BatchMonitor:
             
             # Use the collected proposals
             proposals_to_aggregate = self.pending_proposals.copy()
+            # Sort proposals by proposal_id in ascending order before aggregation
+            proposals_to_aggregate.sort(key=lambda p: p["proposal_id"])
             self.pending_proposals.clear()
             
             payload = self.generate_post_data(proposals_to_aggregate, aggregate=True)
@@ -887,7 +1060,12 @@ class BatchMonitor:
             self.logger.error(f"Failed to query aggregate status: {e}")
             return RaikoResponse(status="error", message=str(e))
 
-    async def process_proposal_group(self, group: ProposalGroup, l1_inclusion_block: int):
+    async def process_proposal_group(
+        self,
+        group: ProposalGroup,
+        l1_inclusion_block: int,
+        last_anchor_block_number: int,
+    ):
         """handle new proposal group"""
         try:
             if self.watch_mode:
@@ -895,35 +1073,15 @@ class BatchMonitor:
                 return
 
             start_time = datetime.now()
-            self.logger.info(
-                f"Starting to process proposal {group.proposal_id} (L2 blocks {group.l2_block_numbers}) @ L1 block {l1_inclusion_block} at {start_time}"
-            )
 
             with open(self.log_file, "a") as f:
                 f.write(
                     f"\nproposal {group.proposal_id} (L2 blocks {group.l2_block_numbers}) in L1 block {l1_inclusion_block} processing started at {start_time}\n"
                 )
 
-            # Get last_anchor_block_number from parent of the first block in the proposal
-            first_block = group.l2_block_numbers[0]
-            last_anchor_block_number = 0  # Default to 0 if no parent block
-            
-            if first_block > 0:
-                parent_block = first_block - 1
-                parent_anchor_info = await self.parse_l2_block_anchor_tx(parent_block)
-                if parent_anchor_info is not None:
-                    last_anchor_block_number = parent_anchor_info.anchor_number
-                    self.logger.info(
-                        f"Found last_anchor_block_number={last_anchor_block_number} from parent block {parent_block}"
-                    )
-                else:
-                    self.logger.warning(
-                        f"Could not parse parent block {parent_block}, using default last_anchor_block_number=0"
-                    )
-            else:
-                self.logger.info(
-                    f"First block is 0, no parent block available, using default last_anchor_block_number=0"
-                )
+            self.logger.info(
+                f"Starting to process {self.format_proposal_context(proposal_id=group.proposal_id, l2_block_numbers=group.l2_block_numbers, l1_inclusion_block=l1_inclusion_block, last_anchor_block_number=last_anchor_block_number)} at {start_time}"
+            )
 
             # request Raiko
             await self.submit_to_raiko(group.proposal_id, l1_inclusion_block, group.l2_block_numbers, last_anchor_block_number)
@@ -1009,214 +1167,192 @@ class BatchMonitor:
                 f"Proposal {group.proposal_id} in L1 {l1_inclusion_block} processed, remaining running: {self.running_count}"
             )
 
-    async def find_proposal_start_block(self, start_block: int, proposal_id: int) -> int:
+    async def scan_proposal_boundary(
+        self,
+        proposal_id: int,
+        boundary_block: int,
+        *,
+        step: int,
+        max_steps: Optional[int] = None,
+    ) -> int:
+        """
+        Walk backwards or forwards from a known block in a proposal until the
+        proposal changes. Returns the first/last block that still belongs to
+        `proposal_id` depending on `step`.
+        """
+        current_block = boundary_block + step
+        last_valid_block = boundary_block
+        steps_taken = 0
+        direction = "backwards" if step < 0 else "forwards"
+
+        while current_block >= 0 and (max_steps is None or steps_taken < max_steps):
+            self.logger.debug(
+                f"Checking {direction}: block {current_block} for proposal {proposal_id}"
+            )
+            anchor_info = await self.get_anchor_info(current_block)
+
+            if anchor_info is None:
+                self.logger.debug(
+                    f"Could not parse block {current_block}, stopping {direction} search"
+                )
+                break
+
+            if anchor_info.proposal_id != proposal_id:
+                boundary_name = "start" if step < 0 else "end"
+                self.logger.debug(
+                    f"Found different proposal {anchor_info.proposal_id} at block "
+                    f"{current_block}, {boundary_name} is {last_valid_block}"
+                )
+                break
+
+            last_valid_block = current_block
+            current_block += step
+            steps_taken += 1
+
+        return last_valid_block
+
+    async def find_proposal_start_block(
+        self,
+        start_block: int,
+        proposal_id: int,
+        known_same_block: Optional[int] = None,
+    ) -> int:
         """
         Find the true start block of a proposal by checking backwards.
         Returns the first block number that belongs to this proposal_id.
         """
-        current_block = start_block - 1
-        last_valid_block = start_block
-        
-        while current_block >= 0:
-            self.logger.debug(f"Checking backwards: block {current_block} for proposal {proposal_id}")
-            anchor_info = await self.parse_l2_block_anchor_tx(current_block)
-            
-            if anchor_info is None:
-                # Can't parse, stop going backwards
-                self.logger.debug(f"Could not parse block {current_block}, stopping backwards search")
-                break
-            
-            if anchor_info.proposal_id == proposal_id:
-                # Same proposal, continue backwards
-                last_valid_block = current_block
-                current_block -= 1
-            else:
-                # Different proposal, we found the start
-                self.logger.debug(f"Found different proposal {anchor_info.proposal_id} at block {current_block}, start is {last_valid_block}")
-                break
-        
-        return last_valid_block
+        high_true = start_block if known_same_block is None else known_same_block
+        low_false = max(-1, high_true - MAX_BLOCKS_PER_PROPOSAL)
 
-    async def find_proposal_end_block(self, end_block: int, proposal_id: int, max_forward: int = 100) -> int:
+        while high_true - low_false > 1:
+            mid = (low_false + high_true) // 2
+            if mid < 0:
+                break
+            mid_info = await self.get_anchor_info(mid)
+            if mid_info is not None and mid_info.proposal_id == proposal_id:
+                high_true = mid
+            else:
+                low_false = mid
+
+        return high_true
+
+    async def find_proposal_end_block(
+        self,
+        end_block: int,
+        proposal_id: int,
+        known_same_block: Optional[int] = None,
+        max_forward: Optional[int] = None,
+    ) -> int:
         """
         Find the true end block of a proposal by checking forwards.
         Returns the last block number that belongs to this proposal_id.
         max_forward limits how far forward we'll search to avoid infinite loops.
         """
-        current_block = end_block + 1
-        last_valid_block = end_block
-        checked = 0
-        
-        while checked < max_forward:
-            self.logger.debug(f"Checking forwards: block {current_block} for proposal {proposal_id}")
-            anchor_info = await self.parse_l2_block_anchor_tx(current_block)
-            
-            if anchor_info is None:
-                # Can't parse, stop going forwards
-                self.logger.debug(f"Could not parse block {current_block}, stopping forwards search")
-                break
-            
-            if anchor_info.proposal_id == proposal_id:
-                # Same proposal, continue forwards
-                last_valid_block = current_block
-                current_block += 1
-                checked += 1
+        if max_forward is None:
+            max_forward = MAX_BLOCKS_PER_PROPOSAL - 1
+
+        low_true = end_block if known_same_block is None else known_same_block
+        high_false = end_block + max_forward + 1
+
+        while high_false - low_true > 1:
+            mid = (low_true + high_false) // 2
+            mid_info = await self.get_anchor_info(mid)
+            if mid_info is not None and mid_info.proposal_id == proposal_id:
+                low_true = mid
             else:
-                # Different proposal, we found the end
-                self.logger.debug(f"Found different proposal {anchor_info.proposal_id} at block {current_block}, end is {last_valid_block}")
-                break
-        
-        return last_valid_block
+                high_false = mid
+
+        return low_true
 
     async def process_l2_block_range(self):
         """
         Process L2 block range:
-        1. Parse each L2 block to get anchor tx info (proposal_id, anchor_number)
+        1. Resolve true start / end proposal boundaries
         2. Find true start point if start block is in middle of a proposal
-        3. Group consecutive blocks by proposal_id
-        4. For each group, find L1 inclusion block
-        5. Submit to Raiko
+        3. Discover each proposal group with bounded searches
+        4. Submit each proposal as soon as its range is known
         """
         if self.l2_block_range is None:
             self.logger.error("L2 block range is required")
             return
-        
+
+        self.anchor_info_cache.clear()
         start_l2_block, end_l2_block = self.l2_block_range
         self.logger.info(f"Processing L2 blocks from {start_l2_block} to {end_l2_block}")
-        
+
         # Step 1: Parse the first block to check if we're in the middle of a proposal
-        first_block_info = await self.parse_l2_block_anchor_tx(start_l2_block)
+        first_block_info = await self.get_anchor_info(start_l2_block)
         if first_block_info is None:
             self.logger.error(f"Failed to parse first block {start_l2_block}, cannot proceed")
             return
-        
+
         # Step 2: Check if we need to go backwards to find the true start
         true_start_block = start_l2_block
         if start_l2_block > 0:
             # Check parent block to see if it has the same proposal_id
-            parent_info = await self.parse_l2_block_anchor_tx(start_l2_block - 1)
+            parent_info = await self.get_anchor_info(start_l2_block - 1)
             if parent_info is not None and parent_info.proposal_id == first_block_info.proposal_id:
                 # We're in the middle of a proposal, find the true start
                 self.logger.info(
                     f"Start block {start_l2_block} is in the middle of proposal {first_block_info.proposal_id}, "
                     f"finding true start..."
                 )
-                true_start_block = await self.find_proposal_start_block(start_l2_block, first_block_info.proposal_id)
+                true_start_block = await self.find_proposal_start_block(
+                    start_l2_block,
+                    first_block_info.proposal_id,
+                    known_same_block=start_l2_block - 1,
+                )
                 self.logger.info(f"True start block for proposal {first_block_info.proposal_id} is {true_start_block}")
-        
+
         # Step 3: Parse the last block to check if we're in the middle of a proposal
-        last_block_info = await self.parse_l2_block_anchor_tx(end_l2_block)
+        last_block_info = await self.get_anchor_info(end_l2_block)
         true_end_block = end_l2_block
         if last_block_info is not None:
             # Check next block to see if it has the same proposal_id
-            next_block_info = await self.parse_l2_block_anchor_tx(end_l2_block + 1)
+            next_block_info = await self.get_anchor_info(end_l2_block + 1)
             if next_block_info is not None and next_block_info.proposal_id == last_block_info.proposal_id:
                 # We're in the middle of a proposal, find the true end
                 self.logger.info(
                     f"End block {end_l2_block} is in the middle of proposal {last_block_info.proposal_id}, "
                     f"finding true end..."
                 )
-                true_end_block = await self.find_proposal_end_block(end_l2_block, last_block_info.proposal_id)
+                true_end_block = await self.find_proposal_end_block(
+                    end_l2_block,
+                    last_block_info.proposal_id,
+                    known_same_block=end_l2_block + 1,
+                )
                 self.logger.info(f"True end block for proposal {last_block_info.proposal_id} is {true_end_block}")
-        
-        # Step 4: Parse all L2 blocks from true start to true end
-        anchor_infos = []
-        parse_start = true_start_block
-        parse_end = true_end_block
-        
-        self.logger.info(f"Parsing L2 blocks from {parse_start} to {parse_end}")
-        for l2_block_num in range(parse_start, parse_end + 1):
-            self.logger.info(f"Parsing L2 block {l2_block_num}")
-            anchor_info = await self.parse_l2_block_anchor_tx(l2_block_num)
-            if anchor_info is None:
-                self.logger.warning(f"Failed to parse anchor tx from L2 block {l2_block_num}, skipping")
-                continue
-            anchor_infos.append(anchor_info)
-            self.logger.info(
-                f"L2 block {l2_block_num}: proposal_id={anchor_info.proposal_id}, anchor_number={anchor_info.anchor_number}"
-            )
-        
-        if not anchor_infos:
-            self.logger.error("No valid anchor transactions found in L2 block range")
-            return
-        
-        # Step 2: Group consecutive blocks by proposal_id
-        groups = self.group_blocks_by_proposal_id(anchor_infos)
-        self.logger.info(f"Found {len(groups)} proposal groups")
-        for group in groups:
-            self.logger.info(
-                f"Proposal {group.proposal_id}: anchor_number={group.anchor_number}, L2 blocks={group.l2_block_numbers}"
-            )
-        
-        # Step 2.5: Batch query all proposal IDs (both normal and bond proposals)
-        # Collect all proposal queries: (proposal_id, anchor_number)
-        proposal_queries = []
-        bond_proposal_queries = []
-        
-        for group in groups:
-            # Normal proposal
-            proposal_queries.append((group.proposal_id, group.anchor_number))
-            
-            # Bond proposal (proposal_id - 6)
-            bond_proposal_id = group.proposal_id - 6
-            if bond_proposal_id > 0:
-                # For bond proposals, we don't have anchor_number, so use a wider search range
-                # We'll estimate based on the normal proposal's anchor_number
-                bond_proposal_queries.append((bond_proposal_id, group.anchor_number))
-        
-        # Determine search range based on anchor numbers
-        if proposal_queries:
-            min_anchor = min(anchor_number for _, anchor_number in proposal_queries)
-            max_anchor = max(anchor_number for _, anchor_number in proposal_queries)
-            
-            # Normal proposals: search from min_anchor+1 to max_anchor+96
-            # Bond proposals: search from min_anchor-200 to max_anchor+96 (wider range)
-            normal_search_start = min_anchor + 1
-            normal_search_end = max_anchor + 96
-            
-            bond_search_start = max(1, min_anchor - 200)
-            bond_search_end = max_anchor + 96
-            
-            # Batch query normal proposals
-            if proposal_queries:
-                self.logger.info(
-                    f"Batch querying {len(proposal_queries)} normal proposals in L1 blocks {normal_search_start} to {normal_search_end}"
-                )
-                await self.batch_find_proposal_blocks(proposal_queries, normal_search_start, normal_search_end)
-            
-            # Batch query bond proposals
-            if bond_proposal_queries:
-                self.logger.info(
-                    f"Batch querying {len(bond_proposal_queries)} bond proposals in L1 blocks {bond_search_start} to {bond_search_end}"
-                )
-                await self.batch_find_proposal_blocks(bond_proposal_queries, bond_search_start, bond_search_end)
-        
-        # Step 3: For each group, find L1 inclusion block and submit
+
+        # Step 4: Discover proposal groups and submit each one immediately.
         acc_odds = 1
         tasks = []
         first_l1_block = None
-        first_l1_timestamp = None
-        
-        for group in groups:
-            self.logger.info(
-                f"Processing proposal group {group.proposal_id} with L2 blocks {group.l2_block_numbers}"
-            )
-            
+        groups_found = 0
+
+        async for group in self.iter_proposal_groups(true_start_block, true_end_block):
+            groups_found += 1
+
             # Find L1 inclusion block
             l1_inclusion_block = await self.find_l1_inclusion_block(
                 group.proposal_id, group.anchor_number
             )
-            
+
             if l1_inclusion_block is None:
                 self.logger.warning(
                     f"Could not find L1 inclusion block for proposal {group.proposal_id}, skipping"
                 )
                 continue
-            
+
             self.logger.info(
                 f"Found L1 inclusion block {l1_inclusion_block} for proposal {group.proposal_id}"
             )
-            
+            last_anchor_block_number = await self.get_last_anchor_block_number(
+                group.l2_block_numbers
+            )
+            self.logger.info(
+                f"Processing {self.format_proposal_context(proposal_id=group.proposal_id, l2_block_numbers=group.l2_block_numbers, l1_inclusion_block=l1_inclusion_block, last_anchor_block_number=last_anchor_block_number)}"
+            )
+
             # Get L1 block timestamp for time-based throttling
             l1_block = await self.get_block(l1_inclusion_block)
             if l1_block is None:
@@ -1224,11 +1360,10 @@ class BatchMonitor:
                 l1_timestamp = None
             else:
                 l1_timestamp = int(l1_block["timestamp"], 16)
-            
+
             # Initialize time offset with first L1 block
             if first_l1_block is None and l1_timestamp is not None:
                 first_l1_block = l1_inclusion_block
-                first_l1_timestamp = l1_timestamp
                 current_timestamp = int(time.time())
                 self.ts_offset = current_timestamp - l1_timestamp
                 self.last_block_ts_in_real_world = current_timestamp
@@ -1236,7 +1371,7 @@ class BatchMonitor:
                     f"Initialized time offset: L1 block {first_l1_block} timestamp={l1_timestamp}, "
                     f"offset={self.ts_offset}, time_speed={self.time_speed}"
                 )
-            
+
             # Apply time-based throttling if time_speed is set and we have timestamps
             if self.time_speed > 0 and l1_timestamp is not None and self.ts_offset is not None:
                 current_block_ts_in_real_world = l1_timestamp + self.ts_offset
@@ -1262,7 +1397,7 @@ class BatchMonitor:
                 # Update timestamp tracking
                 self.last_block_ts_in_real_world = real_world_ts
                 self.ts_offset = real_world_ts - l1_timestamp
-            
+
             # Apply block_running_ratio
             acc_odds += self.block_running_ratio
             if acc_odds >= 1.0:
@@ -1270,13 +1405,17 @@ class BatchMonitor:
                 if self.aggregate > 0:
                     aggregate_info = f", aggregate running: {self.aggregate_running_count}"
                 self.logger.info(
-                    f"Submitting proposal {group.proposal_id} (L2 blocks {group.l2_block_numbers}) @ L1 block {l1_inclusion_block}, current running tasks: {self.running_count}{aggregate_info}"
+                    f"Submitting {self.format_proposal_context(proposal_id=group.proposal_id, l2_block_numbers=group.l2_block_numbers, l1_inclusion_block=l1_inclusion_block, last_anchor_block_number=last_anchor_block_number)}, current running tasks: {self.running_count}{aggregate_info}"
                 )
                 self.running_count += 1
                 acc_odds -= 1.0
                 # Create task and add to list
                 task = asyncio.create_task(
-                    self.process_proposal_group(group, l1_inclusion_block)
+                    self.process_proposal_group(
+                        group,
+                        l1_inclusion_block,
+                        last_anchor_block_number=last_anchor_block_number,
+                    )
                 )
                 tasks.append(task)
                 # Yield control to event loop so task can start executing
@@ -1285,7 +1424,11 @@ class BatchMonitor:
                 self.logger.info(
                     f"Proposal {group.proposal_id} skipped due to block_running_ratio:{self.block_running_ratio}"
                 )
-        
+
+        if groups_found == 0:
+            self.logger.error("No valid proposal groups found in L2 block range")
+            return
+
         # Wait for all tasks to complete
         self.logger.info(f"Waiting for {len(tasks)} processing tasks to complete...")
         if tasks:
