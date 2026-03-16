@@ -916,7 +916,7 @@ pub fn validate_shasta_aggregate_proof_carry_data(
             aggregation_input.proofs.len(),
             aggregation_input.proof_carry_data_vec.len()
         );
-        eprintln!("{}", msg);
+        error!("{msg}");
         return false;
     }
     validate_shasta_proof_carry_data_vec(&aggregation_input.proof_carry_data_vec)
@@ -925,7 +925,7 @@ pub fn validate_shasta_aggregate_proof_carry_data(
 pub fn validate_shasta_proof_carry_data_vec(proof_carry_data_vec: &[ProofCarryData]) -> bool {
     if proof_carry_data_vec.is_empty() {
         let msg = "shasta PCD validation failed: empty proof_carry_data_vec";
-        eprintln!("{}", msg);
+        error!("{msg}");
         return false;
     }
 
@@ -950,7 +950,7 @@ pub fn validate_shasta_proof_carry_data_vec(proof_carry_data_vec: &[ProofCarryDa
                 item.transition_input.actual_prover,
                 expected_actual_prover
             );
-            eprintln!("{}", msg);
+            error!("{msg}");
             return false;
         }
     }
@@ -967,7 +967,7 @@ pub fn validate_shasta_proof_carry_data_vec(proof_carry_data_vec: &[ProofCarryDa
                 next.transition_input.proposal_id,
                 prev.transition_input.proposal_id + 1
             );
-            eprintln!("{}", msg);
+            error!("{msg}");
             return false;
         }
 
@@ -979,7 +979,7 @@ pub fn validate_shasta_proof_carry_data_vec(proof_carry_data_vec: &[ProofCarryDa
                 prev.transition_input.proposal_hash,
                 next.transition_input.parent_proposal_hash
             );
-            eprintln!("{}", msg);
+            error!("{msg}");
             return false;
         }
 
@@ -989,7 +989,7 @@ pub fn validate_shasta_proof_carry_data_vec(proof_carry_data_vec: &[ProofCarryDa
                 "shasta PCD validation failed at pair [{},{}]: chain_id mismatch, prev={}, next={}",
                 i, i + 1, prev.chain_id, next.chain_id
             );
-            eprintln!("{}", msg);
+            error!("{msg}");
             return false;
         }
 
@@ -998,7 +998,7 @@ pub fn validate_shasta_proof_carry_data_vec(proof_carry_data_vec: &[ProofCarryDa
                 "shasta PCD validation failed at pair [{},{}]: verifier mismatch, prev={:?}, next={:?}",
                 i, i + 1, prev.verifier, next.verifier
             );
-            eprintln!("{}", msg);
+            error!("{msg}");
             return false;
         }
 
@@ -1010,7 +1010,7 @@ pub fn validate_shasta_proof_carry_data_vec(proof_carry_data_vec: &[ProofCarryDa
                 prev.transition_input.checkpoint.blockHash,
                 next.transition_input.parent_block_hash
             );
-            eprintln!("{}", msg);
+            error!("{msg}");
             return false;
         }
     }
