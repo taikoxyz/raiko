@@ -3,6 +3,8 @@ resolver = "2"
 members = [
     "lib",
     "host",
+    "mock-gateway",
+    "mock-studio",
     "harness/core",
     "harness/macro",
     "provers/sp1/driver",
