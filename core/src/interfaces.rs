@@ -532,9 +532,7 @@ impl std::fmt::Display for ShastaProposal {
         write!(
             f,
             "{}:{:?}:{}",
-            self.proposal_id,
-            self.checkpoint,
-            self.l1_inclusion_block_number
+            self.proposal_id, self.checkpoint, self.l1_inclusion_block_number
         )
     }
 }

@@ -19,11 +19,11 @@ use raiko_lib::{
     },
     libhash::hash_shasta_subproof_input,
     proof_type::ProofType,
+    protocol_instance::validate_shasta_proof_carry_data_vec,
     prover::{
         IdStore, IdWrite, Proof, ProofCarryData, ProofKey, Prover, ProverConfig, ProverError,
         ProverResult,
     },
-    protocol_instance::validate_shasta_proof_carry_data_vec,
 };
 use risc0_zkvm::{
     compute_image_id, default_prover,
@@ -207,7 +207,7 @@ impl Prover for Risc0Prover {
         let mut id_store = id_store;
         let boundless_cfg = config;
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
-        
+
         if config.boundless {
             // Delegate to boundless driver (agent-managed) when enabled.
             return BoundlessProver::new()
@@ -266,7 +266,7 @@ impl Prover for Risc0Prover {
     ) -> ProverResult<Proof> {
         let boundless_cfg = config;
         let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
- 
+
         if config.boundless {
             // Delegate to boundless driver (agent-managed) when enabled.
             return BoundlessProver::new()
@@ -293,9 +293,9 @@ impl Prover for Risc0Prover {
             .proofs
             .iter()
             .map(|proof| {
-                proof.extra_data
-                    .clone()
-                    .ok_or_else(|| ProverError::GuestError("missing shasta proof carry data".into()))
+                proof.extra_data.clone().ok_or_else(|| {
+                    ProverError::GuestError("missing shasta proof carry data".into())
+                })
             })
             .collect::<Result<Vec<_>, _>>()?;
         let block_inputs = build_shasta_block_inputs(&input.proofs, &proof_carry_data_vec)?;

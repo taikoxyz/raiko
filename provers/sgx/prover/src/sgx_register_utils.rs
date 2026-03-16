@@ -134,7 +134,10 @@ sol! {
 }
 
 fn little_endian_decode(encoded: &[u8]) -> u64 {
-    assert!(encoded.len() <= 8, "encoded bytes should be less than or equal to 8");
+    assert!(
+        encoded.len() <= 8,
+        "encoded bytes should be less than or equal to 8"
+    );
     let mut decoded = 0;
     for (i, byte) in encoded.iter().enumerate() {
         let digits = *byte as u64;

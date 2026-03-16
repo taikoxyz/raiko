@@ -453,10 +453,7 @@ fn calc_next_shasta_base_fee(
             .unwrap_or(0);
 
         if adjustment < 1 {
-            return clamp_shasta_base_fee_with_min(
-                parent_base_fee.saturating_add(1),
-                min_base_fee,
-            );
+            return clamp_shasta_base_fee_with_min(parent_base_fee.saturating_add(1), min_base_fee);
         }
         clamp_shasta_base_fee_with_min(parent_base_fee.saturating_add(adjustment), min_base_fee)
     } else {
