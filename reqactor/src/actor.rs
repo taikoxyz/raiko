@@ -124,7 +124,7 @@ impl Actor {
     ) -> Result<StatusWithContext, String> {
         let pool_status_opt = self.pool_get_status(&request_key).await?;
 
-        // Return successful status if the request is already succeeded
+        // Return immediately if the request already succeeded
         if matches!(
             pool_status_opt.as_ref().map(|s| s.status()),
             Some(Status::Success { .. })
@@ -132,7 +132,14 @@ impl Actor {
             return Ok(pool_status_opt.unwrap());
         }
 
-        // Mark the request as registered in the pool
+        // When Failed: return error to client but re-queue for retry
+        // todo: can have a max retry here
+        let failure_notification = pool_status_opt
+            .as_ref()
+            .filter(|s| matches!(s.status(), Status::Failed { .. }))
+            .cloned();
+
+        // Mark the request as registered in the pool (overwrites Failed to allow retry)
         let status = StatusWithContext::new(Status::Registered, start_time);
         if pool_status_opt.is_none() {
             self.pool_add_new(request_key.clone(), request_entity.clone(), status.clone())
@@ -160,7 +167,8 @@ impl Actor {
             }
         }
 
-        return Ok(status);
+        // Return Failed to client if we re-queued a failed task; else return Registered
+        Ok(failure_notification.unwrap_or(status))
     }
 
     pub async fn pause(&self) -> Result<(), String> {

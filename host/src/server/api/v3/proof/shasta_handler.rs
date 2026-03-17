@@ -137,7 +137,15 @@ async fn shasta_batch_handler(
             .iter()
             .all(|status| matches!(status, raiko_reqpool::Status::Success { .. }));
         if !is_all_sub_success {
-            Ok(raiko_reqpool::Status::Registered)
+            // Propagate Failed to client instead of swallowing it
+            if let Some(failed) = statuses
+                .iter()
+                .find(|s| matches!(s, raiko_reqpool::Status::Failed { .. }))
+            {
+                Ok(failed.clone())
+            } else {
+                Ok(raiko_reqpool::Status::Registered)
+            }
         } else {
             let guest_inputs_of_entities = statuses
                 .iter()

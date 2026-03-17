@@ -42,6 +42,13 @@ pub async fn prove_aggregation(
         .iter()
         .all(|status| matches!(status, Status::Success { .. }));
     if !is_all_sub_success {
+        // Propagate Failed to client instead of swallowing it
+        if let Some(failed) = statuses
+            .iter()
+            .find(|s| matches!(s, Status::Failed { .. }))
+        {
+            return Ok(failed.clone());
+        }
         return Ok(Status::Registered);
     }
 
