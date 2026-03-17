@@ -5,6 +5,7 @@ pub mod state;
 pub use router::app;
 pub use state::{AppState, MockContext};
 
+use anyhow::{bail, Context};
 use serde_json::{json, Value};
 
 pub fn proposal_batch_id(body: &Value) -> Option<u64> {
@@ -56,4 +57,52 @@ pub fn mock_proof_response(body: &Value, label: &str) -> Value {
             }
         }
     })
+}
+
+pub fn gateway_bind_from_args<I, S>(args: I) -> anyhow::Result<String>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let mut args = args.into_iter();
+    let _ = args.next();
+
+    let mut bind = None;
+    while let Some(arg) = args.next() {
+        let arg = arg.as_ref();
+        match arg {
+            "--bind" => {
+                let value = args
+                    .next()
+                    .context("missing value for --bind")?
+                    .as_ref()
+                    .to_string();
+                bind = Some(value);
+            }
+            value if !value.starts_with('-') && bind.is_none() => {
+                bind = Some(value.to_string());
+            }
+            unexpected => bail!("unknown argument: {unexpected}"),
+        }
+    }
+
+    Ok(bind.unwrap_or_else(|| "0.0.0.0:4000".to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::gateway_bind_from_args;
+
+    #[test]
+    fn gateway_bind_defaults_to_public_address() {
+        let bind = gateway_bind_from_args(["raiko-mock-gateway"]).unwrap();
+        assert_eq!(bind, "0.0.0.0:4000");
+    }
+
+    #[test]
+    fn gateway_bind_uses_explicit_bind_flag() {
+        let bind = gateway_bind_from_args(["raiko-mock-gateway", "--bind", "0.0.0.0:4123"])
+            .unwrap();
+        assert_eq!(bind, "0.0.0.0:4123");
+    }
 }

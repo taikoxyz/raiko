@@ -19,7 +19,7 @@ async fn ticket_submission_returns_running_receipt() {
     let app = app(AppState::for_tests(
         FakePlanner::success(),
         FakeHandlerGenerator::success(),
-        FakeRunner::success("http://127.0.0.1:4100"),
+        FakeRunner::success("http://203.0.113.10:4100"),
     ));
 
     let response = app
@@ -45,7 +45,7 @@ async fn ticket_submission_returns_running_receipt() {
     let payload: Value = serde_json::from_slice(&bytes).unwrap();
 
     assert_eq!(payload["status"], "running");
-    assert_eq!(payload["base_url"], "http://127.0.0.1:4100");
+    assert_eq!(payload["base_url"], "http://203.0.113.10:4100");
     assert_eq!(payload["rule_id"], "ticket-1");
 }
 
@@ -56,7 +56,7 @@ async fn ticket_submission_writes_generated_rule_files() {
         temp.path().join("generated"),
         FakePlanner::success(),
         FakeHandlerGenerator::success(),
-        FakeRunner::success("http://127.0.0.1:4100"),
+        FakeRunner::success("http://203.0.113.10:4100"),
     ));
 
     let response = app
@@ -98,7 +98,7 @@ async fn ticket_submission_writes_generated_rule_files() {
     let receipt: Value =
         serde_json::from_slice(&std::fs::read(rule_dir.join("receipt.json")).unwrap()).unwrap();
     assert_eq!(receipt["status"], "running");
-    assert_eq!(receipt["base_url"], "http://127.0.0.1:4100");
+    assert_eq!(receipt["base_url"], "http://203.0.113.10:4100");
 }
 
 #[tokio::test]
@@ -108,7 +108,7 @@ async fn ticket_status_endpoint_returns_saved_ticket() {
         temp.path().join("generated"),
         FakePlanner::success(),
         FakeHandlerGenerator::success(),
-        FakeRunner::success("http://127.0.0.1:4100"),
+        FakeRunner::success("http://203.0.113.10:4100"),
     ));
 
     let app = app.clone();
@@ -244,7 +244,7 @@ async fn ticket_submission_updates_legacy_index_without_base_url() {
         generated_root.clone(),
         FakePlanner::success(),
         FakeHandlerGenerator::success(),
-        FakeRunner::success("http://127.0.0.1:4100"),
+        FakeRunner::success("http://203.0.113.10:4100"),
     ));
 
     let response = app
@@ -270,13 +270,13 @@ async fn ticket_submission_updates_legacy_index_without_base_url() {
     let payload: Value = serde_json::from_slice(&bytes).unwrap();
 
     assert_eq!(payload["status"], "running");
-    assert_eq!(payload["base_url"], "http://127.0.0.1:4100");
+    assert_eq!(payload["base_url"], "http://203.0.113.10:4100");
 
     let index: Value =
         serde_json::from_slice(&std::fs::read(generated_root.join("index.json")).unwrap()).unwrap();
     assert_eq!(index.as_array().unwrap().len(), 2);
     assert_eq!(index[0]["base_url"], "");
-    assert_eq!(index[1]["base_url"], "http://127.0.0.1:4100");
+    assert_eq!(index[1]["base_url"], "http://203.0.113.10:4100");
 }
 
 #[derive(Clone)]

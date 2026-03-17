@@ -58,12 +58,22 @@ export MOCK_GATEWAY_PORT=23001
 
 If set, `mock_studio` will ask the spawned `mock_gateway` to bind that exact localhost port instead of auto-allocating one.
 
+When `--public-base-url` is not provided, `mock_studio` will best-effort detect the current machine IP and advertise `http://<detected-ip>:<port>` in receipts and ticket responses. If detection fails, it falls back to `127.0.0.1`.
+
 ## Manual Run
 
 Start studio:
 
 ```bash
-cargo run -p raiko-mock-studio -- 127.0.0.1:4010
+cargo run -p raiko-mock-studio -- --bind 127.0.0.1:4010
+```
+
+Start studio with an explicit advertised public URL:
+
+```bash
+cargo run -p raiko-mock-studio -- \
+  --bind 0.0.0.0:4010 \
+  --public-base-url https://mock.example.com
 ```
 
 Submit a ticket:
@@ -72,7 +82,7 @@ Submit a ticket:
 curl -s http://127.0.0.1:4010/api/tickets \
   -H 'content-type: application/json' \
   -d '{
-    "requirement": "请为 /v3/proof/batch/shasta 生成一个 mock：前 3 次返回 registered，第 4 次返回 error。"
+    "requirement": "Generate a mock for /v3/proof/batch/shasta: return registered for the first 3 calls, then return error on the 4th call."
   }'
 ```
 
@@ -93,7 +103,13 @@ script/run-mock-studio-demo.sh
 Optional custom requirement:
 
 ```bash
-script/run-mock-studio-demo.sh "请生成一个第 2 次返回 error 的 mock"
+script/run-mock-studio-demo.sh "Generate a mock that returns error on the 2nd call."
+```
+
+Optional advertised public URL for the demo script:
+
+```bash
+PUBLIC_BASE_URL=https://mock.example.com script/run-mock-studio-demo.sh
 ```
 
 The script:
@@ -111,16 +127,26 @@ The script:
 If `mock_studio` is already running and you only want to submit another requirement, use:
 
 ```bash
-script/submit-mock-ticket.sh "请生成一个第 2 次返回 error 的 mock"
+script/submit-mock-ticket.sh "Generate a mock that returns error on the 2nd call."
 ```
 
 Optional address override:
 
 ```bash
-STUDIO_ADDR=127.0.0.1:4011 script/submit-mock-ticket.sh "请生成一个第 2 次返回 error 的 mock"
+STUDIO_ADDR=127.0.0.1:4011 script/submit-mock-ticket.sh "Generate a mock that returns error on the 2nd call."
 ```
 
 This script does not start or stop `mock_studio`. It only talks to the existing HTTP API.
+
+## Gateway Bind
+
+`raiko-mock-gateway` accepts an explicit bind flag:
+
+```bash
+cargo run -p raiko-mock-gateway -- --bind 0.0.0.0:4000
+```
+
+If no bind argument is provided, it defaults to `0.0.0.0:4000`.
 
 ## Generated Files
 

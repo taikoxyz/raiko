@@ -5,7 +5,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STUDIO_ADDR="${STUDIO_ADDR:-127.0.0.1:4010}"
 STUDIO_URL="http://${STUDIO_ADDR}"
-REQUIREMENT="${1:-请为 /v3/proof/batch/shasta 生成一个 mock：前 3 次返回 registered，第 4 次返回 error，message 是 forced failure on 4th request。}"
+PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-}"
+REQUIREMENT="${1:-Generate a mock for /v3/proof/batch/shasta: return registered for the first 3 calls, then return error on the 4th call, with message forced failure on 4th request.}"
 STUDIO_LOG="${STUDIO_LOG:-$(mktemp -t mock-studio-demo.XXXXXX.log)}"
 
 if [[ -z "${OPENROUTER_API_KEY:-}" ]]; then
@@ -66,7 +67,13 @@ trap cleanup EXIT
 echo "Starting mock studio on ${STUDIO_ADDR}"
 (
     cd "${ROOT_DIR}"
-    cargo run -p raiko-mock-studio -- "${STUDIO_ADDR}" >"${STUDIO_LOG}" 2>&1
+    if [[ -n "${PUBLIC_BASE_URL}" ]]; then
+        cargo run -p raiko-mock-studio -- \
+            --bind "${STUDIO_ADDR}" \
+            --public-base-url "${PUBLIC_BASE_URL}" >"${STUDIO_LOG}" 2>&1
+    else
+        cargo run -p raiko-mock-studio -- --bind "${STUDIO_ADDR}" >"${STUDIO_LOG}" 2>&1
+    fi
 ) &
 STUDIO_PID=$!
 

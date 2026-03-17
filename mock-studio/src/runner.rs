@@ -2,6 +2,7 @@ use std::{
     env,
     fs::{self, File},
     io::Write,
+    net::UdpSocket,
     path::Path,
     process::Stdio,
     time::Duration,
@@ -42,14 +43,30 @@ impl GatewayRunner for FakeRunner {
 pub struct LocalCargoRunner {
     health_timeout: Duration,
     health_poll_interval: Duration,
+    public_base_url: Option<String>,
+    detected_public_host: Option<String>,
 }
 
 impl Default for LocalCargoRunner {
     fn default() -> Self {
+        Self::new(None)
+    }
+}
+
+impl LocalCargoRunner {
+    pub fn new(public_base_url: Option<String>) -> Self {
         Self {
             health_timeout: Duration::from_secs(10),
             health_poll_interval: Duration::from_millis(200),
+            public_base_url,
+            detected_public_host: None,
         }
+    }
+
+    #[cfg(test)]
+    fn with_detected_public_host(mut self, detected_public_host: Option<&str>) -> Self {
+        self.detected_public_host = detected_public_host.map(ToString::to_string);
+        self
     }
 }
 
@@ -57,6 +74,15 @@ impl Default for LocalCargoRunner {
 impl GatewayRunner for LocalCargoRunner {
     async fn run(&self, rule_id: &str, rule_dir: &Path) -> anyhow::Result<String> {
         let bind = resolve_gateway_bind(rule_id, env::var("MOCK_GATEWAY_PORT").ok().as_deref())?;
+        let health_base_url = resolve_health_base_url(&bind)?;
+        let public_base_url = resolve_public_base_url(
+            &bind,
+            self.public_base_url.as_deref(),
+            self.detected_public_host
+                .clone()
+                .or_else(detect_public_host)
+                .as_deref(),
+        )?;
         let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .expect("workspace root");
@@ -93,6 +119,7 @@ impl GatewayRunner for LocalCargoRunner {
 
         let mut command = Command::new(binary_path);
         command
+            .arg("--bind")
             .arg(&bind)
             .env("MOCK_RULE_ID", rule_id)
             .env("MOCK_RULES_ROOT", rule_dir.parent().unwrap_or(rule_dir))
@@ -104,16 +131,15 @@ impl GatewayRunner for LocalCargoRunner {
             .spawn()
             .with_context(|| format!("failed to spawn mock gateway for {rule_id}"))?;
 
-        let base_url = format!("http://{bind}");
         wait_for_health(
-            &base_url,
+            &health_base_url,
             self.health_timeout,
             self.health_poll_interval,
             &runtime_log_path,
         )
         .await?;
 
-        Ok(base_url)
+        Ok(public_base_url)
     }
 }
 
@@ -134,10 +160,98 @@ fn resolve_gateway_bind(rule_id: &str, configured_port: Option<&str>) -> anyhow:
         let port = port_text
             .parse::<u16>()
             .with_context(|| format!("invalid MOCK_GATEWAY_PORT: {port_text}"))?;
-        return Ok(format!("127.0.0.1:{port}"));
+        return Ok(format!("0.0.0.0:{port}"));
     }
 
-    Ok(format!("127.0.0.1:{}", allocate_local_port(rule_id)))
+    Ok(format!("0.0.0.0:{}", allocate_local_port(rule_id)))
+}
+
+fn resolve_health_base_url(bind: &str) -> anyhow::Result<String> {
+    let (_, port) = split_host_port(bind)?;
+    Ok(format!("http://127.0.0.1:{port}"))
+}
+
+fn resolve_public_base_url(
+    bind: &str,
+    public_base_url: Option<&str>,
+    detected_public_host: Option<&str>,
+) -> anyhow::Result<String> {
+    if let Some(url) = public_base_url {
+        return Ok(url.trim_end_matches('/').to_string());
+    }
+
+    let (_, port) = split_host_port(bind)?;
+    let host = detected_public_host.unwrap_or("127.0.0.1");
+    Ok(format!("http://{host}:{port}"))
+}
+
+fn split_host_port(bind: &str) -> anyhow::Result<(&str, u16)> {
+    let (host, port_text) = bind
+        .rsplit_once(':')
+        .with_context(|| format!("invalid bind address: {bind}"))?;
+    let port = port_text
+        .parse::<u16>()
+        .with_context(|| format!("invalid bind port: {bind}"))?;
+    Ok((host, port))
+}
+
+fn detect_public_host() -> Option<String> {
+    let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
+    socket.connect("192.0.2.1:80").ok()?;
+    let ip = socket.local_addr().ok()?.ip();
+    if ip.is_unspecified() || ip.is_loopback() {
+        return None;
+    }
+    Some(ip.to_string())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StudioCliArgs {
+    pub bind: String,
+    pub public_base_url: Option<String>,
+}
+
+pub fn parse_studio_args<I, S>(args: I) -> anyhow::Result<StudioCliArgs>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let mut args = args.into_iter();
+    let _ = args.next();
+
+    let mut bind = None;
+    let mut public_base_url = None;
+
+    while let Some(arg) = args.next() {
+        let arg = arg.as_ref();
+        match arg {
+            "--bind" => {
+                bind = Some(
+                    args.next()
+                        .context("missing value for --bind")?
+                        .as_ref()
+                        .to_string(),
+                );
+            }
+            "--public-base-url" => {
+                public_base_url = Some(
+                    args.next()
+                        .context("missing value for --public-base-url")?
+                        .as_ref()
+                        .to_string(),
+                );
+            }
+            value if !value.starts_with('-') && bind.is_none() => {
+                bind = Some(value.to_string());
+            }
+            unexpected => anyhow::bail!("unknown argument: {unexpected}"),
+        }
+    }
+
+    Ok(StudioCliArgs {
+        bind: bind.unwrap_or_else(|| "127.0.0.1:4010".to_string()),
+        public_base_url,
+    })
 }
 
 async fn wait_for_health(
@@ -169,12 +283,20 @@ async fn wait_for_health(
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_gateway_bind;
+    use super::{
+        parse_studio_args, resolve_gateway_bind, resolve_public_base_url, LocalCargoRunner,
+    };
 
     #[test]
     fn resolve_gateway_bind_uses_configured_port_when_present() {
         let bind = resolve_gateway_bind("ticket-7", Some("24567")).unwrap();
-        assert_eq!(bind, "127.0.0.1:24567");
+        assert_eq!(bind, "0.0.0.0:24567");
+    }
+
+    #[test]
+    fn resolve_gateway_bind_defaults_to_public_host() {
+        let bind = resolve_gateway_bind("ticket-7", None).unwrap();
+        assert!(bind.starts_with("0.0.0.0:"));
     }
 
     #[test]
@@ -183,5 +305,46 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(error.contains("invalid MOCK_GATEWAY_PORT"));
+    }
+
+    #[test]
+    fn resolve_public_base_url_prefers_explicit_override() {
+        let base_url = resolve_public_base_url("0.0.0.0:24567", Some("https://mock.example"), None)
+            .unwrap();
+        assert_eq!(base_url, "https://mock.example");
+    }
+
+    #[test]
+    fn resolve_public_base_url_uses_detected_host_when_available() {
+        let base_url =
+            resolve_public_base_url("0.0.0.0:24567", None, Some("203.0.113.10")).unwrap();
+        assert_eq!(base_url, "http://203.0.113.10:24567");
+    }
+
+    #[test]
+    fn parse_studio_args_supports_bind_and_public_base_url_flags() {
+        let args = parse_studio_args([
+            "raiko-mock-studio",
+            "--bind",
+            "0.0.0.0:4010",
+            "--public-base-url",
+            "https://mock.example",
+        ])
+        .unwrap();
+        assert_eq!(args.bind, "0.0.0.0:4010");
+        assert_eq!(args.public_base_url.as_deref(), Some("https://mock.example"));
+    }
+
+    #[test]
+    fn local_runner_uses_detected_host_for_public_url() {
+        let runner = LocalCargoRunner::new(None).with_detected_public_host(Some("203.0.113.10"));
+        let bind = resolve_gateway_bind("ticket-7", Some("24567")).unwrap();
+        let base_url = resolve_public_base_url(
+            &bind,
+            runner.public_base_url.as_deref(),
+            runner.detected_public_host.as_deref(),
+        )
+        .unwrap();
+        assert_eq!(base_url, "http://203.0.113.10:24567");
     }
 }
