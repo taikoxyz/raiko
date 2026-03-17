@@ -12,7 +12,16 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::load(&cli.config)?;
     let listener = TcpListener::bind(&config.bind).await?;
 
-    tracing::info!("Starting gateway on {}", config.bind);
+    let key_count = config.valid_api_keys().len();
+    tracing::info!(
+        "Starting gateway on {}, API key check: {}",
+        config.bind,
+        if key_count > 0 {
+            format!("enabled ({} keys)", key_count)
+        } else {
+            "disabled".to_string()
+        }
+    );
 
     axum::serve(listener, app(AppState::new(config))).await?;
     Ok(())
