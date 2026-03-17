@@ -19,6 +19,8 @@ pub struct MockSpec {
     pub aggregation_policy: Option<String>,
     #[serde(default)]
     pub proof_response_policy: Option<String>,
+    #[serde(default)]
+    pub proof_type_override: Option<String>,
     pub nth_responses: Vec<NthResponse>,
 }
 

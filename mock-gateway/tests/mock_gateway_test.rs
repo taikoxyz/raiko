@@ -5,7 +5,9 @@ use axum::{
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
-use raiko_mock_gateway::{app, mock_proof_response, AppState};
+use raiko_mock_gateway::{
+    app, mock_proof_response_with_type, AppState,
+};
 
 fn shasta_body() -> Vec<u8> {
     serde_json::to_vec(&json!({
@@ -73,14 +75,28 @@ fn app_state_can_mark_request_memory_by_body() {
 }
 
 #[test]
-fn mock_proof_response_returns_ok_proof_envelope() {
+fn mock_proof_response_with_type_overrides_proof_type_and_returns_hex() {
     let body: Value = serde_json::from_slice(&shasta_body()).unwrap();
-    let payload = mock_proof_response(&body, "repeat-request");
+    let payload = mock_proof_response_with_type(&body, "repeat-request", Some("risc0"));
 
     assert_eq!(payload["status"], "ok");
-    assert_eq!(
-        payload["data"]["proof"]["proof"],
-        "mock-proof:repeat-request"
-    );
+    assert_eq!(payload["proof_type"], "risc0");
+    let proof = payload["data"]["proof"]["proof"].as_str().unwrap();
+    assert!(proof.starts_with("0x"));
+    assert!(proof.len() > 2);
+    assert!(proof[2..].chars().all(|ch| ch.is_ascii_hexdigit()));
     assert!(payload["data"]["proof"].get("input").is_some());
+}
+
+#[test]
+fn mock_proof_response_with_type_accepts_owned_string_label() {
+    let body: Value = serde_json::from_slice(&shasta_body()).unwrap();
+    let label = "owned-request-key".to_string();
+    let payload = mock_proof_response_with_type(&body, label, Some("risc0"));
+
+    assert_eq!(payload["proof_type"], "risc0");
+    assert!(payload["data"]["proof"]["proof"]
+        .as_str()
+        .unwrap()
+        .starts_with("0x"));
 }

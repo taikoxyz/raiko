@@ -183,18 +183,17 @@ Generated handlers do not get arbitrary access to the server. They compile again
 - signature:
   - `pub fn handle_shasta_request(ctx: &MockContext, body: &Value) -> Value`
 - allowed helpers:
-  - `error_status(...)`
-  - `ok_status(...)`
+  - `error_status(error, message)`
+  - `ok_status(proof_type(body), proposal_batch_id(body), task_status)`
   - `mock_proof_response(body, label)`
-  - `proof_type(body)`
-  - `proposal_batch_id(body)`
+  - `mock_proof_response_with_type(body, label, Some("fixed-type"))`
 - allowed memory/context methods:
   - `ctx.call_index()`
   - `ctx.request_key(body)`
   - `ctx.has_seen_request(body)`
   - `ctx.mark_request_seen(body)`
 
-This lets the model decide whether a ticket uses memory, while keeping the runtime contract deterministic.
+Unknown fields in planner JSON are ignored. The planner may only request a fixed `proof_type_override` for proof-shaped success responses. Proof payload bytes stay runtime-generated, and the helper validates that the emitted proof string is valid hex.
 
 ## Debug Order
 
