@@ -58,7 +58,7 @@ async fn forward_shasta_request(
         .ok_or_else(|| (StatusCode::INTERNAL_SERVER_ERROR, "no backend for index".to_string()))?;
     let backend_url = format!("{backend_base}{uri}");
 
-    tracing::info!("Forwarding to backend {backend_index}: {backend_url}");
+    tracing::info!(uri = %uri, backend_index = backend_index, backend_url = %backend_url, "Forwarding shasta");
 
     forward_request(&state.client, &headers, Method::POST, backend_url, body).await
 }
@@ -73,6 +73,7 @@ async fn forward_passthrough_request(
     check_api_key(&state.config.valid_api_keys(), &headers)
         .map_err(|e| (StatusCode::UNAUTHORIZED, e))?;
     let backend_url = format!("{}{}", state.config.shared_backend_url(), uri);
+    tracing::info!(method = %method, uri = %uri, backend_url = %backend_url, "Forwarding passthrough");
     forward_request(&state.client, &headers, method, backend_url, body).await
 }
 
