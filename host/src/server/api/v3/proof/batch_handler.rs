@@ -120,10 +120,11 @@ async fn batch_handler(
     let result = if batch_request.aggregate {
         prove_aggregation(
             &actor,
-            AggregationRequestKey::new_with_image_id(
+            AggregationRequestKey::new_with_image_id_and_prover(
                 batch_request.proof_type,
                 sub_batch_ids.clone(),
                 image_id.clone(),
+                batch_request.prover.to_string(),
             )
             .into(),
             AggregationRequestEntity::new(

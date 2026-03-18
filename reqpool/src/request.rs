@@ -209,6 +209,8 @@ pub struct AggregationRequestKey {
     block_numbers: Vec<u64>,
     /// The image ID for zk provers (optional)
     image_id: Option<ImageId>,
+    /// The prover address (optional); when set, isolates aggregate proofs per prover
+    prover_address: Option<String>,
 }
 
 impl AggregationRequestKey {
@@ -217,6 +219,7 @@ impl AggregationRequestKey {
             proof_type,
             block_numbers,
             image_id: None,
+            prover_address: None,
         }
     }
 
@@ -229,6 +232,22 @@ impl AggregationRequestKey {
             proof_type,
             block_numbers,
             image_id: Some(image_id.clone()),
+            prover_address: None,
+        }
+    }
+
+    /// Create an aggregation key with image ID and prover address for prover isolation.
+    pub fn new_with_image_id_and_prover(
+        proof_type: ProofType,
+        block_numbers: Vec<u64>,
+        image_id: ImageId,
+        prover_address: String,
+    ) -> Self {
+        Self {
+            proof_type,
+            block_numbers,
+            image_id: Some(image_id.clone()),
+            prover_address: Some(prover_address),
         }
     }
 }
