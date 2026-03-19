@@ -65,21 +65,24 @@ When `--public-base-url` is not provided, `mock_studio` will best-effort detect 
 Start studio:
 
 ```bash
-cargo run -p raiko-mock-studio -- --bind 127.0.0.1:4010
+cargo run -p raiko-mock-studio -- --bind 0.0.0.0:9090
 ```
 
 Start studio with an explicit advertised public URL:
 
 ```bash
 cargo run -p raiko-mock-studio -- \
-  --bind 0.0.0.0:4010 \
+  --bind 0.0.0.0:9090 \
   --public-base-url https://mock.example.com
 ```
+
+The browser UI is served from `/` on the studio process itself. The UI bootstraps from `GET /api/ui/state`, submits tickets to `POST /api/tickets`, and sends gateway requests through `POST /api/tickets/:ticket_id/gateway`.
+The gateway target field in the browser is editable. If `PUBLIC_BASE_URL` is set in the studio environment, the UI uses it as the default target before falling back to ticket data.
 
 Submit a ticket:
 
 ```bash
-curl -s http://127.0.0.1:4010/api/tickets \
+curl -s http://127.0.0.1:9090/api/tickets \
   -H 'content-type: application/json' \
   -d '{
     "requirement": "Generate a mock for /v3/proof/batch/shasta: return registered for the first 3 calls, then return error on the 4th call."
@@ -89,7 +92,7 @@ curl -s http://127.0.0.1:4010/api/tickets \
 Query a ticket:
 
 ```bash
-curl -s http://127.0.0.1:4010/api/tickets/ticket-1
+curl -s http://127.0.0.1:9090/api/tickets/ticket-1
 ```
 
 ## Demo Script

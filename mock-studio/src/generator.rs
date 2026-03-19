@@ -6,7 +6,10 @@ use std::{
 use anyhow::Context;
 use serde_json::json;
 
-use crate::models::{GeneratedIndexEntry, HandlerGeneration, MockSpec, RunReceipt, SpecGeneration};
+use crate::models::{
+    GatewayRuntimeStatus, GeneratedIndexEntry, HandlerGeneration, MockSpec, RunReceipt,
+    SpecGeneration, TicketRecord, TicketStatus,
+};
 
 #[derive(Clone)]
 pub struct Generator {
@@ -80,6 +83,13 @@ impl Generator {
             llm_dir.join("handler_response.json"),
             &handler_generation.response,
         )?;
+        fs::write(
+            llm_dir.join("handler_generation_meta.json"),
+            serde_json::to_vec_pretty(&json!({
+                "handler_mode": handler_generation.handler_mode,
+                "validation_error": handler_generation.validation_error,
+            }))?,
+        )?;
         Ok(())
     }
 
@@ -117,4 +127,92 @@ impl Generator {
         fs::write(index_path, serde_json::to_vec_pretty(&entries)?)?;
         Ok(())
     }
+
+    pub fn restore_ticket_records(&self) -> Vec<TicketRecord> {
+        let entries = match fs::read_dir(&self.generated_root) {
+            Ok(entries) => entries,
+            Err(_) => return Vec::new(),
+        };
+
+        let mut records = entries
+            .filter_map(Result::ok)
+            .filter_map(|entry| self.restore_ticket_record(&entry.path()).ok())
+            .collect::<Vec<_>>();
+        records.sort_by_key(|record| extract_ticket_number(&record.ticket_id));
+        records
+    }
+
+    pub fn max_ticket_number(&self) -> u64 {
+        self.restore_ticket_records()
+            .iter()
+            .filter_map(|record| extract_ticket_number(&record.ticket_id))
+            .max()
+            .unwrap_or(0)
+    }
+
+    fn restore_ticket_record(&self, rule_dir: &Path) -> anyhow::Result<TicketRecord> {
+        if !rule_dir.is_dir() {
+            anyhow::bail!("not a rule directory");
+        }
+
+        let Some(rule_id) = rule_dir.file_name().and_then(|name| name.to_str()) else {
+            anyhow::bail!("invalid rule directory name");
+        };
+        if extract_ticket_number(rule_id).is_none() {
+            anyhow::bail!("not a ticket directory");
+        }
+
+        let requirement = fs::read_to_string(rule_dir.join("conversation.md")).unwrap_or_default();
+        let summary = read_summary(rule_dir).unwrap_or_else(|| "pending".to_string());
+        let receipt = fs::read(rule_dir.join("receipt.json"))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<RunReceipt>(&bytes).ok());
+        let status_text = receipt
+            .as_ref()
+            .map(|receipt| receipt.status.as_str())
+            .unwrap_or("pending");
+        let base_url = receipt.as_ref().and_then(|receipt| receipt.base_url.clone());
+        let error = receipt.as_ref().and_then(|receipt| receipt.error.clone());
+        let handler_mode = receipt
+            .as_ref()
+            .and_then(|receipt| receipt.handler_mode.clone())
+            .unwrap_or_else(|| "llm".to_string());
+        let handler_validation_error = receipt
+            .as_ref()
+            .and_then(|receipt| receipt.handler_validation_error.clone());
+
+        Ok(TicketRecord {
+            ticket_id: rule_id.to_string(),
+            rule_id: rule_id.to_string(),
+            requirement,
+            summary,
+            status: parse_ticket_status(status_text),
+            base_url,
+            error,
+            gateway_runtime: GatewayRuntimeStatus::Offline,
+            handler_mode,
+            handler_validation_error,
+        })
+    }
+}
+
+fn read_summary(rule_dir: &Path) -> Option<String> {
+    let meta = fs::read(rule_dir.join("meta.json"))
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())?;
+    meta.get("summary")
+        .and_then(serde_json::Value::as_str)
+        .map(ToOwned::to_owned)
+}
+
+fn parse_ticket_status(status: &str) -> TicketStatus {
+    match status {
+        "running" => TicketStatus::Running,
+        "failed" => TicketStatus::Failed,
+        _ => TicketStatus::Pending,
+    }
+}
+
+fn extract_ticket_number(ticket_id: &str) -> Option<u64> {
+    ticket_id.strip_prefix("ticket-")?.parse::<u64>().ok()
 }

@@ -5,6 +5,7 @@ use std::{
     net::UdpSocket,
     path::Path,
     process::Stdio,
+    sync::{Arc, Mutex},
     time::Duration,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -45,6 +46,7 @@ pub struct LocalCargoRunner {
     health_poll_interval: Duration,
     public_base_url: Option<String>,
     detected_public_host: Option<String>,
+    active_child: Arc<Mutex<Option<tokio::process::Child>>>,
 }
 
 impl Default for LocalCargoRunner {
@@ -60,6 +62,7 @@ impl LocalCargoRunner {
             health_poll_interval: Duration::from_millis(200),
             public_base_url,
             detected_public_host: None,
+            active_child: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -67,6 +70,42 @@ impl LocalCargoRunner {
     fn with_detected_public_host(mut self, detected_public_host: Option<&str>) -> Self {
         self.detected_public_host = detected_public_host.map(ToString::to_string);
         self
+    }
+
+    async fn stop_active_gateway(&self) -> anyhow::Result<()> {
+        let existing = self
+            .active_child
+            .lock()
+            .expect("active gateway store poisoned")
+            .take();
+        if let Some(mut child) = existing {
+            if child
+                .try_wait()
+                .context("failed to inspect existing mock gateway process")?
+                .is_none()
+            {
+                child
+                    .kill()
+                    .await
+                    .context("failed to stop existing mock gateway process")?;
+            }
+        }
+        Ok(())
+    }
+
+    fn store_active_gateway(&self, child: tokio::process::Child) {
+        *self
+            .active_child
+            .lock()
+            .expect("active gateway store poisoned") = Some(child);
+    }
+
+    #[cfg(test)]
+    fn set_active_child_for_tests(&self, child: Option<tokio::process::Child>) {
+        *self
+            .active_child
+            .lock()
+            .expect("active gateway store poisoned") = child;
     }
 }
 
@@ -127,17 +166,25 @@ impl GatewayRunner for LocalCargoRunner {
             .stdout(Stdio::from(runtime_log))
             .stderr(Stdio::from(runtime_log_err));
 
-        command
+        self.stop_active_gateway().await?;
+
+        let mut child = command
             .spawn()
             .with_context(|| format!("failed to spawn mock gateway for {rule_id}"))?;
 
-        wait_for_health(
+        let health_result = wait_for_health(
             &health_base_url,
             self.health_timeout,
             self.health_poll_interval,
             &runtime_log_path,
         )
-        .await?;
+        .await;
+        if let Err(error) = health_result {
+            let _ = child.kill().await;
+            return Err(error);
+        }
+
+        self.store_active_gateway(child);
 
         Ok(public_base_url)
     }
@@ -249,7 +296,7 @@ where
     }
 
     Ok(StudioCliArgs {
-        bind: bind.unwrap_or_else(|| "127.0.0.1:4010".to_string()),
+        bind: bind.unwrap_or_else(|| "0.0.0.0:9090".to_string()),
         public_base_url,
     })
 }
@@ -286,6 +333,8 @@ mod tests {
     use super::{
         parse_studio_args, resolve_gateway_bind, resolve_public_base_url, LocalCargoRunner,
     };
+    use std::process::Stdio;
+    use tokio::process::Command;
 
     #[test]
     fn resolve_gateway_bind_uses_configured_port_when_present() {
@@ -336,6 +385,12 @@ mod tests {
     }
 
     #[test]
+    fn parse_studio_args_defaults_to_9090() {
+        let args = parse_studio_args(["raiko-mock-studio"]).unwrap();
+        assert_eq!(args.bind, "0.0.0.0:9090");
+    }
+
+    #[test]
     fn local_runner_uses_detected_host_for_public_url() {
         let runner = LocalCargoRunner::new(None).with_detected_public_host(Some("203.0.113.10"));
         let bind = resolve_gateway_bind("ticket-7", Some("24567")).unwrap();
@@ -346,5 +401,30 @@ mod tests {
         )
         .unwrap();
         assert_eq!(base_url, "http://203.0.113.10:24567");
+    }
+
+    #[tokio::test]
+    async fn local_runner_replaces_existing_gateway_process() {
+        let runner = LocalCargoRunner::default();
+        let child = Command::new("sleep")
+            .arg("30")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let old_pid = child.id().unwrap();
+
+        runner.set_active_child_for_tests(Some(child));
+        runner.stop_active_gateway().await.unwrap();
+
+        let status = std::process::Command::new("kill")
+            .arg("-0")
+            .arg(old_pid.to_string())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .unwrap();
+        assert!(!status.success(), "old gateway process should be gone");
     }
 }

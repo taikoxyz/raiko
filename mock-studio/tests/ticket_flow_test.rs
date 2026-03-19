@@ -5,14 +5,298 @@ use axum::{
     http::{Request, StatusCode},
 };
 use serde_json::{json, Value};
+use std::sync::{Arc, Mutex};
 use tempfile::tempdir;
 use tower::ServiceExt;
 
 use raiko_mock_studio::models::SpecGeneration;
 use raiko_mock_studio::{
     app, openrouter::MockPlanner, AppState, FakeHandlerGenerator, FakePlanner, FakeRunner,
-    LocalCargoRunner,
+    GatewayForwarder, LocalCargoRunner,
 };
+
+#[derive(Clone)]
+struct FakeGatewayForwarder {
+    response: String,
+    seen_target: Arc<Mutex<Option<String>>>,
+    seen_body: Arc<Mutex<Option<String>>>,
+}
+
+impl FakeGatewayForwarder {
+    fn success(response: String) -> Self {
+        Self {
+            response,
+            seen_target: Arc::new(Mutex::new(None)),
+            seen_body: Arc::new(Mutex::new(None)),
+        }
+    }
+}
+
+#[async_trait]
+impl GatewayForwarder for FakeGatewayForwarder {
+    async fn forward_shasta_request(
+        &self,
+        base_url: &str,
+        body: &str,
+    ) -> anyhow::Result<String> {
+        *self.seen_target.lock().unwrap() = Some(base_url.to_string());
+        *self.seen_body.lock().unwrap() = Some(body.to_string());
+        Ok(self.response.clone())
+    }
+}
+
+#[tokio::test]
+async fn root_page_contains_operator_ui_markers() {
+    let app = app(AppState::for_tests(
+        FakePlanner::success(),
+        FakeHandlerGenerator::success(),
+        FakeRunner::success("http://203.0.113.10:4100"),
+    ));
+
+    let response = app
+        .oneshot(Request::get("/").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let html = String::from_utf8(bytes.to_vec()).unwrap();
+
+    assert!(html.contains("Mock Studio"));
+    assert!(html.contains("ticket-requirement"));
+    assert!(html.contains("ticket-history"));
+    assert!(html.contains("gateway-request"));
+    assert!(html.contains("gateway-output"));
+    assert!(html.contains("ticket-runtime"));
+    assert!(html.contains("ticket-handler-mode"));
+    assert!(html.contains("login"));
+    assert!(html.contains("setInterval"));
+    assert!(!html.contains("id=\"gateway-target\" readonly"));
+}
+
+#[tokio::test]
+async fn ui_state_endpoint_returns_ticket_history_and_defaults() {
+    let app = app(AppState::for_tests(
+        FakePlanner::success(),
+        FakeHandlerGenerator::success(),
+        FakeRunner::success("http://203.0.113.10:4100"),
+    ));
+
+    let created = app
+        .clone()
+        .oneshot(
+            Request::post("/api/tickets")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&json!({
+                        "requirement": "Return error on the 4th /v3/proof/batch/shasta call"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::OK);
+
+    let response = app
+        .oneshot(Request::get("/api/ui/state").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let payload: Value = serde_json::from_slice(&bytes).unwrap();
+
+    assert_eq!(payload["tickets"].as_array().unwrap().len(), 1);
+    assert_eq!(payload["tickets"][0]["ticket_id"], "ticket-1");
+    assert_eq!(payload["tickets"][0]["handler_mode"], "renderer");
+    assert_eq!(payload["preferred_gateway_target"], "");
+    let template = payload["gateway_request_template"].as_str().unwrap();
+    assert!(template.contains("\"proof_type\": \"native\""));
+    assert!(template.contains("\"proposal_id\": 101"));
+}
+
+#[tokio::test]
+async fn ui_state_reloads_generated_tickets_and_continues_ticket_numbering() {
+    let temp = tempdir().unwrap();
+    let generated = temp.path().join("generated");
+    std::fs::create_dir_all(generated.join("ticket-1")).unwrap();
+    std::fs::create_dir_all(generated.join("ticket-2")).unwrap();
+    std::fs::write(
+        generated.join("ticket-1").join("conversation.md"),
+        "first ticket requirement",
+    )
+    .unwrap();
+    std::fs::write(
+        generated.join("ticket-1").join("meta.json"),
+        serde_json::to_vec_pretty(&json!({
+            "rule_id": "ticket-1",
+            "summary": "first ticket"
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        generated.join("ticket-1").join("receipt.json"),
+        serde_json::to_vec_pretty(&json!({
+            "status": "running",
+            "base_url": "http://127.0.0.1:28090",
+            "error": null
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        generated.join("ticket-2").join("conversation.md"),
+        "second ticket requirement",
+    )
+    .unwrap();
+    std::fs::write(
+        generated.join("ticket-2").join("meta.json"),
+        serde_json::to_vec_pretty(&json!({
+            "rule_id": "ticket-2",
+            "summary": "second ticket"
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        generated.join("ticket-2").join("receipt.json"),
+        serde_json::to_vec_pretty(&json!({
+            "status": "failed",
+            "base_url": null,
+            "error": "build failed"
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
+    let app = app(AppState::for_tests_in(
+        generated.clone(),
+        FakePlanner::success(),
+        FakeHandlerGenerator::success(),
+        FakeRunner::success("http://203.0.113.10:4100"),
+    ));
+
+    let ui_state = app
+        .clone()
+        .oneshot(Request::get("/api/ui/state").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(ui_state.status(), StatusCode::OK);
+
+    let ui_state_bytes = axum::body::to_bytes(ui_state.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let ui_state_payload: Value = serde_json::from_slice(&ui_state_bytes).unwrap();
+    assert_eq!(ui_state_payload["tickets"].as_array().unwrap().len(), 2);
+    assert_eq!(ui_state_payload["tickets"][0]["ticket_id"], "ticket-1");
+    assert_eq!(ui_state_payload["tickets"][0]["gateway_runtime"], "offline");
+    assert_eq!(ui_state_payload["tickets"][1]["ticket_id"], "ticket-2");
+    assert_eq!(ui_state_payload["tickets"][1]["error"], "build failed");
+
+    let created = app
+        .oneshot(
+            Request::post("/api/tickets")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&json!({
+                        "requirement": "new requirement after reload"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::OK);
+
+    let created_bytes = axum::body::to_bytes(created.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let created_payload: Value = serde_json::from_slice(&created_bytes).unwrap();
+    assert_eq!(created_payload["ticket_id"], "ticket-3");
+    assert_eq!(created_payload["gateway_runtime"], "online");
+}
+
+#[tokio::test]
+async fn gateway_proxy_endpoint_returns_raw_gateway_response() {
+    let temp = tempdir().unwrap();
+    let forwarder = FakeGatewayForwarder::success(
+        serde_json::to_string(&json!({
+            "status": "ok",
+            "proof_type": "sp1",
+            "batch_id": 101,
+            "data": { "status": "registered" }
+        }))
+        .unwrap(),
+    );
+    let app = app(AppState::for_tests_with_gateway_forwarder(
+        temp.path().join("generated"),
+        FakePlanner::success(),
+        FakeHandlerGenerator::success(),
+        FakeRunner::success("http://203.0.113.10:4100"),
+        Arc::new(forwarder.clone()),
+    ));
+
+    let created = app
+        .clone()
+        .oneshot(
+            Request::post("/api/tickets")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&json!({
+                        "requirement": "Return error on the 4th /v3/proof/batch/shasta call"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::OK);
+
+    let response = app
+        .oneshot(
+            Request::post("/api/tickets/ticket-1/gateway")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&json!({
+                        "target": "https://gateway.example",
+                        "body": {
+                            "aggregate": false,
+                            "proof_type": "native",
+                            "proposals": [{"proposal_id": 101}]
+                        }
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let payload: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(payload["proof_type"], "sp1");
+    assert_eq!(payload["status"], "ok");
+    assert_eq!(
+        forwarder.seen_target.lock().unwrap().as_deref(),
+        Some("https://gateway.example")
+    );
+    assert_eq!(
+        forwarder.seen_body.lock().unwrap().as_deref(),
+        Some("{\"aggregate\":false,\"proof_type\":\"native\",\"proposals\":[{\"proposal_id\":101}]}")
+    );
+}
 
 #[tokio::test]
 async fn ticket_submission_returns_running_receipt() {
@@ -47,6 +331,46 @@ async fn ticket_submission_returns_running_receipt() {
     assert_eq!(payload["status"], "running");
     assert_eq!(payload["base_url"], "http://203.0.113.10:4100");
     assert_eq!(payload["rule_id"], "ticket-1");
+    assert_eq!(payload["handler_mode"], "renderer");
+}
+
+#[tokio::test]
+async fn ticket_submission_surfaces_fallback_handler_mode_and_validation_error() {
+    let temp = tempdir().unwrap();
+    let generated_root = temp.path().join("generated");
+    let app = app(AppState::for_tests_in(
+        generated_root.clone(),
+        FakePlanner::success(),
+        FakeHandlerGenerator::success(),
+        FakeRunner::success("http://203.0.113.10:4100"),
+    ));
+
+    let response = app
+        .oneshot(
+            Request::post("/api/tickets")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&json!({
+                        "requirement": "Return error on the 4th /v3/proof/batch/shasta call"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let payload: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(payload["handler_mode"], "renderer");
+    assert!(payload["handler_validation_error"].is_null());
+
+    let receipt_bytes = std::fs::read(generated_root.join("ticket-1").join("receipt.json")).unwrap();
+    let receipt: Value = serde_json::from_slice(&receipt_bytes).unwrap();
+    assert_eq!(receipt["handler_mode"], "renderer");
 }
 
 #[tokio::test]

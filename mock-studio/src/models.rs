@@ -53,6 +53,10 @@ pub struct HandlerGeneration {
     pub source: String,
     pub prompt: String,
     pub response: String,
+    #[serde(default)]
+    pub handler_mode: String,
+    #[serde(default)]
+    pub validation_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,6 +64,10 @@ pub struct RunReceipt {
     pub status: String,
     pub base_url: Option<String>,
     pub error: Option<String>,
+    #[serde(default)]
+    pub handler_mode: Option<String>,
+    #[serde(default)]
+    pub handler_validation_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,6 +76,14 @@ pub enum TicketStatus {
     Pending,
     Running,
     Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum GatewayRuntimeStatus {
+    Online,
+    #[default]
+    Offline,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,6 +95,12 @@ pub struct TicketRecord {
     pub status: TicketStatus,
     pub base_url: Option<String>,
     pub error: Option<String>,
+    #[serde(default)]
+    pub gateway_runtime: GatewayRuntimeStatus,
+    #[serde(default)]
+    pub handler_mode: String,
+    #[serde(default)]
+    pub handler_validation_error: Option<String>,
 }
 
 impl TicketRecord {
@@ -91,6 +113,9 @@ impl TicketRecord {
             status: TicketStatus::Pending,
             base_url: None,
             error: None,
+            gateway_runtime: GatewayRuntimeStatus::Offline,
+            handler_mode: "llm".to_string(),
+            handler_validation_error: None,
         }
     }
 
@@ -103,6 +128,24 @@ impl TicketRecord {
             status: TicketStatus::Failed,
             base_url: None,
             error: Some("ticket not found".to_string()),
+            gateway_runtime: GatewayRuntimeStatus::Offline,
+            handler_mode: "unknown".to_string(),
+            handler_validation_error: None,
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StudioUiState {
+    pub tickets: Vec<TicketRecord>,
+    pub default_requirement: String,
+    pub gateway_request_template: String,
+    pub preferred_gateway_target: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GatewayProxyRequest {
+    #[serde(default)]
+    pub target: String,
+    pub body: serde_json::Value,
 }
