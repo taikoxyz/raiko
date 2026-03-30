@@ -129,7 +129,7 @@ RUN mkdir -p host/src && echo "fn main() {}" > host/src/main.rs && touch host/sr
 
 RUN mkdir -p ~/.cargo/bin
 
-RUN echo "Building risc0 guest ELFs"
+#RUN echo "Building risc0 guest ELFs"
 #RUN TARGET=risc0 make guest
 # Verify risc0 guest ELFs were produced
 #RUN ls provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/*.bin
