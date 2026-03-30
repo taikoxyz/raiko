@@ -94,6 +94,7 @@ test-log = { workspace = true }
 default = []
 sp1 = ["raiko-core/sp1"]
 risc0 = ["raiko-core/risc0"]
+zisk = ["raiko-core/zisk"]
 sgx = ["raiko-core/sgx"]
 tdx = ["raiko-core/tdx", "dep:tdx-prover"]
 integration = []

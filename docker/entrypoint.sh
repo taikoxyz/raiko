@@ -68,7 +68,7 @@ function bootstrap() {
 
 
 
-# Convienience function to update raiko config with SGX instance ids from env vars
+# Convenience function to update raiko config with SGX instance ids from env vars
 function update_raiko_sgx_instance_id() {
     CONFIG_FILE=$1
     if [[ -n $SGX_ONTAKE_INSTANCE_ID ]]; then

@@ -3,8 +3,9 @@ use alloy_primitives::{Address, B256};
 use clap::Args;
 use raiko_lib::{
     input::{
-        shasta::Checkpoint, AggregationGuestInput, AggregationGuestOutput, BlobProofType,
-        GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput, ShastaAggregationGuestInput,
+        realtime::DerivationSource, shasta::Checkpoint, AggregationGuestInput,
+        AggregationGuestOutput, BlobProofType, GuestBatchInput, GuestBatchOutput, GuestInput,
+        GuestOutput, ShastaAggregationGuestInput,
     },
     proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverError},
@@ -135,6 +136,16 @@ pub async fn get_guest_data() -> RaikoResult<serde_json::Value> {
 
         guest_data_object.extend(tdx_map);
     }
+    #[cfg(feature = "zisk")]
+    {
+        let zisk_data = zisk_driver::ZiskAgentProver::get_guest_data().await?;
+        let zisk_map = zisk_data
+            .as_object()
+            .cloned()
+            .expect("zisk guest data is not an object");
+
+        guest_data_object.extend(zisk_map);
+    }
 
     Ok(serde_json::Value::Object(guest_data_object))
 }
@@ -180,7 +191,17 @@ pub async fn run_prover(
             #[cfg(not(feature = "sgx"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Tdx | ProofType::AzureTdx => {
+        ProofType::Zisk => {
+            #[cfg(feature = "zisk")]
+            return zisk_driver::ZiskAgentProver
+                .run(input, &output, config, None)
+                .await
+                .map_err(|e| e.into());
+
+            #[cfg(not(feature = "zisk"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Tdx => {
             #[cfg(feature = "tdx")]
             return tdx_prover::TdxProver::new(proof_type)
                 .run(input.clone(), output, config, store)
@@ -241,7 +262,17 @@ pub async fn run_batch_prover(
             #[cfg(not(feature = "sgx"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Tdx | ProofType::AzureTdx => {
+        ProofType::Zisk => {
+            #[cfg(feature = "zisk")]
+            return zisk_driver::ZiskAgentProver
+                .batch_run(input, &output, config, None)
+                .await
+                .map_err(|e| e.into());
+
+            #[cfg(not(feature = "zisk"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Tdx => {
             #[cfg(feature = "tdx")]
             return tdx_prover::TdxProver::new(proof_type)
                 .batch_run(input.clone(), output, config, store)
@@ -302,13 +333,92 @@ pub async fn run_shasta_proposal_prover(
             #[cfg(not(feature = "sgx"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Tdx | ProofType::AzureTdx => {
+        ProofType::Zisk => {
+            #[cfg(feature = "zisk")]
+            return zisk_driver::ZiskAgentProver
+                .proposal_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "zisk"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Tdx => {
             #[cfg(feature = "tdx")]
             return tdx_prover::TdxProver::new(proof_type)
                 .proposal_run(input.clone(), output, config, store)
                 .await
                 .map_err(|e| e.into());
             #[cfg(not(feature = "tdx"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+    }
+}
+
+/// Run the prover driver for RealTime proposals depending on the proof type.
+pub async fn run_realtime_prover(
+    proof_type: ProofType,
+    input: GuestBatchInput,
+    output: &GuestBatchOutput,
+    config: &Value,
+    store: Option<&mut dyn IdWrite>,
+    mock_key: Option<String>,
+) -> RaikoResult<Proof> {
+    if let Some(mock_key) = mock_key {
+        info!("Using mock prover with mock key");
+        return MockProver::new(mock_key.clone())?
+            .realtime_run(input.clone(), output, config, store)
+            .await
+            .map_err(<ProverError as Into<RaikoError>>::into);
+    }
+
+    match proof_type {
+        ProofType::Native => NativeProver
+            .realtime_run(input.clone(), output, config, store)
+            .await
+            .map_err(<ProverError as Into<RaikoError>>::into),
+        ProofType::Sp1 => {
+            #[cfg(feature = "sp1")]
+            return sp1_driver::Sp1Prover
+                .realtime_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "sp1"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Risc0 => {
+            #[cfg(feature = "risc0")]
+            return risc0_driver::Risc0Prover
+                .realtime_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "risc0"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Sgx | ProofType::SgxGeth => {
+            #[cfg(feature = "sgx")]
+            return sgx_prover::SgxProver::new(proof_type)
+                .realtime_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "sgx"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Tdx => {
+            #[cfg(feature = "tdx")]
+            return tdx_prover::TdxProver::new(proof_type)
+                .realtime_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "tdx"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Zisk => {
+            #[cfg(feature = "zisk")]
+            return zisk_driver::ZiskAgentProver
+                .realtime_run(input.clone(), output, config, store)
+                .await
+                .map_err(|e| e.into());
+            #[cfg(not(feature = "zisk"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
     }
@@ -363,7 +473,17 @@ pub async fn aggregate_proofs(
             #[cfg(not(feature = "sgx"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Tdx | ProofType::AzureTdx => {
+        ProofType::Zisk => {
+            #[cfg(feature = "zisk")]
+            return zisk_driver::ZiskAgentProver
+                .aggregate(input.clone(), output, config, None)
+                .await
+                .map_err(|e| e.into());
+
+            #[cfg(not(feature = "zisk"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Tdx => {
             #[cfg(feature = "tdx")]
             return tdx_prover::TdxProver::new(proof_type)
                 .aggregate(input.clone(), output, config, store)
@@ -425,7 +545,17 @@ pub async fn aggregate_shasta_proposals(
             #[cfg(not(feature = "sgx"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Tdx | ProofType::AzureTdx => {
+        ProofType::Zisk => {
+            #[cfg(feature = "zisk")]
+            return zisk_driver::ZiskAgentProver
+                .shasta_aggregate(input.clone(), output, config, None)
+                .await
+                .map_err(|e| e.into());
+
+            #[cfg(not(feature = "zisk"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Tdx => {
             #[cfg(feature = "tdx")]
             return tdx_prover::TdxProver::new(proof_type)
                 .shasta_aggregate(input.clone(), output, config, store)
@@ -476,7 +606,17 @@ pub async fn cancel_proof(
             #[cfg(not(feature = "sgx"))]
             Err(RaikoError::FeatureNotSupportedError(proof_type))
         }
-        ProofType::Tdx | ProofType::AzureTdx => {
+        ProofType::Zisk => {
+            #[cfg(feature = "zisk")]
+            return zisk_driver::ZiskAgentProver
+                .cancel(proof_key, read)
+                .await
+                .map_err(|e| e.into());
+
+            #[cfg(not(feature = "zisk"))]
+            Err(RaikoError::FeatureNotSupportedError(proof_type))
+        }
+        ProofType::Tdx => {
             #[cfg(feature = "tdx")]
             return tdx_prover::TdxProver::new(proof_type)
                 .cancel(proof_key, read)
@@ -774,6 +914,128 @@ impl TryFrom<ShastaProofRequestOpt> for ShastaProofRequest {
     }
 }
 
+// === RealTime fork request types ===
+
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct RealTimeProofRequest {
+    pub l2_block_numbers: Vec<u64>,
+    pub proof_type: ProofType,
+
+    pub network: String,
+    pub l1_network: String,
+    #[serde_as(as = "DisplayFromStr")]
+    pub prover: Address,
+    pub blob_proof_type: BlobProofType,
+    #[serde(flatten)]
+    pub prover_args: ProverSpecificOpts,
+
+    // --- RealTime-specific fields ---
+    /// Highest L1 block the L2 derivation references
+    pub max_anchor_block_number: u64,
+    /// L1 signal slots to relay
+    #[serde(default)]
+    pub signal_slots: Vec<B256>,
+    /// Block hash of last finalized L2 block (from getLastFinalizedBlockHash())
+    pub last_finalized_block_hash: B256,
+    /// Percentage of basefee paid to coinbase
+    pub basefee_sharing_pctg: u8,
+    /// Derivation sources for blob data
+    #[serde(default)]
+    pub sources: Vec<DerivationSource>,
+    /// Raw blob data (hex-encoded). For RealTime proving the blobs are not yet
+    /// posted on L1, so the proposer must supply them directly. One entry per
+    /// blob referenced in `sources`, in the same order as the blob hashes.
+    #[serde(default)]
+    pub blobs: Vec<String>,
+    /// Previous finalized checkpoint
+    pub checkpoint: Option<ShastaProposalCheckpoint>,
+    /// If true, return cached proof if available. If false (default), always re-prove.
+    #[serde(default)]
+    pub use_cache: bool,
+}
+
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct RealTimeProofRequestOpt {
+    // Required fields
+    pub l2_block_numbers: Vec<u64>,
+    pub proof_type: String,
+
+    // Optional fields, if not provided, the default values will be used
+    pub network: Option<String>,
+    pub l1_network: Option<String>,
+    pub prover: Option<String>,
+    pub blob_proof_type: Option<String>,
+    #[serde(flatten)]
+    pub prover_args: Option<ProverSpecificOpts>,
+
+    // --- RealTime-specific fields ---
+    pub max_anchor_block_number: u64,
+    #[serde(default)]
+    pub signal_slots: Vec<B256>,
+    /// Block hash of last finalized L2 block (from getLastFinalizedBlockHash())
+    pub last_finalized_block_hash: B256,
+    pub basefee_sharing_pctg: u8,
+    #[serde(default)]
+    pub sources: Vec<DerivationSource>,
+    /// Raw blob data (hex-encoded), supplied by the proposer.
+    #[serde(default)]
+    pub blobs: Vec<String>,
+    pub checkpoint: Option<ShastaProposalCheckpoint>,
+    /// If true, return cached proof if available. If false (default), always re-prove.
+    #[serde(default)]
+    pub use_cache: bool,
+}
+
+impl TryFrom<RealTimeProofRequestOpt> for RealTimeProofRequest {
+    type Error = RaikoError;
+
+    fn try_from(value: RealTimeProofRequestOpt) -> Result<Self, Self::Error> {
+        Ok(Self {
+            l2_block_numbers: value.l2_block_numbers,
+            proof_type: value
+                .proof_type
+                .parse()
+                .map_err(|_| RaikoError::InvalidRequestConfig("Invalid proof_type".to_string()))?,
+            network: value.network.ok_or(RaikoError::InvalidRequestConfig(
+                "Missing network".to_string(),
+            ))?,
+            l1_network: value.l1_network.ok_or(RaikoError::InvalidRequestConfig(
+                "Missing l1_network".to_string(),
+            ))?,
+            prover: value
+                .prover
+                .ok_or(RaikoError::InvalidRequestConfig(
+                    "Missing prover".to_string(),
+                ))?
+                .parse()
+                .map_err(|_| RaikoError::InvalidRequestConfig("Invalid prover".to_string()))?,
+            blob_proof_type: value
+                .blob_proof_type
+                .unwrap_or("proof_of_equivalence".to_string())
+                .parse()
+                .map_err(|_| {
+                    RaikoError::InvalidRequestConfig("Invalid blob_proof_type".to_string())
+                })?,
+            prover_args: value
+                .prover_args
+                .ok_or(RaikoError::InvalidRequestConfig(
+                    "Missing prover_args".to_string(),
+                ))?
+                .into(),
+            max_anchor_block_number: value.max_anchor_block_number,
+            signal_slots: value.signal_slots,
+            last_finalized_block_hash: value.last_finalized_block_hash,
+            basefee_sharing_pctg: value.basefee_sharing_pctg,
+            sources: value.sources,
+            blobs: value.blobs,
+            checkpoint: value.checkpoint,
+            use_cache: value.use_cache,
+        })
+    }
+}
+
 #[derive(Default, Clone, Serialize, Deserialize, Debug, ToSchema, Args, PartialEq, Eq, Hash)]
 pub struct ProverSpecificOpts {
     /// Native prover specific options.
@@ -786,10 +1048,10 @@ pub struct ProverSpecificOpts {
     pub sp1: Option<Value>,
     /// RISC0 prover specific options.
     pub risc0: Option<Value>,
+    /// Zisk prover specific options.
+    pub zisk: Option<Value>,
     /// TDX prover specific options.
     pub tdx: Option<Value>,
-    /// Azure TDX prover specific options.
-    pub azure_tdx: Option<Value>,
 }
 
 impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificOpts>
@@ -802,6 +1064,7 @@ impl<S: ::std::hash::BuildHasher + ::std::default::Default> From<ProverSpecificO
             ("sgxgeth", value.sgxgeth.clone()),
             ("sp1", value.sp1.clone()),
             ("risc0", value.risc0.clone()),
+            ("zisk", value.zisk.clone()),
             ("tdx", value.tdx.clone()),
         ]
         .into_iter()

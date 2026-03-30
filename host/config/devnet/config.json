@@ -8,6 +8,7 @@
 	"graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
 	"proof_type": "sp1",
 	"blob_proof_type": "proof_of_equivalence",
+	"use_cache": false,
 	"redis_url": "redis://redis-zk:6379",
 	"redis_ttl": 3600,
 	"enable_redis_pool": false,
@@ -36,6 +37,9 @@
 		},
 		"bootstrap": false,
 		"prove": true
+	},
+	"zisk": {
+		"batch_snark": true
 	},
 	"risc0": {
 		"boundless": false,

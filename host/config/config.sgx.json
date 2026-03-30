@@ -16,9 +16,9 @@
     },
     "tdx": {
         "instance_ids": {
-          "HEKLA": 0,
-          "ONTAKE": 0,
-          "PACAYA": 0
+            "HEKLA": 0,
+            "ONTAKE": 0,
+            "PACAYA": 0
         },
         "bootstrap": false,
         "prove": true,
@@ -35,16 +35,19 @@
         "input_path": null
     },
     "risc0": {
-            "boundless": true,
-            "bonsai": false,
-            "snark": true,
-            "profile": false,
-            "execution_po2": 20,
-            "verify": true
+        "boundless": true,
+        "bonsai": false,
+        "snark": true,
+        "profile": false,
+        "execution_po2": 22,
+        "verify": true
     },
     "sp1": {
         "prover": "network",
         "verify": true
+    },
+    "zisk": {
+        "batch_snark": true
     },
     "native": {
         "json_guest_input": null

@@ -292,7 +292,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             surge_dev_mainnet_spec.spec_id(2, 1),
-            Some(TaikoSpecId::SHASTA)
+            Some(TaikoSpecId::REALTIME)
         );
     }
 
@@ -303,7 +303,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             surge_dev_mainnet_spec.active_fork(1, 1).unwrap(),
-            TaikoSpecId::SHASTA
+            TaikoSpecId::REALTIME
         );
     }
 

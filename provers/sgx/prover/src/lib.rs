@@ -258,7 +258,9 @@ impl Prover for SgxProver {
     ) -> ProverResult<Proof> {
         match self {
             SgxProver::Local(prover) => prover.shasta_aggregate(input, output, config, store).await,
-            SgxProver::Remote(prover) => prover.shasta_aggregate(input, output, config, store).await,
+            SgxProver::Remote(prover) => {
+                prover.shasta_aggregate(input, output, config, store).await
+            }
         }
     }
 

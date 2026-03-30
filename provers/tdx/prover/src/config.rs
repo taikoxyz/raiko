@@ -114,7 +114,7 @@ pub fn get_issuer_type() -> Result<ProofType> {
     let bootstrap_data = read_bootstrap()?;
     let proof_type = match bootstrap_data.issuer_type.as_str() {
         "tdx" | "simulator" => ProofType::Tdx,
-        "azure" => ProofType::AzureTdx,
+        "azure" => ProofType::Tdx,
         _ => {
             return Err(anyhow!(
                 "Invalid issuer type: {}",

@@ -1,0 +1,20 @@
+[package]
+name = "sha3"
+version = "0.10.8"
+description = "Pure Rust implementation of SHA-3 / Keccak, ZisK-patched with direct keccak precompile"
+authors = ["RustCrypto Developers"]
+license = "MIT OR Apache-2.0"
+edition = "2018"
+
+[dependencies]
+digest = "0.10.7"
+# keccak is only used on non-ZisK targets (fallback pure-Rust permutation)
+keccak = "0.1"
+
+[features]
+default = ["std"]
+std = ["digest/std"]
+asm = []
+oid = ["digest/oid"]
+reset = []
+zeroize = []

@@ -12,17 +12,20 @@ use reth_primitives::Header;
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    anchor::{decode_anchor_pacaya, decode_anchor_shasta, ANCHOR_GAS_LIMIT},
+    anchor::{
+        decode_anchor_pacaya, decode_anchor_realtime, decode_anchor_shasta, ANCHOR_GAS_LIMIT,
+    },
     input::{
         ontake::{BlockMetadataV2, BlockProposedV2},
         pacaya::{BatchInfo, BatchMetadata, BlockParams, Transition as PacayaTransition},
+        realtime::RealTimeProposal,
         shasta::{Checkpoint, Commitment, Proposal as ShastaProposal},
         BlobProofType, BlockMetadata, BlockProposed, BlockProposedFork, GuestBatchInput,
         GuestInput, ShastaRawAggregationGuestInput, Transition,
     },
     libhash::{
-        hash_commitment, hash_proposal, hash_public_input, hash_shasta_subproof_input,
-        hash_two_values,
+        hash_commitment, hash_proposal, hash_public_input, hash_realtime_subproof_input,
+        hash_shasta_subproof_input, hash_signal_slots, hash_two_values,
     },
     primitives::{
         eip4844::{self, commitment_to_version_hash},
@@ -45,6 +48,7 @@ pub enum BlockMetaDataFork {
     Ontake(BlockMetadataV2),
     Pacaya(BatchMetadata),
     Shasta(ShastaProposal),
+    RealTime(RealTimeProposal),
 }
 
 impl From<(&GuestInput, &Header, B256, &BlockProposed)> for BlockMetadata {
@@ -137,6 +141,9 @@ impl BlockMetaDataFork {
             }
             BlockProposedFork::Shasta(_) => {
                 unimplemented!("single block signature is not supported for shasta fork")
+            }
+            BlockProposedFork::RealTime(_) => {
+                unimplemented!("single block signature is not supported for realtime fork")
             }
         }
     }
@@ -258,6 +265,9 @@ impl BlockMetaDataFork {
                 // similar to Pacaya's infoHash / txsHash binding.
                 BlockMetaDataFork::Shasta(event_data.proposal.clone())
             }
+            BlockProposedFork::RealTime(event_data) => {
+                BlockMetaDataFork::RealTime(event_data.proposal.clone())
+            }
             _ => {
                 unimplemented!("batch blocks signature is not supported before pacaya fork")
             }
@@ -285,10 +295,22 @@ impl BlockMetaDataFork {
                 //todo: match shasta proposal
                 (true, None)
             }
+            (Self::RealTime(_a), BlockProposedFork::RealTime(_b)) => {
+                //todo: match realtime proposal
+                (true, None)
+            }
             (Self::None, BlockProposedFork::Nothing) => (true, None),
             _ => (false, None),
         }
     }
+}
+
+/// RealTime transition data: proposal hash + last finalized block hash + checkpoint (no aggregation).
+#[derive(Debug, Clone)]
+pub struct RealTimeTransitionData {
+    pub proposal_hash: B256,
+    pub last_finalized_block_hash: B256,
+    pub checkpoint: Checkpoint,
 }
 
 #[derive(Debug, Clone)]
@@ -297,6 +319,7 @@ pub enum TransitionFork {
     OnTake(Transition),
     Pacaya(PacayaTransition),
     Shasta(TransitionInputData),
+    RealTime(RealTimeTransitionData),
 }
 
 #[derive(Debug, Clone)]
@@ -322,17 +345,27 @@ fn verify_blob(
             // Even in PoE mode, the blob must be anchored to the on-chain versioned hash.
             ensure!(*expected_versioned_hash == commitment_to_version_hash(commitment));
 
+            let proof_bytes = blob_proof.as_ref().expect("missing blob proof in PoE mode");
+
             let ct = CycleTracker::start("proof_of_equivalence");
-            let (x, y) = eip4844::proof_of_equivalence(blob_data, &expected_versioned_hash)?;
+            // If the host appended a precomputed y value (32 bytes) after the KZG proof
+            // (48 bytes), use it to skip the expensive blob deserialization and polynomial
+            // evaluation. The KZG proof verification still guarantees y = f(x).
+            let (x, y, kzg_proof) = if proof_bytes.len() >= 80 {
+                let x = eip4844::get_evaluation_point_bytes(blob_data, expected_versioned_hash);
+                let y: [u8; 32] = proof_bytes[48..80].try_into().unwrap();
+                let kzg_proof: [u8; 48] = proof_bytes[..48].try_into().unwrap();
+                (x, y, kzg_proof)
+            } else {
+                let (x, y) = eip4844::proof_of_equivalence(blob_data, &expected_versioned_hash)?;
+                let kzg_proof: [u8; 48] = proof_bytes
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("invalid KZG proof length"))?;
+                (x, y, kzg_proof)
+            };
             ct.end();
-            let verified = eip4844::verify_kzg_proof_impl(
-                *commitment,
-                x,
-                y,
-                blob_proof
-                    .map(|p| TryInto::<[u8; 48]>::try_into(p).unwrap())
-                    .unwrap(),
-            )?;
+            let verified = eip4844::verify_kzg_proof_impl(*commitment, x, y, kzg_proof)?;
             ensure!(verified);
         }
         BlobProofType::KzgVersionedHash => {
@@ -509,6 +542,98 @@ fn verify_shasha_anchor_linkage(
     last_parent_hash == *expected_parent_hash
 }
 
+/// Parallel to `verify_shasha_anchor_linkage` for the RealTime fork.
+///
+/// Performs two checks:
+/// 1. **Anchor block linkage** — every block's `anchorV4WithSignalSlots` checkpoint references an
+///    L1 block that appears in `l1_ancestor_headers`, and that chain of headers terminates at
+///    `max_anchor_block_hash` (the `maxAnchorBlockHash` field of the `RealTimeProposal`).
+/// 2. **Signal slots integrity** — the signal slots extracted from the *first* block's anchor
+///    call must hash to the same value as `hash_signal_slots(signal_slots)` (i.e. match the
+///    `signalSlotsHash` committed in the proposal).  All subsequent blocks must carry an empty
+///    signal slots array in their anchor transaction.
+fn verify_realtime_anchor_linkage(
+    inputs: &[GuestInput],
+    l1_ancestor_headers: &[Header],
+    max_anchor_block_hash: &B256,
+    signal_slots: &[B256],
+) -> bool {
+    let mut anchor_param_set = HashSet::new();
+
+    for (i, input) in inputs.iter().enumerate() {
+        let anchor_tx = input.taiko.anchor_tx.clone().unwrap();
+        let anchor_data = match decode_anchor_realtime(anchor_tx.input()) {
+            std::result::Result::Ok(d) => d,
+            Err(e) => {
+                error!("failed to decode realtime anchor tx for block {i}: {e}");
+                return false;
+            }
+        };
+
+        // First block carries all signal slots; every subsequent block must have an empty array.
+        if i == 0 {
+            let expected_hash = hash_signal_slots(signal_slots);
+            let actual_hash = hash_signal_slots(&anchor_data._signalSlots);
+            if expected_hash != actual_hash {
+                error!(
+                    "signal slots hash mismatch on first block anchor: expected {:?}, got {:?}",
+                    expected_hash, actual_hash
+                );
+                return false;
+            }
+        } else if !anchor_data._signalSlots.is_empty() {
+            error!(
+                "block {i} anchor has non-empty signal slots; only the first block may carry slots"
+            );
+            return false;
+        }
+
+        anchor_param_set.insert((
+            anchor_data._checkpoint.blockNumber,
+            anchor_data._checkpoint.blockHash,
+            anchor_data._checkpoint.stateRoot,
+        ));
+    }
+
+    if l1_ancestor_headers.is_empty() {
+        error!("l1 ancestor headers is empty");
+        return false;
+    }
+
+    let mut last_parent_hash = l1_ancestor_headers[0].hash_slow();
+    let mut l1_ancestor_hash_set = HashSet::from([(
+        l1_ancestor_headers[0].number,
+        last_parent_hash,
+        l1_ancestor_headers[0].state_root,
+    )]);
+    for curr in l1_ancestor_headers.iter().skip(1) {
+        if curr.parent_hash != last_parent_hash {
+            error!(
+                "l1 ancestor header parent hash mismatch, expected: {:?}, got: {:?}",
+                last_parent_hash, curr.parent_hash
+            );
+            return false;
+        }
+        let curr_hash = curr.hash_slow();
+        l1_ancestor_hash_set.insert((curr.number, curr_hash, curr.state_root));
+        last_parent_hash = curr_hash;
+    }
+
+    // Every anchor checkpoint must reference a block present in the ancestor header set.
+    for anchor_param in anchor_param_set {
+        if !l1_ancestor_hash_set.contains(&(anchor_param.0.to(), anchor_param.1, anchor_param.2)) {
+            error!(
+                "realtime anchor param not found in l1 ancestor hash set: {:?}",
+                anchor_param
+            );
+            return false;
+        }
+    }
+
+    // The ancestor chain must terminate exactly at maxAnchorBlockHash.
+    last_parent_hash == *max_anchor_block_hash
+}
+
 impl ProtocolInstance {
     pub fn new(input: &GuestInput, header: &Header, proof_type: ProofType) -> Result<Self> {
         let blob_used = input.taiko.block_proposed.blob_used();
@@ -655,6 +780,52 @@ impl ProtocolInstance {
                     checkpoint: current_transition_checkpoint,
                 })
             }
+            BlockProposedFork::RealTime(event_data) => {
+                assert!(
+                    verify_realtime_anchor_linkage(
+                        &batch_input.inputs,
+                        batch_input.taiko.l1_ancestor_headers.as_slice(),
+                        &event_data.proposal.maxAnchorBlockHash,
+                        &event_data.signal_slots,
+                    ),
+                    "RealTime L1 anchor linkage verification failed"
+                );
+                assert_eq!(
+                    event_data.proposal.maxAnchorBlockHash,
+                    batch_input.taiko.l1_header.hash_slow(),
+                    "L1 max anchor block hash mismatch"
+                );
+
+                let last_block_number = last_block.number;
+                let last_block_hash = last_block.header.hash_slow();
+                let last_block_state_root = last_block.header.state_root;
+                let checkpoint = Checkpoint {
+                    blockNumber: Uint::from(last_block_number),
+                    blockHash: last_block_hash,
+                    stateRoot: last_block_state_root,
+                };
+                if let Some(ref_checkpoint) = &batch_input.taiko.prover_data.checkpoint {
+                    assert_eq!(
+                        checkpoint, *ref_checkpoint,
+                        "checkpoint mismatch, expected: {:?}, got: {:?}",
+                        checkpoint, ref_checkpoint
+                    );
+                }
+
+                tracing::debug!("Real Time proposal data: {:#?}", event_data.proposal);
+
+                let proposal_hash: B256 = keccak(event_data.proposal.abi_encode()).into();
+
+                // last_finalized_block_hash = parent block hash of the first L2 block
+                // This binds the proof to the correct starting state.
+                let last_finalized_block_hash = batch_input.inputs[0].parent_header.hash_slow();
+
+                TransitionFork::RealTime(RealTimeTransitionData {
+                    proposal_hash,
+                    last_finalized_block_hash,
+                    checkpoint,
+                })
+            }
             _ => return Err(anyhow::Error::msg("unknown transition fork")),
         };
 
@@ -693,10 +864,22 @@ impl ProtocolInstance {
             BlockMetaDataFork::Ontake(ref meta) => keccak(meta.abi_encode()).into(),
             BlockMetaDataFork::Pacaya(ref meta) => keccak(meta.abi_encode()).into(),
             BlockMetaDataFork::Shasta(ref meta) => keccak(meta.abi_encode()).into(),
+            BlockMetaDataFork::RealTime(ref meta) => keccak(meta.abi_encode()).into(),
         }
     }
 
     // keccak256(abi.encode(tran, newInstance, prover, metaHash))
+    /// Returns the instance hash with each 4-byte word byte-swapped (BE → LE).
+    /// Use this for zisk proofs where publics are stored as little-endian uint32 words.
+    pub fn instance_hash_le(&self) -> B256 {
+        let hash = self.instance_hash();
+        let mut le_bytes = hash.0;
+        for chunk in le_bytes.chunks_exact_mut(4) {
+            chunk.reverse();
+        }
+        B256::from(le_bytes)
+    }
+
     pub fn instance_hash(&self) -> B256 {
         // packages/protocol/contracts/verifiers/libs/LibPublicInput.sol
         // "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
@@ -759,6 +942,12 @@ impl ProtocolInstance {
                     transition_input: shasta_trans_input.clone(),
                 })
             }
+            TransitionFork::RealTime(rt) => {
+                // Domain-separated hash mirroring Shasta pattern:
+                //   inner = keccak256(abi.encode(proposalHash, lastFinalizedBlockHash, blockNumber, blockHash, stateRoot, bytes32(0)))
+                //   outer = hash(VERIFY_PROOF, chain_id, verifier, inner)
+                hash_realtime_subproof_input(self.chain_id, self.verifier_address, &rt)
+            }
         }
     }
 }
@@ -772,10 +961,8 @@ fn get_blob_proof_type(
     // due to performance considerations
     match proof_type {
         ProofType::Native => blob_proof_type_hint,
-        ProofType::Sgx | ProofType::SgxGeth | ProofType::Tdx | ProofType::AzureTdx => {
-            BlobProofType::KzgVersionedHash
-        }
-        ProofType::Sp1 | ProofType::Risc0 => BlobProofType::ProofOfEquivalence,
+        ProofType::Sgx | ProofType::SgxGeth | ProofType::Tdx => BlobProofType::KzgVersionedHash,
+        ProofType::Sp1 | ProofType::Risc0 | ProofType::Zisk => BlobProofType::ProofOfEquivalence,
     }
 }
 

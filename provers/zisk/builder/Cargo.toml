@@ -1,0 +1,9 @@
+[package]
+name = "zisk-builder"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+hex = "0.4"
+blake3 = "1"

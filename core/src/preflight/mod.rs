@@ -140,19 +140,30 @@ pub async fn preflight<BDP: BlockDataProvider>(
 
     // for TDX proofs, we avoid rebuilding the state trie and re-executing the
     // block as the node execution is trusted
-    if proof_type == ProofType::Tdx || proof_type == ProofType::AzureTdx {
+    if proof_type == ProofType::Tdx {
         info!("preflight: skipping re-execution since TDX proof");
         return Ok(input);
     }
 
-    // Create the block builder, run the transactions and extract the DB
-    let provider_db = ProviderDb::new(
-        &provider,
-        taiko_chain_spec,
-        parent_block_number,
-        initial_db_with_headers,
-    )
-    .await?;
+    // Parallelize ProviderDb::new (fetches 256 history blocks) with trace_block_prestate
+    let (provider_db_result, trace_result) = tokio::join!(
+        ProviderDb::new(
+            &provider,
+            taiko_chain_spec,
+            parent_block_number,
+            initial_db_with_headers,
+        ),
+        provider.trace_block_prestate(block_number),
+    );
+    let provider_db = provider_db_result?;
+    let prestate = match trace_result {
+        Some(Ok(ps)) => Some(ps),
+        Some(Err(e)) => {
+            info!("debug_traceBlockByNumber failed (non-fatal): {e}");
+            None
+        }
+        None => None,
+    };
 
     info!("preflight: provider db done");
 
@@ -167,10 +178,8 @@ pub async fn preflight<BDP: BlockDataProvider>(
         &input.taiko.anchor_tx,
     );
 
-    println!("TXS: {:#?}", pool_tx.first().unwrap());
-
-    // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
-    execute_txs(&mut builder, pool_tx).await?;
+    // Optimize data gathering
+    execute_txs(&mut builder, pool_tx, prestate).await?;
 
     let db = if let Some(db) = builder.db.as_mut() {
         // use committed state as the init state of next block
@@ -409,7 +418,7 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
 
                 // for TDX proofs, we avoid rebuilding the state trie and re-executing the
                 // block as the node execution is trusted
-                if proof_type == ProofType::Tdx || proof_type == ProofType::AzureTdx {
+                if proof_type == ProofType::Tdx {
                     info!("batch_preflight: skipping re-execution since TDX proof");
                     chunk_guest_input.push(input);
                     continue;
@@ -419,22 +428,33 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                     .await
                     .expect("Could not create RpcBlockDataProvider");
 
-                // Create the block builder, run the transactions and extract the DB
-                let provider_db = ProviderDb::new(
-                    &provider,
-                    taiko_chain_spec.clone(),
-                    parent_block_number,
-                    initial_db,
-                )
-                .await?;
+                // Parallelize ProviderDb::new with trace_block_prestate
+                let block_to_prove = prove_block.header.number;
+                let (provider_db_result, trace_result) = tokio::join!(
+                    ProviderDb::new(
+                        &provider,
+                        taiko_chain_spec.clone(),
+                        parent_block_number,
+                        initial_db,
+                    ),
+                    BlockDataProvider::trace_block_prestate(&provider, block_to_prove),
+                );
+                let provider_db = provider_db_result?;
+                let prestate = match trace_result {
+                    Some(Ok(ps)) => Some(ps),
+                    Some(Err(e)) => {
+                        info!("debug_traceBlockByNumber failed (non-fatal): {e}");
+                        None
+                    }
+                    None => None,
+                };
 
                 // Now re-execute the transactions in the block to collect all required data
                 let mut builder = RethBlockBuilder::new(input.clone(), provider_db);
 
-                // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
                 let mut pool_txs = vec![anchor_tx.clone()];
                 pool_txs.extend_from_slice(&pure_pool_txs);
-                execute_txs(&mut builder, pool_txs).await?;
+                execute_txs(&mut builder, pool_txs, prestate).await?;
 
                 let db = if let Some(db) = builder.db.as_mut() {
                     // save committed state as the init state of next block

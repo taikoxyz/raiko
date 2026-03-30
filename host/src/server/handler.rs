@@ -142,6 +142,14 @@ pub(crate) async fn prove_many(
                 let status = prove(actor, key.into(), entity.into()).await?;
                 statuses.push(status);
             }
+            (RequestKey::RealTimeGuestInput(key), RequestEntity::RealTimeGuestInput(entity)) => {
+                let status = prove(actor, key.into(), entity.into()).await?;
+                statuses.push(status);
+            }
+            (RequestKey::RealTimeProof(key), RequestEntity::RealTimeProof(entity)) => {
+                let status = prove(actor, key.into(), entity.into()).await?;
+                statuses.push(status);
+            }
             _ => return Err("Invalid request key and entity".to_string()),
         }
     }

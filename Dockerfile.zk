@@ -1,4 +1,4 @@
-# ── Stage 1: Install Rust + risc0/sp1 toolchains (no CUDA needed) ────
+# ── Stage 1: Install Rust + risc0/sp1/zisk toolchains (no CUDA needed) ────
 FROM ubuntu:24.04 AS toolchain-installer
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -8,14 +8,29 @@ RUN apt-get update && \
     apt-get install -y \
     build-essential \
     cracklib-runtime \
-    protobuf-compiler \
-    jq \
-    clang \
     sudo \
     curl \
     git \
     pkg-config \
-    libssl-dev && \
+    libssl-dev \
+    xz-utils \
+    jq \
+    libomp-dev \
+    libgmp-dev \
+    nlohmann-json3-dev \
+    protobuf-compiler \
+    uuid-dev \
+    libgrpc++-dev \
+    libsecp256k1-dev \
+    libsodium-dev \
+    libpqxx-dev \
+    nasm \
+    libclang-dev \
+    clang \
+    gcc-riscv64-unknown-elf \
+    libopenmpi-dev \
+    openmpi-bin \
+    openmpi-common && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -31,19 +46,32 @@ COPY script script
 
 RUN mkdir -p ~/.cargo/bin
 
-# Limit parallelism to avoid OOM 
+# Limit parallelism to avoid OOM
 # ARG CARGO_BUILD_JOBS=2
 # ENV CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS}
 # ENV NUM_JOBS=${CARGO_BUILD_JOBS}
 
-RUN echo "Installing risc0 toolchain"
-RUN TARGET=risc0 make install
+#RUN echo "Installing risc0 toolchain"
+#RUN TARGET=risc0 make install
 
 RUN echo "Installing sp1 toolchain"
 RUN TARGET=sp1 make install
 
+# Download ZisK Rust toolchain directly (avoids cargo-zisk AVX-512 issue under QEMU)
+ARG ZISK_TOOLCHAIN_TAG=zisk-0.5.1
+RUN mkdir -p /opt/zisk-toolchain && \
+    curl -sL "https://github.com/0xPolygonHermez/rust/releases/download/${ZISK_TOOLCHAIN_TAG}/rust-toolchain-x86_64-unknown-linux-gnu.tar.gz" \
+    | tar xz -C /opt/zisk-toolchain && \
+    /opt/zisk-toolchain/bin/rustc --version && \
+    /opt/zisk-toolchain/bin/rustc --print target-list | grep zisk
+
+
 # ── Stage 2: Guest ELF build (cached separately) ────────────────────
 FROM toolchain-installer AS guest-builder
+
+# ENV vars don't carry between stages — re-declare here where make guest actually runs.
+ENV ZISK_RUSTC=/opt/zisk-toolchain/bin/rustc
+ENV ZISK_TOOLCHAIN_DIR=/opt/zisk-toolchain
 
 WORKDIR /opt/raiko
 
@@ -57,6 +85,8 @@ COPY provers/risc0/guest provers/risc0/guest
 COPY provers/risc0/builder provers/risc0/builder
 COPY provers/sp1/guest provers/sp1/guest
 COPY provers/sp1/builder provers/sp1/builder
+COPY provers/zisk/guest provers/zisk/guest
+COPY provers/zisk/builder provers/zisk/builder
 COPY pipeline pipeline
 COPY harness harness
 COPY makefile makefile
@@ -93,19 +123,26 @@ RUN mkdir -p host/src && echo "fn main() {}" > host/src/main.rs && touch host/sr
     && mkdir -p provers/tdx/src && touch provers/tdx/src/lib.rs \
     && printf '[package]\nname = "raiko-tdx"\nversion = "0.1.0"\nedition = "2021"\n' > provers/tdx/Cargo.toml \
     && mkdir -p provers/tdx/prover/src && touch provers/tdx/prover/src/lib.rs \
-    && printf '[package]\nname = "tdx-prover"\nversion = "0.1.0"\nedition = "2021"\n' > provers/tdx/prover/Cargo.toml
+    && printf '[package]\nname = "tdx-prover"\nversion = "0.1.0"\nedition = "2021"\n' > provers/tdx/prover/Cargo.toml \
+    && mkdir -p provers/zisk/driver/src && touch provers/zisk/driver/src/lib.rs \
+    && printf '[package]\nname = "zisk-driver"\nversion = "0.1.0"\nedition = "2021"\n' > provers/zisk/driver/Cargo.toml
 
 RUN mkdir -p ~/.cargo/bin
 
 RUN echo "Building risc0 guest ELFs"
-RUN TARGET=risc0 make guest
-# Verify risc0 guest ELFs were produced 
-RUN ls provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/*.bin
+#RUN TARGET=risc0 make guest
+# Verify risc0 guest ELFs were produced
+#RUN ls provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/*.bin
 
-RUN echo "Building sp1 guest ELFs"
-RUN TARGET=sp1 make guest
+#RUN echo "Building sp1 guest ELFs"
+#RUN TARGET=sp1 make guest
 # Verify sp1 guest ELFs were produced
-RUN ls provers/sp1/guest/elf/*
+#RUN ls provers/sp1/guest/elf/*
+
+RUN echo "Building zisk guest ELFs"
+RUN TARGET=zisk make guest
+# Verify zisk guest ELFs were produced
+RUN ls provers/zisk/guest/elf/*
 
 # ── Stage 3: Host build with CUDA (depends on all source code) ──────
 FROM nvidia/cuda:12.4.0-devel-ubuntu22.04 AS builder
@@ -113,7 +150,7 @@ FROM nvidia/cuda:12.4.0-devel-ubuntu22.04 AS builder
 ENV DEBIAN_FRONTEND=noninteractive
 ARG BUILD_FLAGS=""
 
-# Install system dependencies (needed for cargo build)
+# Install system dependencies (needed for cargo build, including zisk native C++ deps)
 RUN apt-get update && \
     apt-get install -y \
     build-essential \
@@ -125,7 +162,19 @@ RUN apt-get update && \
     curl \
     git \
     pkg-config \
-    libssl-dev && \
+    libssl-dev \
+    nasm \
+    libgmp-dev \
+    nlohmann-json3-dev \
+    uuid-dev \
+    libsodium-dev \
+    libsecp256k1-dev \
+    libomp-dev \
+    libpqxx-dev \
+    libopenmpi-dev \
+    openmpi-bin \
+    openmpi-common \
+    gcc-riscv64-unknown-elf && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -141,7 +190,7 @@ RUN mv /usr/local/cuda/bin/nvcc /usr/local/cuda/bin/nvcc.real && \
 # Copy Rust + toolchains from toolchain-installer (avoids re-downloading)
 COPY --from=toolchain-installer /usr/local/rustup /usr/local/rustup
 COPY --from=toolchain-installer /usr/local/cargo /usr/local/cargo
-COPY --from=toolchain-installer /root/.risc0 /root/.risc0
+#COPY --from=toolchain-installer /root/.risc0 /root/.risc0
 COPY --from=toolchain-installer /root/.sp1 /root/.sp1
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
@@ -169,40 +218,64 @@ COPY redis-derive redis-derive
 
 # Bring in cached guest ELFs and generated methods (with correct image IDs) from guest-builder
 COPY --from=guest-builder /opt/raiko/provers/sp1/guest/elf /opt/raiko/provers/sp1/guest/elf
-COPY --from=guest-builder /opt/raiko/provers/risc0/driver/src/methods /opt/raiko/provers/risc0/driver/src/methods
-COPY --from=guest-builder /opt/raiko/provers/risc0/guest /opt/raiko/provers/risc0/guest
+#COPY --from=guest-builder /opt/raiko/provers/risc0/driver/src/methods /opt/raiko/provers/risc0/driver/src/methods
+#COPY --from=guest-builder /opt/raiko/provers/risc0/guest /opt/raiko/provers/risc0/guest
+COPY --from=guest-builder /opt/raiko/provers/zisk/guest/elf /opt/raiko/provers/zisk/guest/elf
 
 RUN mkdir -p ~/.cargo/bin
 # Limit parallelism to avoid OOM during heavy ZK crate compilation (sp1-sdk + risc0 circuits)
 # ARG CARGO_BUILD_JOBS=2
 # ENV CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS}
 # ENV NUM_JOBS=${CARGO_BUILD_JOBS}
-RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0,cuda"
+# Allow multiple definitions: risc0_groth16_sys and proofman_starks_lib_c both
+# define the same CUDA sort kernel — they're compatible, let the linker pick one.
+# ENV RUSTFLAGS="-C link-arg=-Wl,--allow-multiple-definition"
+# RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0,zisk,cuda"
+
+# Build only for zisk
+RUN cargo build --release ${BUILD_FLAGS} --features "zisk"
 
 FROM ubuntu:22.04 AS raiko-zk
 
 COPY --from=builder /usr/local/cuda/lib64/libcudart* /usr/local/cuda/lib64/
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libssl3 \
+    libsodium23 \
+    libomp5 \
+    libgomp1 \
+    libopenmpi3 \
+    openmpi-bin \
+    openmpi-common \
+    make \
+    gcc \
+    g++ \
+    nasm \
+    libgmp-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 ENV NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility \
     LD_LIBRARY_PATH=/usr/local/cuda/lib64
 
 RUN mkdir -p \
-    ./bin \
     /etc/raiko \
     /var/log/raiko \
-    /tmp/risc0-cache
-
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    openssl \
-    curl \
-    jq \
-    && rm -rf /var/lib/apt/lists/*
+    /tmp/zisk-proofs
 
 COPY --from=builder /opt/raiko/host/config/config.sgx.json /etc/raiko/
 COPY --from=builder /opt/raiko/host/config/chain_spec_list_default.json /etc/raiko/chain_spec_list_default.json
 COPY --from=builder /opt/raiko/target/release/raiko-host /opt/raiko/bin/
+
+# Copy guest ELFs next to the binary so find_elf_dir() locates them via current_exe()
+COPY --from=builder /opt/raiko/provers/zisk/guest/elf/ /opt/raiko/bin/
+
+# Uncomment when building with --features "sp1,risc0,zisk,cuda"
+#COPY --from=builder /opt/raiko/provers/sp1/guest/elf /opt/raiko/provers/sp1/guest/elf
+#COPY --from=builder /opt/raiko/provers/risc0/guest /opt/raiko/provers/risc0/guest
+#COPY --from=builder /opt/raiko/provers/risc0/driver/src/methods /opt/raiko/provers/risc0/driver/src/methods
 
 WORKDIR /opt/raiko/bin
 COPY ./docker/entrypoint.sh /opt/raiko/bin/

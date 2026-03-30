@@ -1,0 +1,166 @@
+//! An implementation of the [SHA-3][1] cryptographic hash algorithms.
+//!
+//! ZisK-patched variant: the Keccak-f[1600] permutation is routed through the
+//! native `syscall_keccak_f` precompile on zkVM targets, falling back to the
+//! pure-Rust `keccak` crate on all other platforms.
+//!
+//! [1]: https://en.wikipedia.org/wiki/SHA-3
+
+#![no_std]
+#![doc(
+    html_logo_url = "https://raw.githubusercontent.com/RustCrypto/media/6ee8e381/logo.svg",
+    html_favicon_url = "https://raw.githubusercontent.com/RustCrypto/media/6ee8e381/logo.svg"
+)]
+// unsafe_code is needed in state.rs for the ZisK syscall_keccak_f FFI call.
+#![allow(unsafe_code)]
+#![warn(missing_docs, rust_2018_idioms)]
+
+pub use digest::{self, Digest};
+
+use core::fmt;
+#[cfg(feature = "oid")]
+use digest::const_oid::{AssociatedOid, ObjectIdentifier};
+use digest::{
+    block_buffer::Eager,
+    consts::{U104, U136, U144, U168, U200, U28, U32, U48, U64, U72},
+    core_api::{
+        AlgorithmName, Block, BlockSizeUser, Buffer, BufferKindUser, CoreWrapper,
+        ExtendableOutputCore, FixedOutputCore, OutputSizeUser, Reset, UpdateCore, XofReaderCore,
+        XofReaderCoreWrapper,
+    },
+    generic_array::typenum::Unsigned,
+    HashMarker, Output,
+};
+
+#[macro_use]
+mod macros;
+mod state;
+
+use crate::state::Sha3State;
+
+// Paddings
+const KECCAK: u8 = 0x01;
+const SHA3: u8 = 0x06;
+const SHAKE: u8 = 0x1f;
+const CSHAKE: u8 = 0x4;
+
+// Round counts
+const TURBO_SHAKE_ROUND_COUNT: usize = 12;
+
+impl_sha3!(Keccak224Core, Keccak224, U28, U144, KECCAK, "Keccak-224");
+impl_sha3!(Keccak256Core, Keccak256, U32, U136, KECCAK, "Keccak-256");
+impl_sha3!(Keccak384Core, Keccak384, U48, U104, KECCAK, "Keccak-384");
+impl_sha3!(Keccak512Core, Keccak512, U64, U72, KECCAK, "Keccak-512");
+
+impl_sha3!(
+    Keccak256FullCore,
+    Keccak256Full,
+    U200,
+    U136,
+    KECCAK,
+    "SHA-3 CryptoNight variant",
+);
+
+impl_sha3!(
+    Sha3_224Core,
+    Sha3_224,
+    U28,
+    U144,
+    SHA3,
+    "SHA-3-224",
+    "2.16.840.1.101.3.4.2.7",
+);
+impl_sha3!(
+    Sha3_256Core,
+    Sha3_256,
+    U32,
+    U136,
+    SHA3,
+    "SHA-3-256",
+    "2.16.840.1.101.3.4.2.8",
+);
+impl_sha3!(
+    Sha3_384Core,
+    Sha3_384,
+    U48,
+    U104,
+    SHA3,
+    "SHA-3-384",
+    "2.16.840.1.101.3.4.2.9",
+);
+impl_sha3!(
+    Sha3_512Core,
+    Sha3_512,
+    U64,
+    U72,
+    SHA3,
+    "SHA-3-512",
+    "2.16.840.1.101.3.4.2.10",
+);
+
+impl_shake!(
+    Shake128Core,
+    Shake128,
+    Shake128ReaderCore,
+    Shake128Reader,
+    U168,
+    SHAKE,
+    "SHAKE128",
+    "2.16.840.1.101.3.4.2.11",
+);
+impl_shake!(
+    Shake256Core,
+    Shake256,
+    Shake256ReaderCore,
+    Shake256Reader,
+    U136,
+    SHAKE,
+    "SHAKE256",
+    "2.16.840.1.101.3.4.2.11",
+);
+
+impl_turbo_shake!(
+    TurboShake128Core,
+    TurboShake128,
+    TurboShake128ReaderCore,
+    TurboShake128Reader,
+    U168,
+    "TurboSHAKE128",
+);
+impl_turbo_shake!(
+    TurboShake256Core,
+    TurboShake256,
+    TurboShake256ReaderCore,
+    TurboShake256Reader,
+    U136,
+    "TurboSHAKE256",
+);
+
+impl_cshake!(
+    CShake128Core,
+    CShake128,
+    CShake128ReaderCore,
+    CShake128Reader,
+    U168,
+    SHAKE,
+    CSHAKE,
+    "CSHAKE128",
+);
+impl_cshake!(
+    CShake256Core,
+    CShake256,
+    CShake256ReaderCore,
+    CShake256Reader,
+    U136,
+    SHAKE,
+    CSHAKE,
+    "CSHAKE256",
+);
+
+#[inline(always)]
+pub(crate) fn left_encode(val: u64, b: &mut [u8; 9]) -> &[u8] {
+    b[1..].copy_from_slice(&val.to_be_bytes());
+    let i = b[1..8].iter().take_while(|&&a| a == 0).count();
+    b[i] = (8 - i) as u8;
+    &b[i..]
+}

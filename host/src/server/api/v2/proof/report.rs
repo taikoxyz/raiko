@@ -4,8 +4,9 @@ use raiko_reqactor::Actor;
 use raiko_reqpool::{RequestKey, Status, StatusWithContext};
 use raiko_tasks::{
     AggregationTaskDescriptor, BatchGuestInputTaskDescriptor, BatchProofTaskDescriptor,
-    GuestInputTaskDescriptor, ProofTaskDescriptor, ShastaGuestInputTaskDescriptor,
-    ShastaProofTaskDescriptor, TaskDescriptor, TaskReport, TaskStatus,
+    GuestInputTaskDescriptor, ProofTaskDescriptor, RealTimeGuestInputTaskDescriptor,
+    RealTimeProofTaskDescriptor, ShastaGuestInputTaskDescriptor, ShastaProofTaskDescriptor,
+    TaskDescriptor, TaskReport, TaskStatus,
 };
 use serde_json::Value;
 use utoipa::OpenApi;
@@ -82,6 +83,24 @@ async fn report_handler(State(actor): State<Actor>) -> HostResult<Json<Value>> {
             TaskDescriptor::Aggregation(AggregationTaskDescriptor {
                 aggregation_ids: key.block_numbers().clone(),
                 proof_type: Some(key.proof_type().to_string()),
+            })
+        }
+        RequestKey::RealTimeGuestInput(key) => {
+            TaskDescriptor::RealTimeGuestInput(RealTimeGuestInputTaskDescriptor {
+                l2_block_numbers: key.l2_block_numbers().clone(),
+                l1_network: key.l1_network().clone(),
+                l2_network: key.l2_network().clone(),
+                last_finalized_block_hash: *key.last_finalized_block_hash(),
+            })
+        }
+        RequestKey::RealTimeProof(key) => {
+            TaskDescriptor::RealTimeProof(RealTimeProofTaskDescriptor {
+                l2_block_numbers: key.guest_input_key().l2_block_numbers().clone(),
+                l1_network: key.guest_input_key().l1_network().clone(),
+                l2_network: key.guest_input_key().l2_network().clone(),
+                last_finalized_block_hash: *key.guest_input_key().last_finalized_block_hash(),
+                proof_system: *key.proof_type(),
+                prover: key.actual_prover_address().clone(),
             })
         }
     };

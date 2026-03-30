@@ -1,15 +1,13 @@
 use alloy_consensus::Blob;
 use alloy_primitives::B256;
-use kzg::{
-    kzg_proofs::pairings_verify,
-    kzg_types::{ZFr, ZG1, ZG2},
-};
+use kzg::kzg_types::{ZFr, ZG1};
 use kzg_traits::{
     eip_4844::{
         blob_to_kzg_commitment_rust, blob_to_polynomial, compute_kzg_proof_rust,
-        evaluate_polynomial_in_evaluation_form, hash_to_bls_field, BYTES_PER_FIELD_ELEMENT,
+        evaluate_polynomial_in_evaluation_form, hash_to_bls_field, verify_kzg_proof_rust,
+        BYTES_PER_FIELD_ELEMENT,
     },
-    Fr, G1, G2,
+    Fr, G1,
 };
 use once_cell::sync::Lazy;
 use sha2::{Digest as _, Sha256};
@@ -51,6 +49,11 @@ pub fn get_evaluation_point(blob: &[u8], versioned_hash: &B256) -> ZFr {
     hash_to_bls_field(&x)
 }
 
+/// Returns the evaluation point as raw bytes (avoids callers needing the `Fr` trait).
+pub fn get_evaluation_point_bytes(blob: &[u8], versioned_hash: &B256) -> KzgField {
+    get_evaluation_point(blob, versioned_hash).to_bytes()
+}
+
 pub fn deserialize_blob_rust(blob: &Blob) -> Result<Vec<ZFr>, String> {
     blob.0
         .chunks(BYTES_PER_FIELD_ELEMENT)
@@ -76,7 +79,7 @@ pub fn proof_of_equivalence(
 
     let poly = blob_to_polynomial(&blob_fields).unwrap();
     let x = get_evaluation_point(blob_bytes, versioned_hash);
-    let y = evaluate_polynomial_in_evaluation_form(&poly, &x, &KZG_SETTINGS.clone())
+    let y = evaluate_polynomial_in_evaluation_form(&poly, &x, &*KZG_SETTINGS)
         .map(|fr| fr.to_bytes())
         .map_err(|e| Eip4844Error::EvaluatePolynomial(e.to_string()))?;
 
@@ -89,30 +92,13 @@ pub fn verify_kzg_proof_impl(
     y: KzgField,
     proof: KzgGroup,
 ) -> Result<bool, Eip4844Error> {
-    use bls12_381::*;
-    let commitment = G1Affine::from_compressed(&commitment).unwrap();
-    let proof = G1Affine::from_compressed(&proof).unwrap();
-    let proof = G1Projective::from(&proof);
-    let mut x_le = x;
-    x_le.reverse();
-    let mut y_le = y;
-    y_le.reverse();
-    let x = Scalar::from_bytes(&x_le).unwrap();
-    let y = Scalar::from_bytes(&y_le).unwrap();
+    let commitment = ZG1::from_bytes(&commitment).map_err(|e| Eip4844Error::ComputeKzgProof(e))?;
+    let x = ZFr::from_bytes(&x).map_err(|e| Eip4844Error::ComputeKzgProof(e))?;
+    let y = ZFr::from_bytes(&y).map_err(|e| Eip4844Error::ComputeKzgProof(e))?;
+    let proof = ZG1::from_bytes(&proof).map_err(|e| Eip4844Error::ComputeKzgProof(e))?;
 
-    let g2_x = G2Affine::generator() * x;
-    let setup_committed_x = G2Affine::from(KZG_SETTINGS.g2_values_monomial[1].proj);
-    let x_diff = setup_committed_x - g2_x;
-
-    let g1_y = G1Affine::generator() * y;
-    let p_minus_y = commitment - g1_y;
-
-    Ok(pairings_verify(
-        &ZG1::from_g1_projective(p_minus_y),
-        &ZG2::generator(),
-        &ZG1::from_g1_projective(proof),
-        &ZG2::from_g2_projective(x_diff),
-    ))
+    verify_kzg_proof_rust(&commitment, &x, &y, &proof, &*KZG_SETTINGS)
+        .map_err(|e| Eip4844Error::ComputeKzgProof(e))
 }
 
 pub fn calc_kzg_proof(blob: &[u8], versioned_hash: &B256) -> Result<ZG1, Eip4844Error> {
@@ -123,7 +109,7 @@ pub fn calc_kzg_proof_with_point(blob_bytes: &[u8], z: ZFr) -> Result<ZG1, Eip48
     let blob = Blob::try_from(blob_bytes).map_err(|_| Eip4844Error::BlobConversion)?;
 
     let blob_fields = deserialize_blob_rust(&blob).map_err(|_| Eip4844Error::DeserializeBlob)?;
-    let (proof, _) = compute_kzg_proof_rust(&blob_fields, &z, &KZG_SETTINGS.clone())
+    let (proof, _) = compute_kzg_proof_rust(&blob_fields, &z, &*KZG_SETTINGS)
         .map_err(Eip4844Error::ComputeKzgProof)?;
     Ok(proof)
 }
@@ -132,11 +118,9 @@ pub fn calc_kzg_proof_commitment(blob_bytes: &[u8]) -> Result<KzgGroup, Eip4844E
     let blob = Blob::try_from(blob_bytes).map_err(|_| Eip4844Error::BlobConversion)?;
 
     let blob_fields = deserialize_blob_rust(&blob).map_err(|_| Eip4844Error::DeserializeBlob)?;
-    Ok(
-        blob_to_kzg_commitment_rust(&blob_fields, &KZG_SETTINGS.clone())
-            .map_err(Eip4844Error::ComputeKzgProof)?
-            .to_bytes(),
-    )
+    Ok(blob_to_kzg_commitment_rust(&blob_fields, &*KZG_SETTINGS)
+        .map_err(Eip4844Error::ComputeKzgProof)?
+        .to_bytes())
 }
 
 pub fn commitment_to_version_hash(commitment: &[u8; 48]) -> B256 {
@@ -149,7 +133,7 @@ pub fn kzg_proof_to_bytes(proof: &ZG1) -> KzgGroup {
     proof.to_bytes()
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "zisk")))]
 mod test {
 
     use super::*;
@@ -165,21 +149,26 @@ mod test {
         y: &ZFr,
         proof: &ZG1,
     ) -> Result<bool, Eip4844Error> {
-        // The input is encoded as follows:
-        // | versioned_hash |  z  |  y  | commitment | proof |
-        // |     32         | 32  | 32  |     48     |   48  |
-        let version_hash = commitment_to_version_hash(commitment);
-        let mut input = [0u8; 192];
-        input[..32].copy_from_slice(&(*version_hash));
-        input[32..64].copy_from_slice(&z.to_bytes());
-        input[64..96].copy_from_slice(&y.to_bytes());
-        input[96..144].copy_from_slice(commitment);
-        input[144..192].copy_from_slice(&kzg_proof_to_bytes(proof));
-
-        Ok(
-            revm::precompile::kzg_point_evaluation::run(&Bytes::copy_from_slice(&input), u64::MAX)
-                .is_ok(),
+        verify_kzg_proof_impl(
+            *commitment,
+            z.to_bytes(),
+            y.to_bytes(),
+            kzg_proof_to_bytes(proof),
         )
+    }
+
+    #[test]
+    fn test_kzg_settings_loaded() {
+        // Verify the prebuilt KZG settings load successfully and have expected dimensions
+        let settings = (*KZG_SETTINGS).clone();
+        assert!(
+            !settings.g1_values_monomial.is_empty(),
+            "g1_values_monomial should not be empty"
+        );
+        assert!(
+            !settings.g2_values_monomial.is_empty(),
+            "g2_values_monomial should not be empty"
+        );
     }
 
     #[test]
@@ -187,7 +176,7 @@ mod test {
         let blob = Blob::default();
         let commitment = blob_to_kzg_commitment_rust(
             &deserialize_blob_rust(&blob).unwrap(),
-            &KZG_SETTINGS.clone(),
+            &(*KZG_SETTINGS).clone(),
         )
         .map(|c| c.to_bytes())
         .unwrap();
@@ -199,7 +188,7 @@ mod test {
 
     #[test]
     fn test_verify_kzg_proof() {
-        let kzg_settings = KZG_SETTINGS.clone();
+        let kzg_settings = (*KZG_SETTINGS).clone();
         let data: &[u8] = &(0u64..131072).map(|v| (v % 64) as u8).collect::<Vec<u8>>();
         let blob = Blob::try_from(data).unwrap();
         let blob_fields = deserialize_blob_rust(&blob).unwrap();
@@ -231,7 +220,8 @@ mod test {
 
         // Random number hash to field
         let x = hash_to_bls_field(&[5; BYTES_PER_FIELD_ELEMENT]);
-        let y = evaluate_polynomial_in_evaluation_form(&poly, &x, &KZG_SETTINGS.clone()).unwrap();
+        let y =
+            evaluate_polynomial_in_evaluation_form(&poly, &x, &(*KZG_SETTINGS).clone()).unwrap();
         let proof = calc_kzg_proof_with_point(&blob.0, x).unwrap();
 
         // Verify a correct proof

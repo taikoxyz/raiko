@@ -4,6 +4,7 @@ use crate::input::shasta::{Commitment, Derivation, Proposal};
 
 use crate::input::shasta::Checkpoint;
 use crate::primitives::keccak::keccak;
+use crate::protocol_instance::RealTimeTransitionData;
 use crate::prover::{ProofCarryData, TransitionInputData};
 use alloy_primitives::{b256, Address, B256, U256};
 use alloy_sol_types::SolValue;
@@ -95,6 +96,51 @@ const EMPTY_BYTES_HASH: B256 =
 
 pub const VERIFY_PROOF_B256: B256 =
     b256!("5645524946595f50524f4f460000000000000000000000000000000000000000");
+
+/// Domain-separated hash for a RealTime sub-proof public input.
+///
+/// Inner hash: `keccak256(abi.encode(proposalHash, lastFinalizedBlockHash, blockNumber, blockHash, stateRoot))`
+/// Outer hash: `hash(VERIFY_PROOF, chain_id, verifier, innerHash, bytes32(0))`
+pub fn hash_realtime_subproof_input(
+    chain_id: u64,
+    verifier: Address,
+    rt: &RealTimeTransitionData,
+) -> B256 {
+    tracing::info!(
+        "hash_realtime_subproof_input: {rt:?}, chain_id: {chain_id}, verifier: {verifier:?}"
+    );
+    let inner_hash = keccak(
+        (
+            rt.proposal_hash,
+            rt.last_finalized_block_hash,
+            rt.checkpoint.blockNumber,
+            rt.checkpoint.blockHash,
+            rt.checkpoint.stateRoot,
+        )
+            .abi_encode(),
+    )
+    .into();
+
+    tracing::debug!(
+        "hash_realtime_subproof_input inner hash: {:?}",
+        hex::encode(inner_hash)
+    );
+
+    let result = hash_five_values(
+        VERIFY_PROOF_B256,
+        U256::from(chain_id).into(),
+        address_to_b256(verifier),
+        inner_hash,
+        B256::ZERO,
+    );
+
+    tracing::debug!(
+        "hash_realtime_subproof_input result: {:?}",
+        hex::encode(result)
+    );
+
+    result
+}
 
 /// Domain-separated hash for a Shasta sub-proof public input.
 ///
@@ -357,6 +403,16 @@ pub fn hash_derivation(derivation: &Derivation) -> B256 {
 
     // Hash the entire buffer
     keccak(&buffer).into()
+}
+
+/// Hash signal slots for RealTimeInbox.
+/// Empty → bytes32(0), non-empty → keccak256(abi.encode(signalSlots))
+pub fn hash_signal_slots(signal_slots: &[B256]) -> B256 {
+    if signal_slots.is_empty() {
+        B256::ZERO
+    } else {
+        keccak(signal_slots.to_vec().abi_encode().as_slice()).into()
+    }
 }
 
 pub fn hash_public_input(

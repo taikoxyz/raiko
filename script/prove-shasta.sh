@@ -3,7 +3,7 @@
 if [ "$#" -ne 5 ]; then
     echo "Usage: prove-shasta.sh <chain> <proof> <batch_info> <l2 block> <last l2 anchor>"
     echo "  chain: taiko_mainnet, taiko_a7, taiko_dev"
-    echo "  proof: native, risc0[-bonsai], sp1, sgx, sgxgeth"
+    echo "  proof: native, risc0[-bonsai], sp1, sgx, sgxgeth, zisk"
     echo "  batch_info: \"[(batch_id, batch_proposal_height)]\""
     echo "Example:"
     echo "  prove-batch.sh ethereum native \"[(1, 2)]\" "
@@ -161,8 +161,14 @@ elif [ "$proof" == "risc0-bonsai" ]; then
         "execution_po2": 20
     }
   '
+elif [ "$proof" == "zisk" ]; then
+    proofParam='
+    "proof_type": "zisk",
+    "blob_proof_type": "proof_of_equivalence",
+    "zisk": {}
+  '
 else
-    echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', 'sgxgeth' or 'sgx'."
+    echo "Invalid proof name. Please use 'native', 'risc0[-bonsai]', 'sp1', 'sgxgeth', 'sgx', or 'zisk'."
     exit 1
 fi
 

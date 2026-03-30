@@ -100,6 +100,7 @@ pub static SURGE_DEV_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
         ),
         (TaikoHardfork::Pacaya.boxed(), ForkCondition::Block(1)),
         (TaikoHardfork::Shasta.boxed(), ForkCondition::Timestamp(0)),
+        (TaikoHardfork::RealTime.boxed(), ForkCondition::Timestamp(0)),
     ])
 });
 
@@ -145,6 +146,7 @@ pub static SURGE_TEST_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
         ),
         (TaikoHardfork::Pacaya.boxed(), ForkCondition::Block(1)),
         (TaikoHardfork::Shasta.boxed(), ForkCondition::Timestamp(0)),
+        (TaikoHardfork::RealTime.boxed(), ForkCondition::Timestamp(0)),
     ])
 });
 
@@ -190,6 +192,7 @@ pub static SURGE_STAGE_HARDFORKS: LazyLock<ChainHardforks> = LazyLock::new(|| {
         ),
         (TaikoHardfork::Pacaya.boxed(), ForkCondition::Block(1)),
         (TaikoHardfork::Shasta.boxed(), ForkCondition::Timestamp(0)),
+        (TaikoHardfork::RealTime.boxed(), ForkCondition::Timestamp(0)),
     ])
 });
 
@@ -432,6 +435,14 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase +
                     "evm fork SHASTA is not active, please update the chain spec"
                 );
             }
+            TaikoSpecId::REALTIME => {
+                assert!(
+                    chain_spec
+                        .fork(TaikoHardfork::RealTime)
+                        .active_at_timestamp(block_ts),
+                    "evm fork REALTIME is not active, please update the chain spec"
+                );
+            }
             _ => unimplemented!(),
         }
         info!("execute_transactions: is_taiko done");
@@ -490,19 +501,23 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase +
         info!("execute_transactions: execute done");
 
         // Filter out the valid transactions so that the header checks only take these into account
-        let mut block = recovered_block.into_block();
+        // Reuse already-recovered senders to avoid a second ECDSA recovery pass.
+        let (mut block, senders) = recovered_block.split();
 
-        let (filtered_txs, _): (Vec<_>, Vec<_>) = block
+        let (filtered_txs_and_senders, _): (Vec<_>, Vec<_>) = block
             .body
             .transactions
             .into_iter()
+            .zip(senders)
             .zip(receipts.clone())
             .filter(|(_, receipt)| receipt.success || (!receipt.success && optimistic))
             .unzip();
 
+        let (filtered_txs, filtered_senders): (Vec<_>, Vec<_>) =
+            filtered_txs_and_senders.into_iter().unzip();
         block.body.transactions = filtered_txs;
 
-        let recovered_block = RecoveredBlock::try_recover(block)?;
+        let recovered_block = RecoveredBlock::new_unhashed(block, filtered_senders);
         let sealed_block = recovered_block.sealed_block();
         let sealed_header = sealed_block.sealed_header();
 

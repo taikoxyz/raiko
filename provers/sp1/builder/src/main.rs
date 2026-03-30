@@ -55,27 +55,42 @@ impl Pipeline for Sp1Pipeline {
             .custom_args(&["--ignore-rust-version"]);
 
         // Resolve riscv64 C cross-compiler.
-        // 1. SP1 toolchain GCC at ~/.sp1/bin/riscv64-unknown-elf-gcc
-        // 2. System riscv64-elf-gcc (e.g. from apt or Homebrew)
-        // 3. System riscv64-unknown-elf-gcc
-        let gcc_path = [
-            Some(sp1_gcc.to_string_lossy().to_string()),
-            find_on_path("riscv64-elf-gcc"),
-            find_on_path("riscv64-unknown-elf-gcc"),
-        ]
-        .into_iter()
-        .flatten()
-        .find(|p| std::path::Path::new(p).exists());
+        // Prefer SP1 bundled gcc, but if it requires a newer GLIBC than the system provides
+        // (detected by a failed probe run), fall back to the system-installed cross-compiler.
+        let sp1_gcc_str = sp1_gcc.to_string_lossy().to_string();
+        let sp1_gcc_usable = sp1_gcc.exists()
+            && std::process::Command::new(&sp1_gcc)
+                .arg("--version")
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+        let gcc_path = if sp1_gcc_usable {
+            Some(sp1_gcc_str)
+        } else {
+            find_on_path("riscv64-elf-gcc").or_else(|| find_on_path("riscv64-unknown-elf-gcc"))
+        };
 
-        // Discover SP1 newlib sysroot headers (platform-independent lookup).
-        // The riscv C toolchain lives under ~/.sp1/riscv/<platform-triple>/riscv32-unknown-elf/include
-        let sp1_include_dir = sp1_dir.join("riscv").read_dir().ok().and_then(|mut rd| {
-            rd.find_map(|e| {
-                let dir = e.ok()?.path();
-                let inc = dir.join("riscv32-unknown-elf/include");
-                inc.is_dir().then(|| inc.to_string_lossy().to_string())
+        // Discover SP1 newlib sysroot headers.
+        // Layouts tried in order:
+        //   ~/.sp1/riscv/riscv64-unknown-elf/include/  (new SP1 v6 layout)
+        //   ~/.sp1/riscv/<platform-triple>/riscv32-unknown-elf/include/  (old layout)
+        let riscv_dir = sp1_dir.join("riscv");
+        let sp1_include_dir = [riscv_dir.join("riscv64-unknown-elf/include")]
+            .into_iter()
+            .chain(riscv_dir.read_dir().ok().into_iter().flat_map(|rd| {
+                rd.filter_map(|e| {
+                    let dir = e.ok()?.path();
+                    Some(dir.join("riscv32-unknown-elf/include"))
+                })
+                .collect::<Vec<_>>()
+            }))
+            .find(|p| {
+                p.is_dir()
+                    && p.read_dir()
+                        .map(|mut d| d.next().is_some())
+                        .unwrap_or(false)
             })
-        });
+            .map(|p| p.to_string_lossy().to_string());
 
         if let Some(gcc) = gcc_path.as_deref() {
             let mut flags: Vec<&str> = vec![

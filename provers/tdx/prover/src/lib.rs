@@ -16,8 +16,10 @@ use serde_with::serde_as;
 use std::collections::HashMap;
 use tracing::info;
 
+#[allow(dead_code)]
 mod attestation_client;
 mod config;
+#[allow(dead_code)]
 mod proof;
 mod signature;
 

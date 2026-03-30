@@ -11,10 +11,10 @@
         },
         "l1_contract": {},
         "l2_contract": null,
-        "rpc": "http://173.255.233.27:32003",
-        "beacon_rpc": "http://173.255.233.27:33001",
+        "rpc": "http://45.79.132.65:32003",
+        "beacon_rpc": "http://45.79.132.65:33001",
         "verifier_address_forks": {},
-        "genesis_time": 1751973629,
+        "genesis_time": 1773652300,
         "seconds_per_slot": 12,
         "is_taiko": false
     },
@@ -28,8 +28,8 @@
             "PACAYA": {
                 "Block": 1
             },
-            "SHASTA": {
-                "Timestamp": 0
+            "REALTIME": {
+                "Block": 1
             }
         },
         "eip_1559_constants": {
@@ -39,33 +39,24 @@
             "elasticity_multiplier": "0x2"
         },
         "l1_contract": {
-            "PACAYA": "0xC3c933d714FbD79e1D6cA89AA1126FC52a64873b",
-            "SHASTA": "0xC3c933d714FbD79e1D6cA89AA1126FC52a64873b"
+            "REALTIME": "0xFd14bc4D6d794a9197D550C10804aA77990059F7",
+            "PACAYA": "0x94d2dfE4D93691B5073A6c3cDf702F0e7f604549"
         },
         "l2_contract": "0x7633740000000000000000000000000000010001",
-        "rpc": "https://l2-rpc.staging.surge.wtf",
+        "rpc": "http://45.79.132.65:8547",
         "beacon_rpc": null,
         "verifier_address_forks": {
             "ONTAKE": {
-                "SGX": "0x61795f62aDFCa83539B391667bba4Ffec338d146",
-                "SGXGETH": "0xCD6ADac7ca8D05788563359a83B4B1C53c427736",
-                "SP1": "0xC63aAfc2a65020c4d1090F69158964c35b456fed",
-                "RISC0": "0xa9E77deA8D86AE55F6181472246c9157E85A7F7E",
-                "AZURE_TDX": "0x0000000000000000000000000000000000000000"
+                "SP1": "0x374810749dB4E052bA49933d1490547B3152EbCc",
+                "RISC0": "0xeCd1Ca11e7c08862563AA85b47A42FE8B0a286d2"
             },
             "PACAYA": {
-                "SGX": "0x61795f62aDFCa83539B391667bba4Ffec338d146",
-                "SGXGETH": "0xCD6ADac7ca8D05788563359a83B4B1C53c427736",
-                "SP1": "0xC63aAfc2a65020c4d1090F69158964c35b456fed",
-                "RISC0": "0xa9E77deA8D86AE55F6181472246c9157E85A7F7E",
-                "AZURE_TDX": "0x0000000000000000000000000000000000000000"
+                "SP1": "0x374810749dB4E052bA49933d1490547B3152EbCc",
+                "RISC0": "0xeCd1Ca11e7c08862563AA85b47A42FE8B0a286d2"
             },
-            "SHASTA": {
-                "SGX": "0x61795f62aDFCa83539B391667bba4Ffec338d146",
-                "SGXGETH": "0xCD6ADac7ca8D05788563359a83B4B1C53c427736",
-                "SP1": "0xC63aAfc2a65020c4d1090F69158964c35b456fed",
-                "RISC0": "0xa9E77deA8D86AE55F6181472246c9157E85A7F7E",
-                "AZURE_TDX": "0x0000000000000000000000000000000000000000"
+            "REALTIME": {
+                "SP1": "0x374810749dB4E052bA49933d1490547B3152EbCc",
+                "RISC0": "0xeCd1Ca11e7c08862563AA85b47A42FE8B0a286d2"
             }
         },
         "genesis_time": 0,

@@ -23,8 +23,12 @@ alloy-rlp-derive = { workspace = true }
 alloy-sol-types = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-rpc-types = { workspace = true }
-alloy-consensus = { workspace = true }
+alloy-consensus = { workspace = true, features = ["crypto-backend"] }
 alloy-chains = { workspace = true }
+
+# Crypto deps (re-exported for guest crate)
+k256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
+tiny-keccak = { version = "2.0", features = ["keccak"] }
 
 # errors
 anyhow = { workspace = true }
@@ -102,5 +106,6 @@ std = [
 sgx = []
 sp1 = []
 risc0 = []
+zisk = []
 sp1-cycle-tracker = []
 preflight = ["alethia-reth-block/prover"]

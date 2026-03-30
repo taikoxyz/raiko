@@ -169,6 +169,20 @@ sol! {
         nonReentrant
     {}
 
+    /// @notice RealTime fork anchor — carries signal slots on the first block of each batch.
+    /// @dev The first block in a RealTime batch calls this with the full signal slots array.
+    ///      All subsequent blocks in the same batch call this with an empty `_signalSlots` array.
+    /// @param _checkpoint Checkpoint data for the L1 block being anchored.
+    /// @param _signalSlots L1 signal slots to relay (non-empty only on the first block).
+    function anchorV4WithSignalSlots(
+        Checkpoint calldata _checkpoint,
+        bytes32[] calldata _signalSlots
+    )
+        external
+        onlyValidSender
+        nonReentrant
+    {}
+
     // event emitted by anchorV4
     event Anchored(
         uint48 indexed proposalId,
@@ -203,4 +217,11 @@ pub fn decode_anchor_pacaya(bytes: &[u8]) -> Result<anchorV3Call> {
 /// Decode anchor tx data for shasta fork, using anchorV4
 pub fn decode_anchor_shasta(bytes: &[u8]) -> Result<anchorV4Call> {
     anchorV4Call::abi_decode_validate(bytes).map_err(|e| anyhow!(e))
+}
+
+/// Decode anchor tx data for the RealTime fork, using anchorV4WithSignalSlots.
+/// Returns the decoded checkpoint and signal slots array.
+/// The signal slots array is non-empty only on the first block of a batch.
+pub fn decode_anchor_realtime(bytes: &[u8]) -> Result<anchorV4WithSignalSlotsCall> {
+    anchorV4WithSignalSlotsCall::abi_decode_validate(bytes).map_err(|e| anyhow!(e))
 }

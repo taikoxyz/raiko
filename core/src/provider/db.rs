@@ -13,6 +13,7 @@ use tokio::runtime::Handle;
 use crate::{
     interfaces::{RaikoError, RaikoResult},
     provider::BlockDataProvider,
+    provider::rpc::PrestateTraceResult,
     MerkleProof,
 };
 use tracing::{info, trace};
@@ -166,6 +167,88 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
             && self.pending_slots.is_empty()
             && self.pending_block_hashes.is_empty()
     }
+
+    /// Pre-populate staging_db with the given accounts and storage slots.
+    /// Used to seed the DB from an eth_createAccessList prefetch, reducing execute_txs iterations.
+    pub async fn prefetch_state(
+        &mut self,
+        addresses: Vec<Address>,
+        slots: Vec<(Address, U256)>,
+    ) -> RaikoResult<()> {
+        let has_addresses = !addresses.is_empty();
+        let has_slots = !slots.is_empty();
+
+        if !has_addresses && !has_slots {
+            return Ok(());
+        }
+
+        // Fetch accounts and storage values in parallel
+        let (accounts_result, slots_result) = tokio::join!(
+            async {
+                if has_addresses {
+                    self.provider
+                        .get_accounts(self.block_number, &addresses)
+                        .await
+                } else {
+                    Ok(vec![])
+                }
+            },
+            async {
+                if has_slots {
+                    self.provider
+                        .get_storage_values(self.block_number, &slots)
+                        .await
+                } else {
+                    Ok(vec![])
+                }
+            },
+        );
+
+        for (address, account) in addresses.into_iter().zip(accounts_result?.into_iter()) {
+            self.staging_db.insert_account_info(address, account);
+        }
+        for ((address, index), value) in slots.into_iter().zip(slots_result?.into_iter()) {
+            self.staging_db
+                .insert_account_storage(&address, index, value);
+        }
+        Ok(())
+    }
+
+    /// Populate staging_db directly from debug_traceBlockByNumber prestate results.
+    /// This inserts actual account state (balance, nonce, code) and storage values,
+    /// eliminating the need for separate RPC fetches and multiple iterations.
+    pub fn populate_from_trace(&mut self, prestate: PrestateTraceResult) {
+        let mut num_accounts = 0usize;
+        let mut num_slots = 0usize;
+        for (address, state) in prestate.0 {
+            let balance = state.balance.unwrap_or(U256::ZERO);
+            let nonce = state.nonce.unwrap_or(0);
+            let code = state
+                .code
+                .map(|c| Bytecode::new_raw(c))
+                .unwrap_or_else(|| Bytecode::new_raw(Bytes::new()));
+            let account_info =
+                AccountInfo::new(balance, nonce, code.hash_slow(), code);
+            self.staging_db
+                .insert_account_info(address, account_info);
+            num_accounts += 1;
+
+            if let Some(storage) = state.storage {
+                for (slot, value) in storage {
+                    self.staging_db.insert_account_storage(
+                        &address,
+                        U256::from_be_bytes(slot.0),
+                        value,
+                    );
+                    num_slots += 1;
+                }
+            }
+        }
+        info!(
+            "populate_from_trace: inserted {} accounts, {} storage slots",
+            num_accounts, num_slots,
+        );
+    }
 }
 
 impl<'a, BDP: BlockDataProvider> Database for ProviderDb<'a, BDP> {
@@ -305,21 +388,28 @@ impl<'a, BDP: BlockDataProvider> DatabaseCommit for ProviderDb<'a, BDP> {
 
 impl<'a, BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<'a, BDP> {
     async fn fetch_data(&mut self) -> bool {
-        //println!("all accounts touched: {:?}", self.pending_accounts);
-        //println!("all slots touched: {:?}", self.pending_slots);
-        //println!("all block hashes touched: {:?}", self.pending_block_hashes);
-
         // This run was valid when no pending work was scheduled
         let valid_run = self.is_valid_run();
 
-        let Ok(accounts) = self
-            .provider
-            .get_accounts(
-                self.block_number,
-                &self.pending_accounts.iter().copied().collect::<Vec<_>>(),
-            )
-            .await
-        else {
+        let pending_accounts_vec: Vec<_> = self.pending_accounts.iter().copied().collect();
+        let pending_slots_vec: Vec<_> = self.pending_slots.iter().copied().collect();
+        let pending_blocks_vec: Vec<_> = self
+            .pending_block_hashes
+            .iter()
+            .copied()
+            .map(|block_number| (block_number, false))
+            .collect();
+
+        // Fetch accounts, storage values, and blocks in parallel
+        let (accounts_result, slots_result, blocks_result) = tokio::join!(
+            self.provider
+                .get_accounts(self.block_number, &pending_accounts_vec),
+            self.provider
+                .get_storage_values(self.block_number, &pending_slots_vec),
+            self.provider.get_blocks(&pending_blocks_vec),
+        );
+
+        let Ok(accounts) = accounts_result else {
             return false;
         };
         for (address, account) in take(&mut self.pending_accounts)
@@ -330,14 +420,7 @@ impl<'a, BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<'a, BDP> {
                 .insert_account_info(address, account.clone());
         }
 
-        let Ok(slots) = self
-            .provider
-            .get_storage_values(
-                self.block_number,
-                &self.pending_slots.iter().copied().collect::<Vec<_>>(),
-            )
-            .await
-        else {
+        let Ok(slots) = slots_result else {
             return false;
         };
         for ((address, index), value) in take(&mut self.pending_slots).into_iter().zip(slots.iter())
@@ -346,18 +429,7 @@ impl<'a, BDP: BlockDataProvider> OptimisticDatabase for ProviderDb<'a, BDP> {
                 .insert_account_storage(&address, index, *value);
         }
 
-        let Ok(blocks) = self
-            .provider
-            .get_blocks(
-                &self
-                    .pending_block_hashes
-                    .iter()
-                    .copied()
-                    .map(|block_number| (block_number, false))
-                    .collect::<Vec<_>>(),
-            )
-            .await
-        else {
+        let Ok(blocks) = blocks_result else {
             return false;
         };
         for (block_number, block) in take(&mut self.pending_block_hashes)

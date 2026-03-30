@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use derive_getters::Getters;
 use raiko_core::interfaces::{ProverSpecificOpts, ShastaProposalCheckpoint};
 use raiko_lib::{
-    input::BlobProofType,
+    input::{realtime::DerivationSource, BlobProofType},
     primitives::{ChainId, B256},
     proof_type::ProofType,
     prover::Proof,
@@ -110,6 +110,8 @@ pub enum RequestKey {
     ShastaGuestInput(ShastaInputRequestKey),
     ShastaProof(ShastaProofRequestKey),
     ShastaAggregation(AggregationRequestKey),
+    RealTimeGuestInput(RealTimeInputRequestKey),
+    RealTimeProof(RealTimeProofRequestKey),
 }
 
 impl RequestKey {
@@ -117,12 +119,14 @@ impl RequestKey {
         match self {
             RequestKey::GuestInput(_)
             | RequestKey::BatchGuestInput(_)
-            | RequestKey::ShastaGuestInput(_) => &ProofType::Native,
+            | RequestKey::ShastaGuestInput(_)
+            | RequestKey::RealTimeGuestInput(_) => &ProofType::Native,
             RequestKey::SingleProof(key) => &key.proof_type,
             RequestKey::Aggregation(key) => &key.proof_type,
             RequestKey::BatchProof(key) => &key.proof_type,
             RequestKey::ShastaProof(key) => &key.proof_type,
             RequestKey::ShastaAggregation(key) => &key.proof_type,
+            RequestKey::RealTimeProof(key) => &key.proof_type,
         }
     }
 }
@@ -409,6 +413,67 @@ impl ShastaProofRequestKey {
     }
 }
 
+// === RealTime fork request keys ===
+
+#[derive(
+    PartialEq, Debug, Clone, Deserialize, Serialize, Eq, PartialOrd, Ord, Hash, RedisValue, Getters,
+)]
+pub struct RealTimeInputRequestKey {
+    /// The L2 block numbers covered by this request
+    l2_block_numbers: Vec<u64>,
+    /// The L1 network of the request
+    l1_network: String,
+    /// The L2 network of the request
+    l2_network: String,
+    /// Block hash of last finalized L2 block (identifies the chain position)
+    last_finalized_block_hash: B256,
+}
+
+impl RealTimeInputRequestKey {
+    pub fn new(
+        l2_block_numbers: Vec<u64>,
+        l1_network: String,
+        l2_network: String,
+        last_finalized_block_hash: B256,
+    ) -> Self {
+        Self {
+            l2_block_numbers,
+            l1_network,
+            l2_network,
+            last_finalized_block_hash,
+        }
+    }
+}
+
+#[derive(
+    PartialEq, Debug, Clone, Deserialize, Serialize, Eq, PartialOrd, Ord, Hash, RedisValue, Getters,
+)]
+pub struct RealTimeProofRequestKey {
+    guest_input_key: RealTimeInputRequestKey,
+    /// The proof type of the request
+    proof_type: ProofType,
+    /// The actual prover of the request
+    actual_prover_address: String,
+    /// The image ID for zk provers (optional)
+    image_id: Option<ImageId>,
+}
+
+impl RealTimeProofRequestKey {
+    pub fn new_with_input_key_and_image_id(
+        guest_input_key: RealTimeInputRequestKey,
+        proof_type: ProofType,
+        actual_prover_address: String,
+        image_id: ImageId,
+    ) -> Self {
+        Self {
+            guest_input_key,
+            proof_type,
+            actual_prover_address,
+            image_id: Some(image_id),
+        }
+    }
+}
+
 impl From<GuestInputRequestKey> for RequestKey {
     fn from(key: GuestInputRequestKey) -> Self {
         RequestKey::GuestInput(key)
@@ -448,6 +513,18 @@ impl From<ShastaInputRequestKey> for RequestKey {
 impl From<ShastaProofRequestKey> for RequestKey {
     fn from(key: ShastaProofRequestKey) -> Self {
         RequestKey::ShastaProof(key)
+    }
+}
+
+impl From<RealTimeInputRequestKey> for RequestKey {
+    fn from(key: RealTimeInputRequestKey) -> Self {
+        RequestKey::RealTimeGuestInput(key)
+    }
+}
+
+impl From<RealTimeProofRequestKey> for RequestKey {
+    fn from(key: RealTimeProofRequestKey) -> Self {
+        RequestKey::RealTimeProof(key)
     }
 }
 
@@ -524,6 +601,81 @@ impl RequestKey {
             RequestKey::ShastaGuestInput(_) => None, // ShastaGuestInput doesn't have image_id
             RequestKey::ShastaProof(key) => key.image_id.as_ref(),
             RequestKey::ShastaAggregation(key) => key.image_id.as_ref(),
+            RequestKey::RealTimeGuestInput(_) => None,
+            RequestKey::RealTimeProof(key) => key.image_id.as_ref(),
+        }
+    }
+
+    /// Primary sort key for the priority queue. Lower values are dequeued first.
+    pub fn batch_sort_key(&self) -> u64 {
+        match self {
+            RequestKey::SingleProof(ref key) => key.block_number,
+            &RequestKey::GuestInput(ref key) => key.block_number,
+            RequestKey::Aggregation(key) => key
+                .block_numbers()
+                .iter()
+                .min()
+                .expect("Block numbers should be present")
+                .clone(),
+            RequestKey::ShastaAggregation(key) => key
+                .block_numbers()
+                .iter()
+                .min()
+                .expect("Block numbers should be present")
+                .clone(),
+            RequestKey::BatchProof(key) => *key.guest_input_key().batch_id(),
+            RequestKey::BatchGuestInput(key) => *key.batch_id(),
+            RequestKey::ShastaProof(key) => *key.guest_input_key().proposal_id(),
+            RequestKey::ShastaGuestInput(key) => *key.proposal_id(),
+            RequestKey::RealTimeGuestInput(key) => key
+                .l2_block_numbers()
+                .iter()
+                .min()
+                .copied()
+                .expect("Block numbers should be present"),
+            RequestKey::RealTimeProof(key) => key
+                .guest_input_key()
+                .l2_block_numbers()
+                .iter()
+                .min()
+                .copied()
+                .expect("Block numbers should be present"),
+        }
+    }
+
+    /// Secondary sort key: within the same `batch_sort_key`, guest inputs run
+    /// before proofs, and proofs run before aggregations.
+    pub fn stage(&self) -> RequestStage {
+        match self {
+            RequestKey::GuestInput(_)
+            | RequestKey::BatchGuestInput(_)
+            | RequestKey::ShastaGuestInput(_)
+            | RequestKey::RealTimeGuestInput(_) => RequestStage::GuestInput,
+            RequestKey::SingleProof(_)
+            | RequestKey::BatchProof(_)
+            | RequestKey::ShastaProof(_)
+            | RequestKey::RealTimeProof(_) => RequestStage::Proof,
+            RequestKey::Aggregation(_) | RequestKey::ShastaAggregation(_) => {
+                RequestStage::Aggregation
+            }
+        }
+    }
+}
+
+/// Processing stage of a request, used for priority ordering within the same batch_id.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum RequestStage {
+    GuestInput = 0,
+    Proof = 1,
+    Aggregation = 2,
+}
+
+impl std::fmt::Display for RequestStage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::GuestInput => write!(f, "guest_input"),
+            Self::Proof => write!(f, "proof"),
+            Self::Aggregation => write!(f, "aggregation"),
         }
     }
 
@@ -908,6 +1060,96 @@ impl ShastaProofRequestEntity {
     }
 }
 
+// === RealTime fork request entities ===
+
+#[serde_as]
+#[derive(PartialEq, Debug, Clone, Deserialize, Serialize, RedisValue, Getters)]
+pub struct RealTimeInputRequestEntity {
+    /// The L2 block numbers to prove
+    l2_block_numbers: Vec<u64>,
+    /// The network to generate the proof for.
+    network: String,
+    /// The L1 network to generate the proof for.
+    l1_network: String,
+    /// Actual prover address
+    actual_prover: Address,
+    /// Blob proof type.
+    blob_proof_type: BlobProofType,
+    /// Highest L1 block the L2 derivation references
+    max_anchor_block_number: u64,
+    /// L1 signal slots to relay
+    signal_slots: Vec<B256>,
+    /// Block hash of last finalized L2 block
+    last_finalized_block_hash: B256,
+    /// Percentage of basefee paid to coinbase
+    basefee_sharing_pctg: u8,
+    /// Derivation sources for blob data
+    sources: Vec<DerivationSource>,
+    /// Raw blob data (hex-encoded), supplied by the proposer
+    blobs: Vec<String>,
+    /// Previous finalized checkpoint
+    checkpoint: Option<ShastaProposalCheckpoint>,
+}
+
+impl RealTimeInputRequestEntity {
+    pub fn new(
+        l2_block_numbers: Vec<u64>,
+        network: String,
+        l1_network: String,
+        actual_prover: Address,
+        blob_proof_type: BlobProofType,
+        max_anchor_block_number: u64,
+        signal_slots: Vec<B256>,
+        last_finalized_block_hash: B256,
+        basefee_sharing_pctg: u8,
+        checkpoint: Option<ShastaProposalCheckpoint>,
+        sources: Vec<DerivationSource>,
+        blobs: Vec<String>,
+    ) -> Self {
+        Self {
+            l2_block_numbers,
+            network,
+            l1_network,
+            actual_prover,
+            blob_proof_type,
+            max_anchor_block_number,
+            signal_slots,
+            last_finalized_block_hash,
+            basefee_sharing_pctg,
+            checkpoint,
+            sources,
+            blobs,
+        }
+    }
+}
+
+#[serde_as]
+#[derive(PartialEq, Debug, Clone, Deserialize, Serialize, RedisValue, Getters)]
+pub struct RealTimeProofRequestEntity {
+    #[serde(flatten)]
+    /// The realtime input request entity
+    guest_input_entity: RealTimeInputRequestEntity,
+    /// The proof type.
+    proof_type: ProofType,
+    #[serde(flatten)]
+    /// Additional prover params.
+    prover_args: HashMap<String, serde_json::Value>,
+}
+
+impl RealTimeProofRequestEntity {
+    pub fn new_with_guest_input_entity(
+        guest_input_entity: RealTimeInputRequestEntity,
+        proof_type: ProofType,
+        prover_args: HashMap<String, serde_json::Value>,
+    ) -> Self {
+        Self {
+            guest_input_entity,
+            proof_type,
+            prover_args,
+        }
+    }
+}
+
 /// The entity of a request
 #[derive(PartialEq, Debug, Clone, Deserialize, Serialize, RedisValue)]
 pub enum RequestEntity {
@@ -919,6 +1161,8 @@ pub enum RequestEntity {
     ShastaGuestInput(ShastaInputRequestEntity),
     ShastaProof(ShastaProofRequestEntity),
     ShastaAggregation(AggregationRequestEntity),
+    RealTimeGuestInput(RealTimeInputRequestEntity),
+    RealTimeProof(RealTimeProofRequestEntity),
 }
 
 impl From<GuestInputRequestEntity> for RequestEntity {
@@ -965,6 +1209,18 @@ impl From<ShastaProofRequestEntity> for RequestEntity {
     }
 }
 
+impl From<RealTimeInputRequestEntity> for RequestEntity {
+    fn from(entity: RealTimeInputRequestEntity) -> Self {
+        RequestEntity::RealTimeGuestInput(entity)
+    }
+}
+
+impl From<RealTimeProofRequestEntity> for RequestEntity {
+    fn from(entity: RealTimeProofRequestEntity) -> Self {
+        RequestEntity::RealTimeProof(entity)
+    }
+}
+
 // === impl Display using json_pretty ===
 
 impl_display_using_json_pretty!(RequestKey);
@@ -978,6 +1234,8 @@ impl_display_using_json_pretty!(BatchProofRequestEntity);
 impl_display_using_json_pretty!(BatchGuestInputRequestEntity);
 impl_display_using_json_pretty!(ShastaInputRequestEntity);
 impl_display_using_json_pretty!(ShastaProofRequestEntity);
+impl_display_using_json_pretty!(RealTimeInputRequestEntity);
+impl_display_using_json_pretty!(RealTimeProofRequestEntity);
 
 // === impl Display for Status ===
 
@@ -1032,13 +1290,18 @@ impl ImageIdReader for ProofType {
             ProofType::Sp1 => "SP1_BATCH_VK_HASH",
             ProofType::Sgx => "SGX_MRENCLAVE",
             ProofType::SgxGeth => "SGXGETH_MRENCLAVE",
+            ProofType::Zisk => "ZISK_BATCH_ID",
             _ => panic!("Unsupported proof type for image ID: {:?}", self),
         }
     }
 
     fn default_value(&self, _request_type: Option<&str>) -> &'static str {
         match self {
-            ProofType::Risc0 | ProofType::Sp1 | ProofType::Sgx | ProofType::SgxGeth => {
+            ProofType::Risc0
+            | ProofType::Sp1
+            | ProofType::Sgx
+            | ProofType::SgxGeth
+            | ProofType::Zisk => {
                 "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
             }
             _ => panic!("Unsupported proof type for default value: {:?}", self),
@@ -1059,6 +1322,8 @@ pub struct ImageId {
     pub sgx_enclave: Option<String>,
     /// SGX Geth enclave MRENCLAVE
     pub sgxgeth_enclave: Option<String>,
+    /// Zisk batch ID
+    pub zisk_batch_id: Option<String>,
 }
 
 impl ImageId {
@@ -1068,10 +1333,12 @@ impl ImageId {
             sp1_batch_vk_hash: None,
             sgx_enclave: None,
             sgxgeth_enclave: None,
+            zisk_batch_id: None,
         }
     }
 
     /// Create an ImageId based on the proof type (always uses batch IDs for data lookup)
+
     pub fn from_proof_type_and_request_type(proof_type: &ProofType, _is_aggregation: bool) -> Self {
         let mut image_id = Self::new();
 
@@ -1094,6 +1361,11 @@ impl ImageId {
             ProofType::SgxGeth => {
                 if let Ok(mrenclave) = proof_type.read_image_id(None) {
                     image_id.sgxgeth_enclave = Some(mrenclave);
+                }
+            }
+            ProofType::Zisk => {
+                if let Ok(id) = proof_type.read_image_id(None) {
+                    image_id.zisk_batch_id = Some(id);
                 }
             }
             _ => {

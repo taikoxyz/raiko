@@ -178,6 +178,26 @@ pub struct ShastaProofTaskDescriptor {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A request for RealTime guest input generation.
+pub struct RealTimeGuestInputTaskDescriptor {
+    pub l2_block_numbers: Vec<u64>,
+    pub l1_network: String,
+    pub l2_network: String,
+    pub last_finalized_block_hash: B256,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// A request for RealTime proof generation.
+pub struct RealTimeProofTaskDescriptor {
+    pub l2_block_numbers: Vec<u64>,
+    pub l1_network: String,
+    pub l2_network: String,
+    pub last_finalized_block_hash: B256,
+    pub proof_system: ProofType,
+    pub prover: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TaskDescriptor {
     GuestInput(GuestInputTaskDescriptor),
     SingleProof(ProofTaskDescriptor),
@@ -186,6 +206,8 @@ pub enum TaskDescriptor {
     BatchGuestInput(BatchGuestInputTaskDescriptor),
     ShastaGuestInput(ShastaGuestInputTaskDescriptor),
     ShastaProof(ShastaProofTaskDescriptor),
+    RealTimeGuestInput(RealTimeGuestInputTaskDescriptor),
+    RealTimeProof(RealTimeProofTaskDescriptor),
 }
 
 pub type TaskReport = (TaskDescriptor, TaskStatus);

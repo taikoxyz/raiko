@@ -16,6 +16,15 @@ mod no_std {
 
 use tracing::debug;
 
+// Re-export key dependencies so downstream crates (e.g. zisk guest) can use
+// them without adding direct deps — ensures version consistency across raiko.
+pub use alloy_consensus;
+pub use alloy_primitives;
+pub use revm;
+
+pub use k256;
+pub use tiny_keccak;
+
 pub mod anchor;
 pub mod builder;
 pub mod consts;

@@ -190,6 +190,20 @@ pub trait Prover {
         Ok(proof)
     }
 
+    /// Run the prover for RealTime proposals.
+    ///
+    /// Default implementation delegates to `batch_run` — no `ProofCarryData` attachment
+    /// is needed because RealTime has no aggregation step.
+    async fn realtime_run(
+        &self,
+        input: GuestBatchInput,
+        output: &GuestBatchOutput,
+        config: &ProverConfig,
+        store: Option<&mut dyn IdWrite>,
+    ) -> ProverResult<Proof> {
+        self.batch_run(input, output, config, store).await
+    }
+
     async fn shasta_aggregate(
         &self,
         input: ShastaAggregationGuestInput,

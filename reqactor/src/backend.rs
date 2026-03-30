@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use alloy_primitives::B256;
+use alloy_primitives::{Uint, B256};
 
 use raiko_core::{
     interfaces::{aggregate_proofs, aggregate_shasta_proposals, ProofRequest},
@@ -13,8 +13,9 @@ use raiko_core::{
 use raiko_lib::{
     consts::SupportedChainSpecs,
     input::{
-        AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestInput,
-        ShastaAggregationGuestInput,
+        realtime::{RealTimeEventData, RealTimeProposal},
+        AggregationGuestInput, AggregationGuestOutput, BlockProposedFork, GuestBatchInput,
+        GuestInput, ShastaAggregationGuestInput,
     },
     prover::{IdWrite, Proof},
     utils::shasta_guest_input::{
@@ -24,8 +25,9 @@ use raiko_lib::{
 };
 use raiko_reqpool::{
     AggregationRequestEntity, BatchGuestInputRequestEntity, BatchProofRequestEntity,
-    GuestInputRequestEntity, RequestEntity, RequestKey, ShastaInputRequestEntity,
-    ShastaProofRequestEntity, SingleProofRequestEntity, Status, StatusWithContext,
+    GuestInputRequestEntity, RealTimeInputRequestEntity, RealTimeProofRequestEntity, RequestEntity,
+    RequestKey, ShastaInputRequestEntity, ShastaProofRequestEntity, SingleProofRequestEntity,
+    Status, StatusWithContext,
 };
 use tokio::sync::{mpsc, Mutex, Notify};
 use tracing::{debug, trace};
@@ -212,6 +214,26 @@ impl Backend {
                     RequestEntity::ShastaAggregation(entity) => {
                         do_shasta_aggregation(
                             &mut pool_,
+                            request_key_.clone(),
+                            entity,
+                            Some(gpu_permit.gpu_number()),
+                            mock_key.clone(),
+                        )
+                        .await
+                    }
+                    RequestEntity::RealTimeGuestInput(entity) => {
+                        do_generate_realtime_guest_input(
+                            &mut pool_,
+                            &chain_specs,
+                            request_key_.clone(),
+                            entity,
+                        )
+                        .await
+                    }
+                    RequestEntity::RealTimeProof(entity) => {
+                        do_prove_realtime(
+                            &mut pool_,
+                            &chain_specs,
                             request_key_.clone(),
                             entity,
                             Some(gpu_permit.gpu_number()),
@@ -730,6 +752,127 @@ pub async fn do_prove_shasta_proposal(
         .shasta_proposal_prove(input, &output, None, mock_key)
         .await
         .map_err(|err| format!("failed to run shasta proposal prover: {err:?}"))?;
+
+    Ok(proof)
+}
+
+// === RealTime fork backend functions ===
+
+async fn new_raiko_for_realtime_request(
+    chain_specs: &SupportedChainSpecs,
+    request_entity: RealTimeProofRequestEntity,
+    gpu_number: Option<u32>,
+) -> Result<Raiko, String> {
+    let l1_chain_spec = chain_specs
+        .get_chain_spec(&request_entity.guest_input_entity().l1_network())
+        .expect("unsupported l1 network");
+    let taiko_chain_spec = chain_specs
+        .get_chain_spec(&request_entity.guest_input_entity().network())
+        .expect("unsupported taiko network");
+
+    let entity = request_entity.guest_input_entity();
+
+    // Build RealTimeEventData from the stored entity fields.
+    // maxAnchorBlockHash and signalSlotsHash are left as zero — they are filled in by
+    // prepare_taiko_chain_batch_input_realtime during guest-input generation.
+    let realtime_event_data = RealTimeEventData {
+        proposal: RealTimeProposal {
+            maxAnchorBlockNumber: Uint::from(*entity.max_anchor_block_number()),
+            maxAnchorBlockHash: B256::ZERO,
+            basefeeSharingPctg: *entity.basefee_sharing_pctg(),
+            sources: entity.sources().clone(),
+            signalSlotsHash: B256::ZERO,
+        },
+        signal_slots: entity.signal_slots().clone(),
+        last_finalized_block_hash: *entity.last_finalized_block_hash(),
+        blobs: entity.blobs().clone(),
+    };
+
+    let proof_request = ProofRequest {
+        block_number: 0,
+        batch_id: 0, // RealTime has no on-chain proposal ID
+        l1_inclusion_block_number: 0,
+        network: entity.network().clone(),
+        l1_network: entity.l1_network().clone(),
+        graffiti: Default::default(),
+        prover: *entity.actual_prover(),
+        proof_type: *request_entity.proof_type(),
+        blob_proof_type: entity.blob_proof_type().clone(),
+        prover_args: request_entity.prover_args().clone(),
+        l2_block_numbers: entity.l2_block_numbers().clone(),
+        checkpoint: entity.checkpoint().clone(),
+        last_anchor_block_number: Some(*entity.max_anchor_block_number()),
+        cached_event_data: Some(BlockProposedFork::RealTime(realtime_event_data)),
+        gpu_number,
+    };
+
+    Ok(Raiko::new(l1_chain_spec, taiko_chain_spec, proof_request))
+}
+
+pub async fn do_generate_realtime_guest_input(
+    _pool: &mut Pool,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: RealTimeInputRequestEntity,
+) -> Result<Proof, String> {
+    trace!("generate realtime guest input for: {request_key:?}");
+    let realtime_proof_request_entity = RealTimeProofRequestEntity::new_with_guest_input_entity(
+        request_entity.clone(),
+        Default::default(),
+        Default::default(),
+    );
+    let raiko = new_raiko_for_realtime_request(chain_specs, realtime_proof_request_entity, None)
+        .await
+        .map_err(|err| format!("failed to create raiko: {err:?}"))?;
+    let input = generate_input_for_batch(&raiko)
+        .await
+        .map_err(|err| format!("failed to generate realtime guest input: {err:?}"))?;
+    let compressed_b64 = encode_guest_input_to_compress_b64_str(&input)?;
+    tracing::debug!(
+        "redis guest input: compressed_b64 {} bytes.",
+        compressed_b64.len()
+    );
+    Ok(Proof {
+        proof: Some(compressed_b64),
+        ..Default::default()
+    })
+}
+
+pub async fn do_prove_realtime(
+    _pool: &mut Pool,
+    chain_specs: &SupportedChainSpecs,
+    request_key: RequestKey,
+    request_entity: RealTimeProofRequestEntity,
+    gpu_number: Option<u32>,
+    mock_key: Option<String>,
+) -> Result<Proof, String> {
+    tracing::info!("generate realtime proof for: {request_key:?}");
+
+    let raiko = new_raiko_for_realtime_request(chain_specs, request_entity.clone(), gpu_number)
+        .await
+        .map_err(|err| format!("failed to create raiko: {err:?}"))?;
+
+    let input = if let Some(realtime_guest_input) =
+        raiko.request.prover_args.get(PROVER_ARG_SHASTA_GUEST_INPUT)
+    {
+        decode_guest_input_from_prover_arg_value(realtime_guest_input)?
+    } else {
+        tracing::warn!("rebuild realtime guest input for request: {request_key:?}");
+        generate_input_for_batch(&raiko)
+            .await
+            .map_err(|err| format!("failed to generate realtime guest input: {err:?}"))?
+    };
+
+    // Generate the output for the batch
+    let output = raiko
+        .get_batch_output(&input)
+        .map_err(|err| format!("failed to generate output: {err:?}"))?;
+
+    // Run the RealTime prover
+    let proof = raiko
+        .realtime_prove(input, &output, None, mock_key)
+        .await
+        .map_err(|err| format!("failed to run realtime prover: {err:?}"))?;
 
     Ok(proof)
 }

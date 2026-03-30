@@ -1,0 +1,69 @@
+# ── Stage 1: Build raiko-host with no prover features ────────────────
+FROM ubuntu:24.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y \
+    build-essential \
+    protobuf-compiler \
+    clang \
+    curl \
+    git \
+    pkg-config \
+    libssl-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+WORKDIR /opt/raiko
+
+# Copy the full workspace
+COPY Cargo.lock Cargo.lock
+COPY Cargo.toml Cargo.toml
+COPY lib lib
+COPY provers provers
+COPY host host
+COPY pipeline pipeline
+COPY harness harness
+COPY rust-toolchain rust-toolchain
+COPY kzg_settings_raw.bin kzg_settings_raw.bin
+COPY core core
+COPY taskdb taskdb
+COPY makefile makefile
+COPY script script
+COPY reqpool reqpool
+COPY reqactor reqactor
+COPY ballot ballot
+COPY redis-derive redis-derive
+
+# Build with no prover features — mock mode only needs the base binary
+RUN cargo build --release --package raiko-host
+
+# ── Stage 2: Minimal runtime image ──────────────────────────────────
+FROM ubuntu:24.04 AS raiko-mock
+
+RUN mkdir -p \
+    ./bin \
+    /etc/raiko \
+    /var/log/raiko
+
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    openssl \
+    curl \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /opt/raiko/host/config/config.sgx.json /etc/raiko/
+COPY --from=builder /opt/raiko/host/config/chain_spec_list_default.json /etc/raiko/chain_spec_list_default.json
+COPY --from=builder /opt/raiko/target/release/raiko-host /opt/raiko/bin/
+
+WORKDIR /opt/raiko/bin
+COPY ./docker/entrypoint.sh /opt/raiko/bin/
+ENTRYPOINT [ "/opt/raiko/bin/entrypoint.sh" ]

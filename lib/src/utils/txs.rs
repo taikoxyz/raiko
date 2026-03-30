@@ -12,6 +12,7 @@ use crate::utils::blobs::{
     decode_blob_data, zlib_decompress_data, CALL_DATA_CAPACITY, MAX_BLOB_DATA_SIZE,
 };
 use crate::utils::pacaya::generate_transactions_for_pacaya_blocks;
+use crate::utils::realtime::generate_transactions_for_realtime_blocks;
 use crate::utils::shasta::generate_transactions_for_shasta_blocks;
 
 pub fn decode_transactions(tx_list: &[u8]) -> Vec<TaikoTxEnvelope> {
@@ -114,9 +115,12 @@ pub fn generate_transactions_for_batch_blocks(
     match batch_proposal {
         BlockProposedFork::Pacaya(_) => generate_transactions_for_pacaya_blocks(guest_batch_input),
         BlockProposedFork::Shasta(_) => generate_transactions_for_shasta_blocks(guest_batch_input),
+        BlockProposedFork::RealTime(_) => {
+            generate_transactions_for_realtime_blocks(guest_batch_input)
+        }
         _ => {
             unreachable!(
-                "only pacaya and shasta batch supported, but got {:?}",
+                "only pacaya, shasta, and realtime batch supported, but got {:?}",
                 batch_proposal
             );
         }

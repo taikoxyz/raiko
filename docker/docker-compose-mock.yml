@@ -1,0 +1,19 @@
+services:
+  raiko-mock:
+    build:
+      context: ..
+      dockerfile: Dockerfile.mock
+    image: nethermind.jfrog.io/core-oci-local-staging/raiko-mock:latest
+    container_name: raiko-mock
+    network_mode: host
+    env_file:
+      - .env
+    environment:
+      ZK: "true"
+      MOCK_KEY: "${MOCK_KEY}"
+      RAIKO_CONF_DIR: "/raiko/config/devnet"
+      BASE_CONFIG_FILE: "config.json"
+      BASE_CHAINSPEC_FILE: "chain_spec_list.json"
+    restart: unless-stopped
+    volumes:
+      - ../host/config:/raiko/config

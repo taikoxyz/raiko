@@ -4,6 +4,8 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile.zk
+      platforms:
+        - linux/amd64
     image: docker.io/nethermind/surge-raiko-zk:latest
     container_name: raiko-zk
     network_mode: host
@@ -16,15 +18,21 @@ services:
       BASE_CONFIG_FILE: "config.json"
       BASE_CHAINSPEC_FILE: "chain_spec_list.json"
       HOME: "${HOME}"
+      # Zisk proving keys and ASM binaries from host
+      ZISK_PROVING_KEY: "${HOME}/.zisk/provingKey"
+      ZISK_PROVING_KEY_SNARK: "${HOME}/.zisk/provingKeySnark"
+      ZISK_OUTPUT_DIR: "/tmp/zisk-proofs"
     restart: unless-stopped
     runtime: nvidia
     privileged: true
+    ipc: host
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ../host/config:/raiko/config
       - /tmp:/tmp
       - ${HOME}/.sp1:${HOME}/.sp1
       - ${HOME}/.risc0:${HOME}/.risc0
+      - ${HOME}/.zisk:${HOME}/.zisk
     depends_on:
       - redis-zk
   redis-zk:

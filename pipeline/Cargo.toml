@@ -29,3 +29,4 @@ risc0 = [
     "dep:risc0-zkos-v1compat",
 ]
 sp1 = ["dep:sp1-sdk", "dep:hex"]
+zisk = []

@@ -73,10 +73,10 @@ fn write_generated_code(mut out: fs::File, settings: &KZGSettings) {
 
     // Get the raw bytes from AlignedVec
     let bytes = aligned_bytes.as_ref();
-    
+
     // Use 16-byte alignment - this is optimal for:
     // - rkyv deserializer requirements (needs 8+ bytes)
-    // - SIMD operations that KZG proofs might use  
+    // - SIMD operations that KZG proofs might use
     // - Cache line alignment on most architectures
     let alignment = 16;
 

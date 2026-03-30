@@ -117,6 +117,30 @@ pub(crate) fn validate_normal_proposal_manifest(
     true
 }
 
+/// Validate a RealTime proposal manifest.
+/// Skips anchor range and timestamp validation since there is no L1 inclusion
+/// block yet — the proposer is responsible for these constraints.
+pub(crate) fn validate_realtime_proposal_manifest(
+    input: &GuestBatchInput,
+    manifest: &DerivationSourceManifest,
+) -> bool {
+    let manifest_block_number = manifest.blocks.len();
+    if manifest_block_number > PROPOSAL_MAX_BLOCKS {
+        warn!(
+            "manifest_block_number {} > PROPOSAL_MAX_BLOCKS {}",
+            manifest_block_number, PROPOSAL_MAX_BLOCKS
+        );
+        return false;
+    }
+
+    if !validate_shasta_block_gas_limit(&manifest.blocks, &input.inputs) {
+        warn!("validate_shasta_block_gas_limit failed");
+        return false;
+    }
+
+    true
+}
+
 pub(crate) fn validate_force_inc_proposal_manifest(manifest: &DerivationSourceManifest) -> bool {
     if manifest.blocks.len() != 1 {
         warn!(

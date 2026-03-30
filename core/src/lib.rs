@@ -18,7 +18,8 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     interfaces::{
-        run_shasta_proposal_prover, ProofRequest, RaikoError, RaikoResult, ShastaProposalCheckpoint,
+        run_realtime_prover, run_shasta_proposal_prover, ProofRequest, RaikoError, RaikoResult,
+        ShastaProposalCheckpoint,
     },
     preflight::{batch_preflight, preflight, BatchPreflightData, PreflightData},
     provider::BlockDataProvider,
@@ -252,12 +253,10 @@ impl Raiko {
     }
 
     /// Whether transactions should be executed for this proof type
-    /// For TDX and Azure TDX, we skip transaction execution
-    /// as they are expected to be executed inside the TDX enclave,
-    /// so we could trust the input.
+    /// For TDX, we skip transaction execution as they are expected
+    /// to be executed inside the TDX enclave, so we could trust the input.
     fn should_execute_transactions(&self) -> bool {
         self.request.proof_type != raiko_lib::proof_type::ProofType::Tdx
-            && self.request.proof_type != raiko_lib::proof_type::ProofType::AzureTdx
     }
 
     pub async fn prove(
@@ -298,6 +297,25 @@ impl Raiko {
     ) -> RaikoResult<Proof> {
         let config = serde_json::to_value(&self.request)?;
         run_shasta_proposal_prover(
+            self.request.proof_type,
+            input,
+            output,
+            &config,
+            store,
+            mock_key,
+        )
+        .await
+    }
+
+    pub async fn realtime_prove(
+        &self,
+        input: GuestBatchInput,
+        output: &GuestBatchOutput,
+        store: Option<&mut dyn IdWrite>,
+        mock_key: Option<String>,
+    ) -> RaikoResult<Proof> {
+        let config = serde_json::to_value(&self.request)?;
+        run_realtime_prover(
             self.request.proof_type,
             input,
             output,
