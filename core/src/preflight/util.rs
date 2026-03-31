@@ -93,16 +93,6 @@ where
             RaikoError::Preflight(format!("Executing transactions in builder failed: {e}"))
         })?;
 
-    let Some(db) = builder.db.as_mut() else {
-        return Err(RaikoError::Preflight("No db in builder".to_owned()));
-    };
-
-    // Fetch any remaining state the trace might have missed (e.g. BLOCKHASH)
-    if db.fetch_data().await {
-        info!("execute_txs: trace-based execution converged in 1 iteration");
-        return Ok(true);
-    }
-
     // If there's still pending state, do a few more iterations to converge
     info!("execute_txs: trace had gaps, running additional iterations to converge");
     let max_iterations = 100;
