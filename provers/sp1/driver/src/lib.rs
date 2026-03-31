@@ -250,7 +250,7 @@ impl Prover for Sp1Prover {
                 })?;
             info!("Sp1: network proof id: {proof_id:?} for aggregation");
             network_client
-                .wait_proof(proof_id.clone(), Some(Duration::from_secs(3600)))
+                .wait_proof(proof_id.clone(), Some(sp1_network_wait_timeout()))
                 .await
                 .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
         };
@@ -402,7 +402,7 @@ impl Prover for Sp1Prover {
                 input.taiko.batch_id
             );
             network_client
-                .wait_proof(proof_id.clone(), Some(Duration::from_secs(3600)))
+                .wait_proof(proof_id.clone(), Some(sp1_network_wait_timeout()))
                 .await
                 .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
         };
@@ -571,7 +571,7 @@ impl Prover for Sp1Prover {
                 })?;
             info!("Sp1: network proof id: {proof_id:?} for shasta aggregation");
             network_client
-                .wait_proof(proof_id.clone(), Some(Duration::from_secs(3600)))
+                .wait_proof(proof_id.clone(), Some(sp1_network_wait_timeout()))
                 .await
                 .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
         };
@@ -655,6 +655,15 @@ fn get_env_mock() -> ProverMode {
         "network" => ProverMode::Network,
         _ => ProverMode::Local,
     }
+}
+
+fn sp1_network_wait_timeout() -> Duration {
+    Duration::from_secs(
+        env::var("RAIKO_SP1_NETWORK_TIMEOUT_SECS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(7_200),
+    )
 }
 
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
