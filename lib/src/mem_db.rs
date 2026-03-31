@@ -122,6 +122,20 @@ impl MemDb {
         }
     }
 
+    /// Insert or update account info without overriding its storage.
+    /// If a different account info already exists (e.g. from LRU cache), the new
+    /// value wins (authoritative source such as a prestate trace takes precedence).
+    pub fn upsert_account_info(&mut self, address: Address, info: AccountInfo) {
+        match self.accounts.entry(address) {
+            Entry::Occupied(mut entry) => {
+                entry.get_mut().info = info;
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(DbAccount::new(info));
+            }
+        }
+    }
+
     /// insert account storage without overriding the account info.
     /// Panics if the account does not exist.
     pub fn insert_account_storage(&mut self, address: &Address, index: U256, data: U256) {

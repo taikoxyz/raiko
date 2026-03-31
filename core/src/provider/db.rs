@@ -229,8 +229,12 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
                 .unwrap_or_else(|| Bytecode::new_raw(Bytes::new()));
             let account_info =
                 AccountInfo::new(balance, nonce, code.hash_slow(), code);
+            // Use upsert: the prestate trace is authoritative. If the staging_db was
+            // pre-seeded from the LRU cache with a slightly different value (e.g. a
+            // rounding difference in fee accounting between raiko and geth), the trace
+            // wins rather than panicking.
             self.staging_db
-                .insert_account_info(address, account_info);
+                .upsert_account_info(address, account_info);
             num_accounts += 1;
 
             if let Some(storage) = state.storage {
