@@ -36,7 +36,7 @@ impl RpcClientConfig {
     fn from_env() -> Self {
         Self {
             connect_timeout_secs: env_u64("RAIKO_RPC_CONNECT_TIMEOUT_SECS", 10),
-            request_timeout_secs: env_u64("RAIKO_RPC_TIMEOUT_SECS", 60),
+            request_timeout_secs: env_u64("RAIKO_RPC_TIMEOUT_SECS", 120),
             max_retries: env_usize("RAIKO_RPC_MAX_RETRIES", 4),
             initial_backoff_ms: env_u64("RAIKO_RPC_RETRY_INITIAL_BACKOFF_MS", 1_000),
             max_backoff_ms: env_u64("RAIKO_RPC_RETRY_MAX_BACKOFF_MS", 8_000),
