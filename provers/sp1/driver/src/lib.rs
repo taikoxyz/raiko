@@ -662,7 +662,7 @@ fn sp1_network_wait_timeout() -> Duration {
         env::var("RAIKO_SP1_NETWORK_TIMEOUT_SECS")
             .ok()
             .and_then(|value| value.parse::<u64>().ok())
-            .unwrap_or(7_200),
+            .unwrap_or(3_600),
     )
 }
 
