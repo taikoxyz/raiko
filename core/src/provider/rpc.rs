@@ -6,7 +6,7 @@ use alloy_transport_http::Http;
 use raiko_lib::clear_line;
 use reqwest_alloy::Client;
 use reth_primitives::revm_primitives::{AccountInfo, Bytecode};
-use std::collections::HashMap;
+use std::{collections::HashMap, env, time::Duration};
 use tracing::debug;
 
 use crate::{
@@ -14,6 +14,36 @@ use crate::{
     provider::BlockDataProvider,
     MerkleProof,
 };
+
+/// Env: total per-request timeout for L1/L2 JSON-RPC (connect + send + response body).
+/// Default 300s so large `eth_getProof` / batch calls can finish on slow nodes.
+const ENV_RPC_HTTP_TIMEOUT_SECS: &str = "RAIKO_RPC_HTTP_TIMEOUT_SECS";
+/// Env: TCP connect timeout only. Default 30s.
+const ENV_RPC_HTTP_CONNECT_TIMEOUT_SECS: &str = "RAIKO_RPC_HTTP_CONNECT_TIMEOUT_SECS";
+
+fn build_rpc_reqwest_client() -> RaikoResult<Client> {
+    let timeout_secs: u64 = env::var(ENV_RPC_HTTP_TIMEOUT_SECS)
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(300);
+    let connect_secs: u64 = env::var(ENV_RPC_HTTP_CONNECT_TIMEOUT_SECS)
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(30);
+
+    Client::builder()
+        .timeout(Duration::from_secs(timeout_secs))
+        .connect_timeout(Duration::from_secs(connect_secs))
+        .build()
+        .map_err(|e| RaikoError::RPC(format!("Failed to build RPC HTTP client: {e}")))
+}
+
+fn rpc_http_transport(url: reqwest::Url) -> RaikoResult<(Http<Client>, bool)> {
+    let client = build_rpc_reqwest_client()?;
+    let http = Http::with_client(client, url);
+    let is_local = http.guess_local();
+    Ok((http, is_local))
+}
 
 #[derive(Clone)]
 pub struct RpcBlockDataProvider {
@@ -31,9 +61,11 @@ impl RpcBlockDataProvider {
             "provider rpc url: {:?} for block_number {}",
             url, block_number
         );
+        let (http, is_local) = rpc_http_transport(url)?;
+        let rpc_client = RpcClient::new(http.clone(), is_local);
         Ok(Self {
-            provider: ProviderBuilder::new().on_provider(RootProvider::new_http(url.clone())),
-            client: ClientBuilder::default().http(url),
+            provider: ProviderBuilder::new().on_provider(RootProvider::new(rpc_client)),
+            client: ClientBuilder::default().transport(http, is_local),
             block_numbers: vec![block_number, block_number + 1],
         })
     }
@@ -49,9 +81,11 @@ impl RpcBlockDataProvider {
             "Batch provider rpc: {:?} for block_number {}",
             url, block_numbers[0]
         );
+        let (http, is_local) = rpc_http_transport(url)?;
+        let rpc_client = RpcClient::new(http.clone(), is_local);
         Ok(Self {
-            provider: ProviderBuilder::new().on_provider(RootProvider::new_http(url.clone())),
-            client: ClientBuilder::default().http(url),
+            provider: ProviderBuilder::new().on_provider(RootProvider::new(rpc_client)),
+            client: ClientBuilder::default().transport(http, is_local),
             block_numbers,
         })
     }
@@ -366,5 +400,63 @@ impl BlockDataProvider for RpcBlockDataProvider {
         clear_line();
 
         Ok(storage_proofs)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+    use tokio::io::AsyncReadExt;
+    use tokio::net::TcpListener;
+
+    fn set_short_rpc_timeouts_for_test() {
+        std::env::set_var(ENV_RPC_HTTP_TIMEOUT_SECS, "1");
+        std::env::set_var(ENV_RPC_HTTP_CONNECT_TIMEOUT_SECS, "1");
+    }
+
+    fn clear_rpc_timeout_env() {
+        std::env::remove_var(ENV_RPC_HTTP_TIMEOUT_SECS);
+        std::env::remove_var(ENV_RPC_HTTP_CONNECT_TIMEOUT_SECS);
+    }
+
+    /// Local TCP server: read the JSON-RPC POST then stall so the client hits `reqwest` timeout.
+    async fn spawn_stall_after_accept_json_rpc() -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind test listener");
+        let addr = listener.local_addr().expect("listener addr");
+        tokio::spawn(async move {
+            if let Ok((mut stream, _)) = listener.accept().await {
+                let mut buf = [0u8; 8192];
+                let _ = stream.read(&mut buf).await;
+                tokio::time::sleep(Duration::from_secs(600)).await;
+            }
+        });
+        format!("http://{addr}")
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn get_blocks_returns_rpc_error_when_http_times_out() {
+        set_short_rpc_timeouts_for_test();
+        let url = spawn_stall_after_accept_json_rpc().await;
+        let provider = RpcBlockDataProvider::new(&url, 1)
+            .await
+            .expect("provider new with short timeout");
+        let result = provider.get_blocks(&[(1, false)]).await;
+        clear_rpc_timeout_env();
+
+        let err = result.expect_err("expected RPC failure when server does not respond in time");
+        let RaikoError::RPC(payload) = &err else {
+            panic!("expected RaikoError::RPC, got {err:?}");
+        };
+        let lower = payload.to_lowercase();
+        // Reqwest may report `operation timed out` or a generic `error sending request for url (...)`
+        // when the overall request timeout fires.
+        assert!(
+            lower.contains("timeout")
+                || lower.contains("timed out")
+                || payload.contains("error sending request for url"),
+            "expected timeout or stalled-request error, got: {err}"
+        );
     }
 }
