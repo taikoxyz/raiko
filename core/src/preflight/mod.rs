@@ -228,6 +228,11 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
     }: BatchPreflightData,
 ) -> RaikoResult<GuestBatchInput> {
     let measurement = Measurement::start("Fetching block data...", false);
+    info!(
+        "batch preflight fetching block and parent data for batch {} across {} blocks",
+        batch_id,
+        block_numbers.len()
+    );
 
     let all_block_parent_pairs =
         get_batch_blocks_and_parent_data(&provider, &block_numbers).await?;

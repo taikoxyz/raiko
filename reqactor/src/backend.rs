@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{env, sync::Arc, time::Duration};
 
 use raiko_core::{
     interfaces::{aggregate_proofs, aggregate_shasta_proposals, ProofRequest},
@@ -26,7 +26,10 @@ use raiko_reqpool::{
     ShastaProofRequestEntity, SingleProofRequestEntity, Status, StatusWithContext,
 };
 use reth_primitives::B256;
-use tokio::sync::{mpsc, Mutex, Notify, Semaphore};
+use tokio::{
+    sync::{mpsc, Mutex, Notify, Semaphore},
+    time::timeout,
+};
 use tracing::{debug, trace};
 
 use crate::queue::Queue;
@@ -40,6 +43,60 @@ pub(crate) struct Backend {
     queue: Arc<Mutex<Queue>>,
     notifier: Arc<Notify>,
     semaphore: Arc<Semaphore>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct BackendTimeoutConfig {
+    guest_input_timeout_secs: u64,
+    batch_guest_input_timeout_secs: u64,
+    proof_timeout_secs: u64,
+    batch_proof_timeout_secs: u64,
+    aggregation_timeout_secs: u64,
+}
+
+impl BackendTimeoutConfig {
+    fn from_env() -> Self {
+        Self {
+            guest_input_timeout_secs: env_u64("RAIKO_GUEST_INPUT_TIMEOUT_SECS", 900),
+            batch_guest_input_timeout_secs: env_u64("RAIKO_BATCH_GUEST_INPUT_TIMEOUT_SECS", 1_800),
+            proof_timeout_secs: env_u64("RAIKO_PROOF_TIMEOUT_SECS", 7_200),
+            batch_proof_timeout_secs: env_u64("RAIKO_BATCH_PROOF_TIMEOUT_SECS", 7_200),
+            aggregation_timeout_secs: env_u64("RAIKO_AGGREGATION_TIMEOUT_SECS", 7_200),
+        }
+    }
+}
+
+fn env_u64(name: &str, default: u64) -> u64 {
+    env::var(name)
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(default)
+}
+
+fn request_timeout_for(request_entity: &RequestEntity) -> (&'static str, Duration) {
+    let config = BackendTimeoutConfig::from_env();
+    match request_entity {
+        RequestEntity::SingleProof(_) => (
+            "single proof request",
+            Duration::from_secs(config.proof_timeout_secs),
+        ),
+        RequestEntity::Aggregation(_) | RequestEntity::ShastaAggregation(_) => (
+            "aggregation request",
+            Duration::from_secs(config.aggregation_timeout_secs),
+        ),
+        RequestEntity::BatchProof(_) | RequestEntity::ShastaProof(_) => (
+            "batch proof request",
+            Duration::from_secs(config.batch_proof_timeout_secs),
+        ),
+        RequestEntity::GuestInput(_) => (
+            "guest input request",
+            Duration::from_secs(config.guest_input_timeout_secs),
+        ),
+        RequestEntity::BatchGuestInput(_) | RequestEntity::ShastaGuestInput(_) => (
+            "batch guest input request",
+            Duration::from_secs(config.batch_guest_input_timeout_secs),
+        ),
+    }
 }
 
 impl Backend {
@@ -96,58 +153,76 @@ impl Backend {
             let request_key_ = request_key.clone();
             let mut pool_ = self.pool.clone();
             let chain_specs = self.chain_specs.clone();
+            let (request_kind, request_timeout) = request_timeout_for(&request_entity);
             let handle = tokio::spawn(async move {
                 let _permit = permit;
-
-                let result = match request_entity {
-                    RequestEntity::SingleProof(entity) => {
-                        do_prove_single(&mut pool_, &chain_specs, request_key_.clone(), entity)
+                let timeout_secs = request_timeout.as_secs();
+                let result = match timeout(request_timeout, async {
+                    match request_entity {
+                        RequestEntity::SingleProof(entity) => {
+                            do_prove_single(&mut pool_, &chain_specs, request_key_.clone(), entity)
+                                .await
+                        }
+                        RequestEntity::Aggregation(entity) => {
+                            do_prove_aggregation(&mut pool_, request_key_.clone(), entity).await
+                        }
+                        RequestEntity::BatchProof(entity) => {
+                            do_prove_batch(&mut pool_, &chain_specs, request_key_.clone(), entity)
+                                .await
+                        }
+                        RequestEntity::GuestInput(entity) => {
+                            do_generate_guest_input(
+                                &mut pool_,
+                                &chain_specs,
+                                request_key_.clone(),
+                                entity,
+                            )
                             .await
+                        }
+                        RequestEntity::BatchGuestInput(entity) => {
+                            do_generate_batch_guest_input(
+                                &mut pool_,
+                                &chain_specs,
+                                request_key_.clone(),
+                                entity,
+                            )
+                            .await
+                        }
+                        RequestEntity::ShastaGuestInput(entity) => {
+                            do_generate_shasta_proposal_guest_input(
+                                &mut pool_,
+                                &chain_specs,
+                                request_key_.clone(),
+                                entity,
+                            )
+                            .await
+                        }
+                        RequestEntity::ShastaProof(entity) => {
+                            do_prove_shasta_proposal(
+                                &mut pool_,
+                                &chain_specs,
+                                request_key_.clone(),
+                                entity,
+                            )
+                            .await
+                        }
+                        RequestEntity::ShastaAggregation(entity) => {
+                            do_shasta_aggregation(&mut pool_, request_key_.clone(), entity).await
+                        }
                     }
-                    RequestEntity::Aggregation(entity) => {
-                        do_prove_aggregation(&mut pool_, request_key_.clone(), entity).await
-                    }
-                    RequestEntity::BatchProof(entity) => {
-                        do_prove_batch(&mut pool_, &chain_specs, request_key_.clone(), entity).await
-                    }
-                    RequestEntity::GuestInput(entity) => {
-                        do_generate_guest_input(
-                            &mut pool_,
-                            &chain_specs,
-                            request_key_.clone(),
-                            entity,
-                        )
-                        .await
-                    }
-                    RequestEntity::BatchGuestInput(entity) => {
-                        do_generate_batch_guest_input(
-                            &mut pool_,
-                            &chain_specs,
-                            request_key_.clone(),
-                            entity,
-                        )
-                        .await
-                    }
-                    RequestEntity::ShastaGuestInput(entity) => {
-                        do_generate_shasta_proposal_guest_input(
-                            &mut pool_,
-                            &chain_specs,
-                            request_key_.clone(),
-                            entity,
-                        )
-                        .await
-                    }
-                    RequestEntity::ShastaProof(entity) => {
-                        do_prove_shasta_proposal(
-                            &mut pool_,
-                            &chain_specs,
-                            request_key_.clone(),
-                            entity,
-                        )
-                        .await
-                    }
-                    RequestEntity::ShastaAggregation(entity) => {
-                        do_shasta_aggregation(&mut pool_, request_key_.clone(), entity).await
+                })
+                .await
+                {
+                    Ok(result) => result,
+                    Err(_) => {
+                        let message = format!("{request_kind} timed out after {timeout_secs}s");
+                        tracing::error!(
+                            request_key = %request_key_,
+                            request_kind,
+                            timeout_secs,
+                            "Actor backend timed out"
+                        );
+                        Err(message)
                     }
                 };
                 let status = match result {
