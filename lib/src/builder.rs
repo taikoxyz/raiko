@@ -64,7 +64,8 @@ pub fn calculate_batch_blocks_final_header(input: &GuestBatchInput) -> Vec<Block
             &input.inputs[i],
             create_mem_db(&mut input.inputs[i].clone()).unwrap(),
         )
-        .set_is_first_block_in_proposal(i == 0);
+        .set_is_first_block_in_proposal(i == 0)
+        .set_proposal_id(input.taiko.batch_id);
 
         let mut execute_tx = vec![input.inputs[i].taiko.anchor_tx.clone().unwrap()];
         execute_tx.extend_from_slice(&pool_txs.0);
@@ -142,6 +143,8 @@ pub struct RethBlockBuilder<DB> {
     pub db: Option<DB>,
     /// Whether this is the first block in a proposal batch (for Shasta)
     pub is_first_block_in_proposal: bool,
+    /// The proposal (batch) ID, used to skip anchor checks for early mainnet proposals.
+    pub proposal_id: u64,
 }
 
 impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
@@ -156,12 +159,19 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
             db: Some(db),
             input: input.clone(),
             is_first_block_in_proposal: true, // Default to true for single block execution
+            proposal_id: 0,
         }
     }
 
     /// Sets whether this is the first block in a proposal batch.
     pub fn set_is_first_block_in_proposal(mut self, is_first: bool) -> Self {
         self.is_first_block_in_proposal = is_first;
+        self
+    }
+
+    /// Sets the proposal (batch) ID for anchor check overrides.
+    pub fn set_proposal_id(mut self, proposal_id: u64) -> Self {
+        self.proposal_id = proposal_id;
         self
     }
 
@@ -258,6 +268,8 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
                 last_anchor_block_number: last_anchor_block_number_opt.unwrap(),
                 is_force_inclusion: *is_force_inclusion,
                 is_first_block_in_proposal: self.is_first_block_in_proposal,
+                proposal_id: self.proposal_id,
+                chain_id: self.input.chain_spec.chain_id,
             })
         } else {
             None
