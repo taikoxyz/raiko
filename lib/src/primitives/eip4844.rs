@@ -20,7 +20,7 @@ pub mod trusted_setup_gen {
 }
 
 // The KZG settings under the concrete type of kzg backend
-// We directly include the serialzed struct generated from build.rs to avoid conversion cost in guest
+// We directly include the serialized struct generated from build.rs to avoid conversion cost in guest
 pub static KZG_SETTINGS: Lazy<KZGSettings> = Lazy::new(|| trusted_setup_gen::prebuilt_settings());
 
 pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;

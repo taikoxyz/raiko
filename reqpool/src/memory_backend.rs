@@ -7,11 +7,19 @@ use std::{
     collections::HashMap,
     num::NonZeroUsize,
     sync::{Arc, Mutex},
+    time::{Duration, Instant},
 };
 
 use lru::LruCache;
 
-type SingleStorage = Arc<Mutex<LruCache<Value, Value>>>;
+/// A value with an optional expiry time.
+#[derive(Clone)]
+struct Entry {
+    value: Value,
+    expires_at: Option<Instant>,
+}
+
+type SingleStorage = Arc<Mutex<LruCache<Value, Entry>>>;
 type GlobalStorage = Mutex<HashMap<String, SingleStorage>>;
 
 lazy_static! {
@@ -50,24 +58,41 @@ impl MemoryBackend {
         &mut self,
         key: K,
         val: V,
-        _ttl: u64,
+        ttl: u64,
     ) -> RedisResult<()> {
         let mut lock = self.storage.lock().unwrap();
-        lock.put(json!(key), json!(val));
+        let entry = Entry {
+            value: json!(val),
+            expires_at: if ttl > 0 {
+                Some(Instant::now() + Duration::from_secs(ttl))
+            } else {
+                None
+            },
+        };
+        lock.put(json!(key), entry);
         Ok(())
     }
 
     pub fn get<K: Serialize, V: serde::de::DeserializeOwned>(&mut self, key: &K) -> RedisResult<V> {
         let mut lock = self.storage.lock().unwrap();
-        match lock.get(&json!(key)) {
+        let json_key = json!(key);
+        match lock.get(&json_key) {
             None => Err(RedisError::from((redis::ErrorKind::TypeError, "not found"))),
-            Some(v) => serde_json::from_value(v.clone()).map_err(|e| {
-                RedisError::from((
-                    redis::ErrorKind::TypeError,
-                    "deserialization error",
-                    e.to_string(),
-                ))
-            }),
+            Some(entry) => {
+                if let Some(expires_at) = entry.expires_at {
+                    if Instant::now() >= expires_at {
+                        lock.pop(&json_key);
+                        return Err(RedisError::from((redis::ErrorKind::TypeError, "not found")));
+                    }
+                }
+                serde_json::from_value(entry.value.clone()).map_err(|e| {
+                    RedisError::from((
+                        redis::ErrorKind::TypeError,
+                        "deserialization error",
+                        e.to_string(),
+                    ))
+                })
+            }
         }
     }
 
@@ -83,7 +108,17 @@ impl MemoryBackend {
     pub fn keys<K: serde::de::DeserializeOwned>(&mut self, key: &str) -> RedisResult<Vec<K>> {
         assert_eq!(key, "*", "memory backend only supports '*'");
 
-        let lock = self.storage.lock().unwrap();
+        let mut lock = self.storage.lock().unwrap();
+        let now = Instant::now();
+        // Collect expired keys first to avoid borrow issues
+        let expired: Vec<Value> = lock
+            .iter()
+            .filter(|(_, entry)| entry.expires_at.map_or(false, |exp| now >= exp))
+            .map(|(k, _)| k.clone())
+            .collect();
+        for k in expired {
+            lock.pop(&k);
+        }
         Ok(lock
             .iter()
             .map(|(k, _)| serde_json::from_value(k.clone()).unwrap())
@@ -200,5 +235,64 @@ mod tests {
             let actual: RedisResult<String> = conn.get(&key);
             assert_eq!(actual, Ok(format!("val{}", i)));
         }
+    }
+
+    #[test]
+    fn test_memory_pool_ttl_expiry() {
+        let mut pool = memory_pool("test_memory_pool_ttl_expiry");
+        let mut conn = pool.conn().expect("memory conn");
+
+        let key = "ttl_key".to_string();
+        let val = "ttl_val".to_string();
+        conn.set_ex(key.clone(), val.clone(), 1).expect("set_ex");
+
+        // Value should be accessible before TTL expires
+        let actual: RedisResult<String> = conn.get(&key);
+        assert_eq!(actual, Ok(val));
+
+        // Wait for TTL to expire
+        std::thread::sleep(Duration::from_secs(2));
+
+        // Value should be gone after TTL
+        let actual: RedisResult<String> = conn.get(&key);
+        assert!(actual.is_err());
+    }
+
+    #[test]
+    fn test_memory_pool_ttl_zero_no_expiry() {
+        let mut pool = memory_pool("test_memory_pool_ttl_zero");
+        let mut conn = pool.conn().expect("memory conn");
+
+        let key = "no_expiry".to_string();
+        let val = "persistent".to_string();
+        conn.set_ex(key.clone(), val.clone(), 0).expect("set_ex");
+
+        std::thread::sleep(Duration::from_secs(2));
+
+        // ttl=0 means no expiry — value should still be accessible
+        let actual: RedisResult<String> = conn.get(&key);
+        assert_eq!(actual, Ok(val));
+    }
+
+    #[test]
+    fn test_memory_pool_keys_filters_expired() {
+        let mut pool = memory_pool("test_memory_pool_keys_expired");
+        let mut conn = pool.conn().expect("memory conn");
+
+        conn.set_ex("live".to_string(), "val1".to_string(), 0)
+            .expect("set_ex");
+        conn.set_ex("expiring".to_string(), "val2".to_string(), 1)
+            .expect("set_ex");
+
+        // Both keys should be present before expiry
+        let keys: Vec<String> = conn.keys("*").expect("keys");
+        assert_eq!(keys.len(), 2);
+
+        std::thread::sleep(Duration::from_secs(2));
+
+        // Only the live key should remain
+        let keys: Vec<String> = conn.keys("*").expect("keys");
+        assert_eq!(keys.len(), 1);
+        assert!(keys.contains(&"live".to_string()));
     }
 }

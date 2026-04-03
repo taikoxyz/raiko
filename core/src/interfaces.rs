@@ -916,10 +916,17 @@ impl TryFrom<ShastaProofRequestOpt> for ShastaProofRequest {
 
 // === RealTime fork request types ===
 
+fn default_use_cache() -> bool {
+    true
+}
+
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct RealTimeProofRequest {
     pub l2_block_numbers: Vec<u64>,
+    /// Block hashes corresponding to l2_block_numbers, used as part of the cache key.
+    #[serde(default)]
+    pub l2_block_hashes: Vec<B256>,
     pub proof_type: ProofType,
 
     pub network: String,
@@ -950,8 +957,8 @@ pub struct RealTimeProofRequest {
     pub blobs: Vec<String>,
     /// Previous finalized checkpoint
     pub checkpoint: Option<ShastaProposalCheckpoint>,
-    /// If true, return cached proof if available. If false (default), always re-prove.
-    #[serde(default)]
+    /// If true (default), return cached proof if available. If false, force re-proving.
+    #[serde(default = "default_use_cache")]
     pub use_cache: bool,
 }
 
@@ -960,6 +967,8 @@ pub struct RealTimeProofRequest {
 pub struct RealTimeProofRequestOpt {
     // Required fields
     pub l2_block_numbers: Vec<u64>,
+    #[serde(default)]
+    pub l2_block_hashes: Vec<B256>,
     pub proof_type: String,
 
     // Optional fields, if not provided, the default values will be used
@@ -983,8 +992,8 @@ pub struct RealTimeProofRequestOpt {
     #[serde(default)]
     pub blobs: Vec<String>,
     pub checkpoint: Option<ShastaProposalCheckpoint>,
-    /// If true, return cached proof if available. If false (default), always re-prove.
-    #[serde(default)]
+    /// If true (default), return cached proof if available. If false, force re-proving.
+    #[serde(default = "default_use_cache")]
     pub use_cache: bool,
 }
 
@@ -994,6 +1003,7 @@ impl TryFrom<RealTimeProofRequestOpt> for RealTimeProofRequest {
     fn try_from(value: RealTimeProofRequestOpt) -> Result<Self, Self::Error> {
         Ok(Self {
             l2_block_numbers: value.l2_block_numbers,
+            l2_block_hashes: value.l2_block_hashes,
             proof_type: value
                 .proof_type
                 .parse()

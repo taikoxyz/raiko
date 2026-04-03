@@ -421,6 +421,8 @@ impl ShastaProofRequestKey {
 pub struct RealTimeInputRequestKey {
     /// The L2 block numbers covered by this request
     l2_block_numbers: Vec<u64>,
+    /// The L2 block hashes corresponding to the block numbers
+    l2_block_hashes: Vec<B256>,
     /// The L1 network of the request
     l1_network: String,
     /// The L2 network of the request
@@ -432,12 +434,14 @@ pub struct RealTimeInputRequestKey {
 impl RealTimeInputRequestKey {
     pub fn new(
         l2_block_numbers: Vec<u64>,
+        l2_block_hashes: Vec<B256>,
         l1_network: String,
         l2_network: String,
         last_finalized_block_hash: B256,
     ) -> Self {
         Self {
             l2_block_numbers,
+            l2_block_hashes,
             l1_network,
             l2_network,
             last_finalized_block_hash,
