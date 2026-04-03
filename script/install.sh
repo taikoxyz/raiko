@@ -3,7 +3,7 @@ set -e
 
 # ─── Configuration ─────────────────────────────────────────────────────────────
 # ZisK version to install (override via env: ZISK_VERSION=0.16.0)
-ZISK_VERSION="${ZISK_VERSION:-0.16.0}"
+ZISK_VERSION="${ZISK_VERSION:-0.16.1}"
 # ZisK install path (override via env: ZISK_DIR=/ephemeral/.zisk).
 # If different from ~/.zisk, a symlink ~/.zisk -> ZISK_DIR is created automatically.
 ZISK_DIR="${ZISK_DIR:-$HOME/.zisk}"
