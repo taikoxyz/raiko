@@ -46,15 +46,16 @@ setup_zisk_dir() {
     fi
 }
 
-# Run ziskup, preferring the already-installed binary; falls back to the install script.
+# Run ziskup, installing the binary first if not present.
 run_ziskup() {
-    if [ -x "$ZISK_DIR/bin/ziskup" ]; then
-        ZISK_DIR="$ZISK_DIR" "$ZISK_DIR/bin/ziskup" "$@"
-    else
-        ZISK_DIR="$ZISK_DIR" curl -s \
-            https://raw.githubusercontent.com/0xPolygonHermez/zisk/main/ziskup/install.sh \
-            | bash -s -- "$@"
+    if [ ! -x "$ZISK_DIR/bin/ziskup" ]; then
+        echo "Installing ziskup..."
+        mkdir -p "$ZISK_DIR/bin"
+        curl -# -L https://raw.githubusercontent.com/0xPolygonHermez/zisk/main/ziskup/ziskup \
+            -o "$ZISK_DIR/bin/ziskup"
+        chmod +x "$ZISK_DIR/bin/ziskup"
     fi
+    ZISK_DIR="$ZISK_DIR" "$ZISK_DIR/bin/ziskup" "$@"
 }
 
 install_zisk_cli() {
@@ -63,22 +64,8 @@ install_zisk_cli() {
         return 0
     fi
     echo "Installing Zisk v$ZISK_VERSION..."
-    # The upstream ziskup install script automatically runs ziskup after
-    # installing the binary, which prompts for key options interactively.
-    # In non-TTY environments (Docker), pipe "4" (None) to skip the menu.
-    # When --nokey is passed, ziskup may still prompt if the flag isn't
-    # forwarded to the inner invocation.
-    echo "4" | run_ziskup --version "$ZISK_VERSION" --nokey || true
-    export PATH="$ZISK_DIR/bin:$PATH"
-    source "$HOME/.profile" 2>/dev/null || source "$HOME/.bashrc" 2>/dev/null || true
-    # If the piped install didn't fully complete, run ziskup directly with --nokey
-    if ! command -v cargo-zisk >/dev/null 2>&1; then
-        if [ -x "$ZISK_DIR/bin/ziskup" ]; then
-            echo "Running ziskup directly with --nokey..."
-            "$ZISK_DIR/bin/ziskup" --version "$ZISK_VERSION" --nokey
-            export PATH="$ZISK_DIR/bin:$PATH"
-        fi
-    fi
+    run_ziskup --version "$ZISK_VERSION" --nokey
+    source "$HOME/.bashrc" 2>/dev/null || true
     command -v cargo-zisk >/dev/null 2>&1 || {
         echo "Error: Failed to install Zisk. Install manually:"
         echo "  curl https://raw.githubusercontent.com/0xPolygonHermez/zisk/main/ziskup/install.sh | bash"
