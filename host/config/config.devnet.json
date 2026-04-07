@@ -5,9 +5,6 @@
     "graffiti": "8008500000000000000000000000000000000000000000000000000000000000",
     "sgx": {
         "instance_ids": {
-            "HEKLA": 0,
-            "ONTAKE": 0,
-            "PACAYA": 0,
             "SHASTA": 0
         },
         "setup": false,
@@ -17,7 +14,6 @@
     },
     "sgxgeth": {
         "instance_ids": {
-            "PACAYA": 0,
             "SHASTA": 0
         },
         "setup": false,

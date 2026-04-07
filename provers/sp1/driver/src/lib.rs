@@ -4,7 +4,7 @@ use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
-        AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
+        AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
         GuestInput, GuestOutput, ShastaAggregationGuestInput, ShastaSp1AggregationGuestInput,
     },
     libhash::hash_shasta_subproof_input,
@@ -131,18 +131,6 @@ impl Prover for Sp1Prover {
     async fn cancel(&self, key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
         id_store.remove_id(key).await?;
         Ok(())
-    }
-
-    async fn aggregate(
-        &self,
-        _input: AggregationGuestInput,
-        _output: &AggregationGuestOutput,
-        _config: &ProverConfig,
-        _store: Option<&mut dyn IdWrite>,
-    ) -> ProverResult<Proof> {
-        Err(ProverError::GuestError(
-            "legacy sp1 aggregation removed; use Shasta only".into(),
-        ))
     }
 
     async fn batch_run(

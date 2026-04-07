@@ -213,7 +213,7 @@ mod test {
     #[test]
     fn test_update_save_read_config_file() {
         let registered_fork_ids: ForkRegisterId =
-            serde_json::from_str("{\"HEKLA\": 1, \"ONTAKE\": 2}").expect("serde json ok");
+            serde_json::from_str("{\"SHASTA\": 1}").expect("serde json ok");
         let file =
             File::open("../../../host/config/config.sgx.json").expect("open tmp config file");
         let reader = BufReader::new(file);

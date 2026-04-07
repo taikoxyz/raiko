@@ -118,18 +118,6 @@ impl Prover for NativeProver {
         Ok(())
     }
 
-    async fn aggregate(
-        &self,
-        _input: raiko_lib::input::AggregationGuestInput,
-        _output: &raiko_lib::input::AggregationGuestOutput,
-        _config: &ProverConfig,
-        _store: Option<&mut dyn IdWrite>,
-    ) -> ProverResult<Proof> {
-        Ok(Proof {
-            ..Default::default()
-        })
-    }
-
     async fn shasta_aggregate(
         &self,
         input: raiko_lib::input::ShastaAggregationGuestInput,

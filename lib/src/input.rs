@@ -83,13 +83,6 @@ pub struct GuestBatchInput {
     pub taiko: TaikoGuestBatchInput,
 }
 
-/// External aggregation input.
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub struct AggregationGuestInput {
-    /// All block proofs to prove
-    pub proofs: Vec<Proof>,
-}
-
 /// The raw proof data necessary to verify a proof
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct RawProof {
@@ -99,24 +92,11 @@ pub struct RawProof {
     pub input: B256,
 }
 
-/// External aggregation input.
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub struct RawAggregationGuestInput {
-    /// All block proofs to prove
-    pub proofs: Vec<RawProof>,
-}
-
-/// External aggregation input.
+/// Aggregation guest output (used for Shasta aggregation).
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct AggregationGuestOutput {
     /// The resulting hash
     pub hash: B256,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ZkAggregationGuestInput {
-    pub image_id: [u32; 8],
-    pub block_inputs: Vec<B256>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]

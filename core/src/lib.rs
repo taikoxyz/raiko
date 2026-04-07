@@ -325,9 +325,7 @@ pub fn merge(a: &mut Value, b: &Value) {
 
 #[cfg(test)]
 mod tests {
-    use crate::interfaces::{
-        aggregate_proofs, aggregate_shasta_proposals, ShastaProposalCheckpoint,
-    };
+    use crate::interfaces::{aggregate_shasta_proposals, ShastaProposalCheckpoint};
     use crate::preflight::parse_l1_batch_proposal_tx_for_shasta_fork;
     use crate::{interfaces::ProofRequest, provider::rpc::RpcBlockDataProvider, ChainSpec, Raiko};
     use alloy_primitives::Address;
@@ -337,10 +335,7 @@ mod tests {
     use raiko_lib::protocol_instance::shasta_pcd_aggregation_hash;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
-        input::{
-            AggregationGuestInput, AggregationGuestOutput, BlobProofType, GuestBatchInput,
-            GuestBatchOutput,
-        },
+        input::{AggregationGuestOutput, BlobProofType, GuestBatchInput, GuestBatchOutput},
         primitives::B256,
         proof_type::ProofType,
         prover::Proof,

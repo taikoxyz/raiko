@@ -20,8 +20,6 @@ pub enum Command {
     OneShot(OneShotArgs),
     /// Prove (i.e. sign) a single block and exit.
     OneBatchShot(OneShotArgs),
-    /// Aggregate proofs
-    Aggregate(OneShotArgs),
     /// Bootstrap the application and then exit. The bootstrapping process generates the
     /// initial public-private key pair and stores it on the disk in an encrypted
     /// format using SGX encryption primitives.

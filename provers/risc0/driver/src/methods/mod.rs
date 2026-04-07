@@ -1,4 +1,3 @@
-pub mod boundless_aggregation;
 pub mod boundless_batch;
 pub mod boundless_shasta_aggregation;
 

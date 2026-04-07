@@ -4,8 +4,8 @@ use utoipa::ToSchema;
 
 use crate::{
     input::{
-        shasta::Checkpoint, AggregationGuestInput, AggregationGuestOutput, GuestBatchInput,
-        GuestBatchOutput, GuestInput, GuestOutput, ShastaAggregationGuestInput,
+        shasta::Checkpoint, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput,
+        GuestOutput, ShastaAggregationGuestInput,
     },
     proof_type::ProofType,
 };
@@ -133,14 +133,6 @@ pub trait Prover {
         &self,
         input: GuestBatchInput,
         output: &GuestBatchOutput,
-        config: &ProverConfig,
-        store: Option<&mut dyn IdWrite>,
-    ) -> ProverResult<Proof>;
-
-    async fn aggregate(
-        &self,
-        input: AggregationGuestInput,
-        output: &AggregationGuestOutput,
         config: &ProverConfig,
         store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof>;

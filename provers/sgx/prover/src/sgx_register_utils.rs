@@ -378,14 +378,7 @@ mod test {
         quote_str: &str,
     ) -> Result<Vec<u64>, Box<dyn std::error::Error>> {
         // change chain_id & sgx_verifier_address to anvil env accordingly
-        let id0 = register_sgx_instance(
-            quote_str,
-            "https://l1rpc.internal.taiko.xyz",
-            32382,
-            address!("2Ec730f0830803A022262e46375E33023faD65e5"),
-        )
-        .await?;
-        let id1 = register_sgx_instance(
+        let id = register_sgx_instance(
             quote_str,
             "https://l1rpc.internal.taiko.xyz",
             32382,
@@ -393,10 +386,8 @@ mod test {
         )
         .await?;
         let mut fork_ids = ForkRegisterId::new();
-        fork_ids.insert(SpecId::HEKLA, id0);
-        fork_ids.insert(SpecId::ONTAKE, id0);
-        fork_ids.insert(SpecId::PACAYA, id1);
+        fork_ids.insert(SpecId::SHASTA, id);
         set_instance_id(Path::new("/tmp"), ProofType::Sgx, &fork_ids)?;
-        Ok(vec![id0, id1])
+        Ok(vec![id])
     }
 }

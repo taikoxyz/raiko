@@ -3,7 +3,6 @@
 use crate::{
     boundless::BoundlessProver,
     methods::{
-        boundless_aggregation::BOUNDLESS_AGGREGATION_ELF as RISC0_AGGREGATION_ELF,
         boundless_batch::BOUNDLESS_BATCH_ELF as RISC0_BATCH_ELF,
         boundless_shasta_aggregation::BOUNDLESS_SHASTA_AGGREGATION_ELF as RISC0_SHASTA_AGGREGATION_ELF,
     },
@@ -13,9 +12,8 @@ use bonsai::{cancel_proof, maybe_prove};
 use log::{info, warn};
 use raiko_lib::{
     input::{
-        AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, ShastaAggregationGuestInput, ShastaRisc0AggregationGuestInput,
-        ZkAggregationGuestInput,
+        AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput,
+        ShastaAggregationGuestInput, ShastaRisc0AggregationGuestInput,
     },
     libhash::hash_shasta_subproof_input,
     proof_type::ProofType,
@@ -83,101 +81,6 @@ impl Prover for Risc0Prover {
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
         unimplemented!("no block run after pacaya fork")
-    }
-
-    async fn aggregate(
-        &self,
-        input: AggregationGuestInput,
-        _output: &AggregationGuestOutput,
-        config: &ProverConfig,
-        _id_store: Option<&mut dyn IdWrite>,
-    ) -> ProverResult<Proof> {
-        let boundless_cfg = config;
-        let config = Risc0Param::deserialize(config.get("risc0").unwrap()).unwrap();
-
-        if config.boundless {
-            // Delegate to boundless driver (agent-managed) when enabled.
-            return BoundlessProver::new()
-                .aggregate(input, _output, boundless_cfg, None)
-                .await
-                .map_err(|e| ProverError::GuestError(e.to_string()));
-        }
-
-        assert!(
-            config.snark && config.bonsai,
-            "Aggregation must be in bonsai snark mode"
-        );
-
-        // Extract the block proof receipts
-        let assumptions: Vec<Receipt> = input
-            .proofs
-            .iter()
-            .map(|proof| {
-                let receipt: Receipt = serde_json::from_str(&proof.quote.clone().unwrap())
-                    .expect("Failed to deserialize");
-                receipt
-            })
-            .collect::<Vec<_>>();
-        let block_inputs: Vec<B256> = input
-            .proofs
-            .iter()
-            .map(|proof| proof.input.unwrap())
-            .collect::<Vec<_>>();
-
-        let input_proof_hex_str = input.proofs[0].proof.as_ref().unwrap();
-        let input_proof_bytes = hex::decode(&input_proof_hex_str[2..]).unwrap();
-        let input_image_id_bytes: [u8; 32] = input_proof_bytes[32..64].try_into().unwrap();
-        let input_proof_image_id = Digest::from(input_image_id_bytes);
-        let input = ZkAggregationGuestInput {
-            image_id: input_proof_image_id.as_words().try_into().unwrap(),
-            block_inputs,
-        };
-
-        // add_assumption makes the receipt to be verified available to the prover.
-        let env = {
-            let mut env = ExecutorEnv::builder();
-            for assumption in assumptions {
-                env.add_assumption(assumption);
-            }
-            env.write(&input).unwrap().build().unwrap()
-        };
-
-        let opts = ProverOpts::groth16();
-        let receipt = match default_prover().prove_with_opts(env, RISC0_AGGREGATION_ELF, &opts) {
-            Ok(receipt) => receipt.receipt,
-            Err(e) => {
-                tracing::error!("Failed to generate RISC0 aggregation proof: {:?}", e);
-                return Err(ProverError::GuestError(format!(
-                    "RISC0 aggregation proof generation failed: {}",
-                    e
-                )));
-            }
-        };
-
-        info!(
-            "Generate aggregation receipt journal: {:?}",
-            alloy_primitives::hex::encode_prefixed(receipt.journal.bytes.clone())
-        );
-        let aggregation_image_id = compute_image_id(RISC0_AGGREGATION_ELF).unwrap();
-        let proof_data = snarks::verify_aggregation_groth16_proof(
-            input_proof_image_id,
-            aggregation_image_id,
-            receipt.clone(),
-        )
-        .await
-        .map_err(|err| format!("Failed to verify SNARK: {err:?}"))?;
-        let snark_proof = alloy_primitives::hex::encode_prefixed(proof_data);
-
-        info!("Aggregation proof: {snark_proof:?}");
-        let proof_gen_result = Ok(Risc0Response {
-            proof: snark_proof,
-            receipt: serde_json::to_string(&receipt).unwrap(),
-            uuid: "".to_owned(),
-            input: B256::from_slice(receipt.journal.digest().as_bytes()),
-        }
-        .into());
-
-        proof_gen_result
     }
 
     async fn cancel(&self, key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
