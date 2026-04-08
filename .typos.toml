@@ -1,8 +1,6 @@
 [default.extend-words]
 consts = "consts"
+Ba = "Ba"
 
 [default.extend-identifiers]
 consts = "consts"
-
-[default.extend-words]
-Ba = "Ba"
