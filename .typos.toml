@@ -3,3 +3,6 @@ consts = "consts"
 
 [default.extend-identifiers]
 consts = "consts"
+
+[default.extend-words]
+Ba = "Ba"
