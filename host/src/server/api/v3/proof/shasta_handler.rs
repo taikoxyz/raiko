@@ -126,8 +126,7 @@ async fn shasta_batch_handler(
     ) = process_shasta_batch(&shasta_request, &image_id);
 
     // Run input step first to reuse cached guest input (both aggregate and non-aggregate)
-    let statuses =
-        prove_many(&actor, sub_input_request_keys, sub_input_request_entities).await?;
+    let statuses = prove_many(&actor, sub_input_request_keys, sub_input_request_entities).await?;
     let is_all_sub_success = statuses
         .iter()
         .all(|status| matches!(status, raiko_reqpool::Status::Success { .. }));

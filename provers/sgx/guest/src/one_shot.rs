@@ -14,8 +14,7 @@ use raiko_lib::{
     primitives::{Address, B256},
     proof_type::ProofType,
     protocol_instance::{
-        shasta_pcd_aggregation_hash,
-        validate_shasta_aggregate_proof_carry_data, ProtocolInstance,
+        shasta_pcd_aggregation_hash, validate_shasta_aggregate_proof_carry_data, ProtocolInstance,
     },
 };
 use secp256k1::{Keypair, PublicKey, SecretKey};

@@ -4,8 +4,8 @@ use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
-        AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, ShastaAggregationGuestInput, ShastaSp1AggregationGuestInput,
+        AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput,
+        ShastaAggregationGuestInput, ShastaSp1AggregationGuestInput,
     },
     libhash::hash_shasta_subproof_input,
     proof_type::ProofType,

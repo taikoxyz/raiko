@@ -3,8 +3,8 @@ use alloy_primitives::{Address, B256};
 use clap::Args;
 use raiko_lib::{
     input::{
-        shasta::Checkpoint, AggregationGuestOutput, BlobProofType,
-        GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput, ShastaAggregationGuestInput,
+        shasta::Checkpoint, AggregationGuestOutput, BlobProofType, GuestBatchInput,
+        GuestBatchOutput, GuestInput, GuestOutput, ShastaAggregationGuestInput,
     },
     proof_type::ProofType,
     prover::{IdStore, IdWrite, Proof, ProofKey, Prover, ProverError},

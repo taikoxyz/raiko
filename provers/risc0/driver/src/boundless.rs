@@ -13,8 +13,8 @@ use alloy_sol_types::SolValue;
 use hex;
 use raiko_lib::{
     input::{
-        AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, ShastaAggregationGuestInput,
+        AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput,
+        ShastaAggregationGuestInput,
     },
     libhash::hash_shasta_subproof_input,
     primitives::keccak::keccak,
@@ -704,7 +704,6 @@ impl Prover for BoundlessProver {
         unimplemented!("No need for post pacaya");
     }
 
-
     async fn cancel(&self, _key: ProofKey, _id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
         todo!()
     }
@@ -1241,5 +1240,4 @@ mod tests {
         let zkvm_receipt: ZkvmReceipt = serde_json::from_str(&proof.quote.unwrap()).unwrap();
         println!("Deserialized zkvm receipt: {:#?}", zkvm_receipt);
     }
-
 }

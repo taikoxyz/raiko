@@ -13,9 +13,8 @@ use duct::{cmd, Expression};
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
-        AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput, RawProof,
-        ShastaAggregationGuestInput,
-        ShastaRawAggregationGuestInput,
+        AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput,
+        RawProof, ShastaAggregationGuestInput, ShastaRawAggregationGuestInput,
     },
     primitives::B256,
     proof_type::ProofType,

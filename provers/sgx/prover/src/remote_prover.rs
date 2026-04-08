@@ -3,8 +3,8 @@
 use crate::{SgxParam, SgxResponse};
 use raiko_lib::{
     input::{
-        AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput, RawProof,
-        ShastaAggregationGuestInput, ShastaRawAggregationGuestInput,
+        AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput,
+        RawProof, ShastaAggregationGuestInput, ShastaRawAggregationGuestInput,
     },
     proof_type::ProofType,
     prover::{

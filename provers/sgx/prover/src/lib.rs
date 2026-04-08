@@ -8,8 +8,8 @@ use std::{
 use raiko_lib::{
     consts::SpecId,
     input::{
-        AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, ShastaAggregationGuestInput,
+        AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput,
+        ShastaAggregationGuestInput,
     },
     primitives::B256,
     proof_type::ProofType,
