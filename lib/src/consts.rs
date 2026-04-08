@@ -269,8 +269,6 @@ pub enum Network {
     /// The Ethereum Mainnet
     #[default]
     Ethereum,
-    /// Ethereum testnet holesky
-    Holesky,
     /// Taiko A7 tesnet
     TaikoA7,
     /// Taiko Mainnet
@@ -281,7 +279,6 @@ impl std::fmt::Display for Network {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(match self {
             Network::Ethereum => "ethereum",
-            Network::Holesky => "holesky",
             Network::TaikoA7 => "taiko_a7",
             Network::TaikoMainnet => "taiko_mainnet",
         })

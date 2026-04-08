@@ -48,7 +48,7 @@ function bootstrap() {
 }
 
 function bootstrap_with_self_register() {
-    L1_NETWORK="${L1_NETWORK:-holesky}"
+    L1_NETWORK="${L1_NETWORK:-hoodi}"
     NETWORK="${NETWORK:-taiko_a7}"
     mkdir -p "$RAIKO_DOCKER_VOLUME_SECRETS_PATH"
     cd "$RAIKO_APP_DIR"
@@ -83,14 +83,6 @@ function update_docker_chain_specs() {
 
     if [ -n "${ETHEREUM_BEACON_RPC}" ]; then
         update_chain_spec_json $CONFIG_FILE "ethereum" "beacon_rpc" $ETHEREUM_BEACON_RPC
-    fi
-
-    if [ -n "${HOLESKY_RPC}" ]; then
-        update_chain_spec_json $CONFIG_FILE "holesky" "rpc" $HOLESKY_RPC
-    fi
-
-    if [ -n "${HOLESKY_BEACON_RPC}" ]; then
-        update_chain_spec_json $CONFIG_FILE "holesky" "beacon_rpc" $HOLESKY_BEACON_RPC
     fi
 
     if [ -n "${TAIKO_A7_RPC}" ]; then

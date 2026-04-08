@@ -27,7 +27,7 @@ Submit a Shasta batch proof task. Supports aggregation when `aggregate: true`.
   - checkpoint(object, optional): `{ block_number, block_hash, state_root }`.
 - aggregate(boolean, optional): Whether to aggregate the proofs of all proposals. Default is false.
 - network(string): The L2 network (e.g., "taiko_a7").
-- l1_network(string): The L1 network (e.g., "holesky").
+- l1_network(string): The L1 network (e.g., "hoodi").
 - graffiti(string, optional): A 32-byte hex string. Defaults to zero.
 - prover(address): The Ethereum address of the prover.
 - proof_type(string): `native`, `sgx`, `risc0`, `sp1`, or `zk_any`.
@@ -48,7 +48,7 @@ curl --location \
      --header 'Content-Type: application/json' \
      --data-raw '{
          "network": "taiko_a7",
-         "l1_network": "holesky",
+         "l1_network": "hoodi",
          "proposals": [
            {
              "proposal_id": 429,

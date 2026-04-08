@@ -13,7 +13,7 @@ use crate::{
 };
 use anyhow::{bail, ensure, Result};
 use reth_chainspec::{
-    ChainSpecBuilder, Hardfork, HOLESKY, MAINNET, TAIKO_A7, TAIKO_DEV, TAIKO_MAINNET, TAIKO_TOLBA,
+    ChainSpecBuilder, Hardfork, MAINNET, TAIKO_A7, TAIKO_DEV, TAIKO_MAINNET, TAIKO_TOLBA,
     TAIKO_TRANSITION,
 };
 
@@ -29,7 +29,6 @@ fn reth_chain_spec_for_name(name: &str) -> Arc<reth_chainspec::ChainSpec> {
                 .cancun_activated()
                 .build(),
         ),
-        "holesky" => HOLESKY.clone(),
         "taiko_dev" => TAIKO_DEV.clone(),
         "taiko_hoodi" => TAIKO_TOLBA.clone(),
         "taiko_transition" => TAIKO_TRANSITION.clone(),

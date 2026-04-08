@@ -19,16 +19,14 @@ get_l1_network() {
 
     if [ "$chain" == "ethereum" ]; then
         l1_network="ethereum"
-    elif [ "$chain" == "holesky" ]; then
-        l1_network="holesky" 
     elif [ "$chain" == "taiko_mainnet" ]; then
         l1_network="ethereum"
     elif [ "$chain" == "taiko_a7" ]; then
-        l1_network="holesky"
+        l1_network="hoodi"
     elif [ "$chain" == "taiko_dev" ]; then
         l1_network="taiko_dev_l1"
     else
-        echo "Invalid chain name. Please use 'ethereum', 'holesky', 'taiko_mainnet', 'taiko_a7', or 'taiko_dev'."
+        echo "Invalid chain name. Please use 'ethereum', 'taiko_mainnet', 'taiko_a7', or 'taiko_dev'."
         exit 1
     fi
 
