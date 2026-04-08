@@ -174,20 +174,20 @@ mod tests {
         let mut pool = memory_pool("test_memory_pool");
         let mut conn = pool.conn().expect("memory conn");
 
-        for i in 0..2048 {
+        for i in 0..DEFAULT_MEMORY_BACKEND_CAPACITY {
             let key = format!("key{}", i);
             let val = format!("val{}", i);
             conn.set_ex(key.clone(), val.clone(), 111)
                 .expect("memory set_ex");
         }
 
-        for i in 0..2048 {
+        for i in 0..DEFAULT_MEMORY_BACKEND_CAPACITY {
             let key = format!("key{}", i);
             let actual: RedisResult<String> = conn.get(&key);
             assert_eq!(actual, Ok(format!("val{}", i)));
         }
 
-        for i in 2048..2048 + 10 {
+        for i in DEFAULT_MEMORY_BACKEND_CAPACITY..DEFAULT_MEMORY_BACKEND_CAPACITY + 10 {
             let key = format!("key{}", i);
             let val = format!("val{}", i);
             conn.set_ex(key.clone(), val.clone(), 111)
@@ -200,7 +200,7 @@ mod tests {
             assert!(actual.is_err());
         }
 
-        for i in 10..2048 + 10 {
+        for i in 10..DEFAULT_MEMORY_BACKEND_CAPACITY + 10 {
             let key = format!("key{}", i);
             let actual: RedisResult<String> = conn.get(&key);
             assert_eq!(actual, Ok(format!("val{}", i)));
