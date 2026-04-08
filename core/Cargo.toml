@@ -34,6 +34,7 @@ alloy-rlp-derive = { workspace = true }
 alloy-sol-types = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-rpc-types = { workspace = true }
+alloy-rpc-types-debug = { workspace = true }
 alloy-provider = { workspace = true }
 alloy-transport-http = { workspace = true }
 alloy-consensus = { workspace = true }
@@ -73,10 +74,6 @@ utoipa = { workspace = true }
 # cli
 clap = { workspace = true }
 
-# db cache
-lazy_static = { workspace = true }
-lru = { workspace = true }
-
 [dev-dependencies]
 assert_cmd = { workspace = true }
 rstest = { workspace = true }
@@ -90,11 +87,10 @@ name = "proving"
 harness = false
 
 [features]
-default = ["statedb_lru"]
+default = []
 # powdr = ["dep:powdr"]
 sp1 = ["dep:sp1-driver", "sp1-driver/enable"]
 risc0 = ["dep:risc0-driver", "risc0-driver/enable"]
 zisk = ["dep:zisk-driver", "zisk-driver/enable"]
 sgx = ["dep:sgx-prover", "sgx-prover/enable"]
 tdx = ["dep:tdx-prover", "tdx-prover/enable"]
-statedb_lru = []

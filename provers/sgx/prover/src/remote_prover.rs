@@ -473,9 +473,13 @@ mod tests {
         .get_chain_spec("surge_dev")
         .unwrap();
         let sgx_param = SgxParam {
-            instance_ids: vec![(TaikoSpecId::PACAYA, 0), (TaikoSpecId::SHASTA, 10)]
-                .into_iter()
-                .collect(),
+            instance_ids: vec![
+                (TaikoSpecId::PACAYA, 0),
+                (TaikoSpecId::SHASTA, 10),
+                (TaikoSpecId::REALTIME, 20),
+            ]
+            .into_iter()
+            .collect(),
             setup: false,
             bootstrap: false,
             prove: false,
@@ -484,7 +488,7 @@ mod tests {
             .active_fork(1, 1)
             .map_err(|e| ProverError::GuestError(e.to_string()))
             .expect("ok");
-        assert_eq!(spec_id, TaikoSpecId::SHASTA);
+        assert_eq!(spec_id, TaikoSpecId::REALTIME);
 
         let instance_id = sgx_param
             .instance_ids
@@ -494,13 +498,13 @@ mod tests {
                 ProverError::GuestError(format!("No instance id found for spec id: {:?}", spec_id))
             })
             .expect("ok");
-        assert_eq!(instance_id, 10);
+        assert_eq!(instance_id, 20);
 
         let spec_id = taiko_chain_spec
             .active_fork(15, 1)
             .map_err(|e| ProverError::GuestError(e.to_string()))
             .expect("ok");
-        assert_eq!(spec_id, TaikoSpecId::SHASTA);
+        assert_eq!(spec_id, TaikoSpecId::REALTIME);
 
         let instance_id = sgx_param
             .instance_ids
@@ -510,6 +514,6 @@ mod tests {
                 ProverError::GuestError(format!("No instance id found for spec id: {:?}", spec_id))
             })
             .expect("ok");
-        assert_eq!(instance_id, 10);
+        assert_eq!(instance_id, 20);
     }
 }

@@ -233,7 +233,7 @@ RUN mkdir -p ~/.cargo/bin
 # RUN cargo build --release ${BUILD_FLAGS} --features "sp1,risc0,zisk,cuda"
 
 # Build only for zisk
-RUN cargo build --release ${BUILD_FLAGS} --features "zisk"
+RUN cargo build --release ${BUILD_FLAGS} --features "zisk,cuda"
 
 FROM ubuntu:22.04 AS raiko-zk
 
@@ -241,6 +241,7 @@ COPY --from=builder /usr/local/cuda/lib64/libcudart* /usr/local/cuda/lib64/
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+    ca-certificates \
     libssl3 \
     libsodium23 \
     libomp5 \

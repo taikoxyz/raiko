@@ -39,12 +39,22 @@ jobs:
           toolchain: ${{ inputs.version_toolchain }}
           profile: minimal
 
+      - name: Install protoc
+        run: sudo apt-get install -y protobuf-compiler
+
       - name: Install cargo-binstall
         uses: cargo-bins/cargo-binstall@v1.6.4
 
       - name: Setup sccache
-        if: ${{ inputs.version_name }} == risc0
-        uses: risc0/risc0/.github/actions/sccache@release-0.19
+        if: inputs.version_name == 'risc0'
+        uses: mozilla-actions/sccache-action@054db53350805f83040bf3e6e9b8cf5a139aa7c9 # v0.0.7
+
+      - name: Cache risc0
+        if: inputs.version_name == 'risc0'
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          key: rust-cache-${{ runner.os }}-${{ runner.arch }}
+          cache-directories: ~/.cache/risc0
 
       - name: Install ${{ inputs.version_name }}
         run: make install

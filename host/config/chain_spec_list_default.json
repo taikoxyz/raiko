@@ -30,6 +30,9 @@
             },
             "SHASTA": {
                 "Timestamp": 1
+            },
+            "REALTIME": {
+                "Timestamp": 1
             }
         },
         "eip_1559_constants": {
@@ -59,6 +62,12 @@
                 "TDX": "0x0000000000000000000000000000000000000000"
             },
             "SHASTA": {
+                "SGX": "0x82689c09B5F47592311A13cDB66caF912d78F496",
+                "SP1": "0x839D50BD8c20B660ED26bcF3Ed7366fC0D4000cf",
+                "RISC0": "0x2EDB2d4aec06A25A3b715D5Dcbf63A1d021952DE",
+                "TDX": "0x0000000000000000000000000000000000000000"
+            },
+            "REALTIME": {
                 "SGX": "0x82689c09B5F47592311A13cDB66caF912d78F496",
                 "SP1": "0x839D50BD8c20B660ED26bcF3Ed7366fC0D4000cf",
                 "RISC0": "0x2EDB2d4aec06A25A3b715D5Dcbf63A1d021952DE",

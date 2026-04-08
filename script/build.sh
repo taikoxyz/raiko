@@ -129,7 +129,7 @@ if [ "$1" == "risc0" ]; then
             cargo ${TOOLCHAIN_RISC0} run --bin risc0-builder 2>&1 
         else
             echo "Building test elfs for Risc0 prover"
-            cargo ${TOOLCHAIN_RISC0} run --manifest-path provers/risc0/builder/Cargo.toml --bin risc0-builder --no-default-features --features risc0,test,bench
+            cargo ${TOOLCHAIN_RISC0} run --manifest-path provers/risc0/builder/Cargo.toml --bin risc0-builder --no-default-features --features test,bench
         fi
         if [ -z "${GUEST}" ]; then
             # Clear RISC-V CC environment variables for host build
@@ -173,7 +173,7 @@ if [ "$1" == "sp1" ]; then
             cargo ${TOOLCHAIN_SP1} run --bin sp1-builder 2>&1 
         else
             echo "Building test elfs for Sp1 prover"
-            cargo ${TOOLCHAIN_SP1} run --manifest-path provers/sp1/builder/Cargo.toml --bin sp1-builder --no-default-features --features sp1,test,bench
+            cargo ${TOOLCHAIN_SP1} run --manifest-path provers/sp1/builder/Cargo.toml --bin sp1-builder --no-default-features --features test,bench
         fi
         if [ -z "${GUEST}" ]; then
             echo "Building 'cargo ${TOOLCHAIN_SP1} build ${FLAGS} --no-default-features --features sp1'"
@@ -263,7 +263,7 @@ if [ "$1" == "zisk" ]; then
             fi
         else
             echo "Running ZISK integration tests..."
-            cargo ${TOOLCHAIN_ZISK} test ${FLAGS} -p raiko-host -p raiko-core --features "zisk,enable"
+            cargo ${TOOLCHAIN_ZISK} test ${FLAGS} -p raiko-host -p raiko-core --features "zisk"
             (cd "$ZISK_AGENT_DIR" && cargo test --workspace)
         fi
     fi

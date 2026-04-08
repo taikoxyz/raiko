@@ -121,6 +121,7 @@ alloy-chains = { version = "0.2.6", default-features = false }
 alloy-rpc-types = { version = "1.0.18", default-features = false, features = [
     "eth",
 ] }
+alloy-rpc-types-debug = { version = "1.0.18", default-features = false }
 alloy-rpc-client = { version = "1.0.18", default-features = false, features = [
     "reqwest",
 ] }

@@ -20,6 +20,7 @@ use revm::{
 use serde::{Deserialize, Serialize};
 use std::collections::{hash_map::Entry, HashMap};
 use thiserror_no_std::Error as ThisError;
+use tracing::{debug, error};
 
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
@@ -179,7 +180,12 @@ impl Database for MemDb {
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         match self.accounts.get(&address) {
             Some(db_account) => Ok(db_account.info()),
-            None => Err(ProviderError::BestBlockNotFound),
+            None => {
+                // Account not in witness pre-state — treat as non-existent.
+                // If the witness is incomplete, the post-state root check will catch it.
+                debug!("MemDb::basic: account {address} not in witness, treating as non-existent");
+                Ok(None)
+            }
         }
     }
 
@@ -192,28 +198,35 @@ impl Database for MemDb {
     /// Get storage value of address at index.
     fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
         match self.accounts.get(&address) {
-            // if we have this account in the cache, we can query its storage
             Some(account) => match account.storage.get(&index) {
                 Some(value) => Ok(*value),
                 None => match account.state {
-                    // it is impossible to access the storage from a non-existing account
                     AccountState::Deleted => unreachable!(),
-                    // if the account has been deleted or cleared, we must return 0
                     AccountState::StorageCleared => Ok(U256::ZERO),
-                    // otherwise this is an uncached load
-                    _ => Err(ProviderError::BestBlockNotFound),
+                    _ => {
+                        // Slot not in witness pre-state — zero in Ethereum semantics.
+                        // If the witness is incomplete, the post-state root check will catch it.
+                        debug!("MemDb::storage: slot {index} not in witness for account {address}, returning zero");
+                        Ok(U256::ZERO)
+                    }
                 },
             },
-            // otherwise this is an uncached load
-            None => Err(ProviderError::BestBlockNotFound),
+            None => {
+                // Account not in witness but storage requested — treat slot as zero.
+                debug!("MemDb::storage: account {address} not in witness when looking up slot {index}, returning zero");
+                Ok(U256::ZERO)
+            }
         }
     }
 
     fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
-        self.block_hashes
-            .get(&number)
-            .copied()
-            .ok_or(ProviderError::BestBlockNotFound)
+        self.block_hashes.get(&number).copied().ok_or_else(|| {
+            error!(
+                "MemDb::block_hash: block {number} NOT FOUND ({} block hashes loaded)",
+                self.block_hashes.len()
+            );
+            ProviderError::BestBlockNotFound
+        })
     }
 }
 

@@ -1,56 +1,21 @@
-use alloy_primitives::{Address, B256, U256};
-use alloy_rpc_types::{Block, TransactionRequest};
+use alloy_primitives::B256;
+use alloy_rpc_types::Block;
 use raiko_lib::consts::SupportedChainSpecs;
-use reth_revm::state::AccountInfo;
-use std::collections::HashMap;
 
 use crate::{
     interfaces::{RaikoError, RaikoResult},
-    provider::rpc::{PrestateTraceResult, RpcBlockDataProvider},
-    MerkleProof,
+    provider::rpc::{ExecutionWitness, RpcBlockDataProvider},
 };
 
-pub mod db;
 pub mod rpc;
 
 #[allow(async_fn_in_trait)]
 pub trait BlockDataProvider: Clone + std::fmt::Debug {
     async fn get_blocks(&self, blocks_to_fetch: &[(u64, bool)]) -> RaikoResult<Vec<Block>>;
 
-    async fn get_accounts(
-        &self,
-        block_number: u64,
-        accounts: &[Address],
-    ) -> RaikoResult<Vec<AccountInfo>>;
-
-    async fn get_storage_values(
-        &self,
-        block_number: u64,
-        accounts: &[(Address, U256)],
-    ) -> RaikoResult<Vec<U256>>;
-
-    async fn get_merkle_proofs(
-        &self,
-        block_number: u64,
-        accounts: HashMap<Address, Vec<U256>>,
-        offset: usize,
-        num_storage_proofs: usize,
-    ) -> RaikoResult<MerkleProof>;
-
-    /// Pre-fetch all accounts and storage slots accessed by the given transactions using
-    /// eth_createAccessList. Returns (addresses, slots) to pre-populate the staging DB.
-    async fn get_access_list_for_txs(
-        &self,
-        block_number: u64,
-        tx_requests: &[TransactionRequest],
-    ) -> RaikoResult<(Vec<Address>, Vec<(Address, U256)>)>;
-
-    /// Trace an entire block with prestateTracer to get ALL state accessed during execution.
-    /// Returns None if the provider does not support debug APIs.
-    async fn trace_block_prestate(
-        &self,
-        _block_number: u64,
-    ) -> Option<RaikoResult<PrestateTraceResult>> {
+    /// Fetch the execution witness for a block via debug_executionWitness.
+    /// Returns None if the provider does not support this API.
+    async fn execution_witness(&self, _block_number: u64) -> Option<RaikoResult<ExecutionWitness>> {
         None
     }
 }

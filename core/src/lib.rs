@@ -1,8 +1,6 @@
-use std::{collections::HashMap, hint::black_box};
+use std::hint::black_box;
 
 use alethia_reth_primitives::{TaikoBlock, TaikoTxEnvelope};
-use alloy_primitives::Address;
-use alloy_rpc_types::EIP1186AccountProofResponse;
 use interfaces::{cancel_proof, run_batch_prover, run_prover};
 use raiko_lib::{
     builder::{create_mem_db, RethBlockBuilder},
@@ -31,8 +29,6 @@ pub mod mock_prover;
 pub mod preflight;
 pub mod prover;
 pub mod provider;
-
-pub type MerkleProof = HashMap<Address, EIP1186AccountProofResponse>;
 
 pub struct Raiko {
     pub l1_chain_spec: ChainSpec,
@@ -131,7 +127,8 @@ impl Raiko {
 
     fn execute_transactions(&self, input: &GuestInput) -> RaikoResult<()> {
         let mut input_owned = input.clone();
-        let db = create_mem_db(&mut input_owned).unwrap();
+        let db = create_mem_db(&mut input_owned)
+            .map_err(|e| RaikoError::Preflight(format!("create_mem_db failed: {e}")))?;
         let mut builder = RethBlockBuilder::new(input_owned, db);
         let pool_tx = generate_transactions(
             &input.chain_spec,
@@ -214,7 +211,8 @@ impl Raiko {
         input: &GuestInput,
     ) -> RaikoResult<()> {
         let mut input_owned = input.clone();
-        let db = create_mem_db(&mut input_owned).unwrap();
+        let db = create_mem_db(&mut input_owned)
+            .map_err(|e| RaikoError::Preflight(format!("create_mem_db failed: {e}")))?;
         let mut builder = RethBlockBuilder::new(input_owned, db);
 
         let mut pool_txs = vec![input.taiko.anchor_tx.clone().unwrap()];

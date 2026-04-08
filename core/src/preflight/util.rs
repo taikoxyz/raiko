@@ -12,10 +12,7 @@ use raiko_lib::{
         decode_anchor, decode_anchor_ontake, decode_anchor_pacaya, decode_anchor_realtime,
         decode_anchor_shasta,
     },
-    builder::{OptimisticDatabase, RethBlockBuilder},
-    clear_line,
     consts::{ChainSpec, TaikoSpecId},
-    inplace_print,
     input::{
         ontake::{BlockProposedV2, CalldataTxList},
         pacaya::BatchProposed,
@@ -35,149 +32,9 @@ use tracing::{debug, error, info, instrument, warn};
 
 use crate::{
     interfaces::{RaikoError, RaikoResult},
-    provider::{
-        db::ProviderDb,
-        rpc::{PrestateTraceResult, RpcBlockDataProvider},
-        BlockDataProvider,
-    },
+    provider::{rpc::RpcBlockDataProvider, BlockDataProvider},
     require,
 };
-
-/// Try to execute transactions using prestate trace data.
-/// If prefetched_prestate is provided, uses it directly (already fetched in parallel).
-/// Otherwise, tries to fetch via debug_traceBlockByNumber RPC.
-/// Returns Ok(true) if successful, Ok(false) if trace unavailable (should fall back).
-async fn try_trace_execute<'a, BDP>(
-    builder: &mut RethBlockBuilder<ProviderDb<'a, BDP>>,
-    pool_txs: &[TaikoTxEnvelope],
-    prefetched_prestate: Option<PrestateTraceResult>,
-) -> RaikoResult<bool>
-where
-    BDP: BlockDataProvider,
-{
-    // Use prefetched prestate if available, otherwise try RPC
-    let prestate = if let Some(prestate) = prefetched_prestate {
-        prestate
-    } else {
-        let Some(db) = builder.db.as_mut() else {
-            return Ok(false);
-        };
-        let block_number = db.block_number;
-        let Some(trace_result) = db.provider.trace_block_prestate(block_number + 1).await else {
-            return Ok(false);
-        };
-        match trace_result {
-            Ok(prestate) => prestate,
-            Err(e) => {
-                info!("execute_txs: debug_traceBlockByNumber failed (non-fatal): {e}");
-                return Ok(false);
-            }
-        }
-    };
-
-    // Populate staging_db with all state from the trace
-    let Some(db) = builder.db.as_mut() else {
-        return Ok(false);
-    };
-    db.populate_from_trace(prestate);
-
-    // Execute once non-optimistically
-    info!("execute_txs: trace-based single execution");
-    let Some(db) = builder.db.as_mut() else {
-        return Err(RaikoError::Preflight("No db in builder".to_owned()));
-    };
-    db.optimistic = true;
-    builder
-        .execute_transactions(pool_txs.to_vec(), true)
-        .map_err(|e| {
-            RaikoError::Preflight(format!("Executing transactions in builder failed: {e}"))
-        })?;
-
-    // If there's still pending state, do a few more iterations to converge
-    info!("execute_txs: trace had gaps, running additional iterations to converge");
-    let max_iterations = 100;
-    for num_iterations in 1.. {
-        info!("execute_txs: iteration {num_iterations} (post-trace)");
-        inplace_print(&format!("Executing iteration {num_iterations}..."));
-
-        let Some(db) = builder.db.as_mut() else {
-            return Err(RaikoError::Preflight("No db in builder".to_owned()));
-        };
-        db.optimistic = num_iterations + 1 < max_iterations;
-
-        builder
-            .execute_transactions(pool_txs.to_vec(), num_iterations + 1 < max_iterations)
-            .map_err(|e| {
-                RaikoError::Preflight(format!("Executing transactions in builder failed: {e}"))
-            })?;
-
-        let Some(db) = builder.db.as_mut() else {
-            return Err(RaikoError::Preflight("No db in builder".to_owned()));
-        };
-        if db.fetch_data().await {
-            clear_line();
-            info!(
-                "execute_txs: trace-based execution converged in {} iterations",
-                num_iterations + 1
-            );
-            return Ok(true);
-        }
-    }
-
-    Ok(true)
-}
-
-/// Optimize data gathering by executing the transactions multiple times so data can be requested in batches
-pub async fn execute_txs<'a, BDP>(
-    builder: &mut RethBlockBuilder<ProviderDb<'a, BDP>>,
-    pool_txs: Vec<TaikoTxEnvelope>,
-    prefetched_prestate: Option<PrestateTraceResult>,
-) -> RaikoResult<()>
-where
-    BDP: BlockDataProvider,
-{
-    // Fast path: try trace-based execution (uses prefetched prestate or fetches via RPC)
-    if try_trace_execute(builder, &pool_txs, prefetched_prestate).await? {
-        return Ok(());
-    }
-
-    info!("execute_txs: trace unavailable, using iterative approach");
-
-    // Fallback: iterative optimistic execution
-    let max_iterations = 100;
-    info!("execute_txs: start");
-    for num_iterations in 0.. {
-        info!("execute_txs: iteration {num_iterations}");
-        inplace_print(&format!("Executing iteration {num_iterations}..."));
-
-        let Some(db) = builder.db.as_mut() else {
-            info!("execute_txs: No db in builder before execute_transactions");
-            return Err(RaikoError::Preflight("No db in builder".to_owned()));
-        };
-        db.optimistic = num_iterations + 1 < max_iterations;
-
-        info!("execute_txs: execute_transactions start");
-        builder
-            .execute_transactions(pool_txs.clone(), num_iterations + 1 < max_iterations)
-            .map_err(|e| {
-                RaikoError::Preflight(format!("Executing transactions in builder failed: {e}"))
-            })?;
-        info!("execute_txs: execute_transactions done");
-
-        let Some(db) = builder.db.as_mut() else {
-            info!("execute_txs: No db in builder after execute_transactions");
-            return Err(RaikoError::Preflight("No db in builder".to_owned()));
-        };
-        info!("execute_txs: fetch_data start");
-        if db.fetch_data().await {
-            clear_line();
-            debug!("State data fetched in {num_iterations} iterations");
-            break;
-        }
-    }
-
-    Ok(())
-}
 
 /// Prepare the input for a Taiko chain
 pub async fn prepare_taiko_chain_input(

@@ -707,6 +707,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-rpc-types-debug"
+version = "1.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1b21e1ad18ff1b31ff1030e046462ab8168cf8894e6778cd805c8bdfe2bd649"
+dependencies = [
+ "alloy-primitives",
+ "derive_more 2.1.1",
+ "serde",
+ "serde_with",
+]
+
+[[package]]
 name = "alloy-rpc-types-engine"
 version = "1.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9442,6 +9454,7 @@ dependencies = [
  "alloy-rlp-derive",
  "alloy-rpc-client",
  "alloy-rpc-types",
+ "alloy-rpc-types-debug",
  "alloy-sol-types",
  "alloy-transport-http",
  "anyhow",
@@ -9453,8 +9466,6 @@ dependencies = [
  "eyre",
  "futures",
  "kzg",
- "lazy_static",
- "lru 0.13.0",
  "raiko-lib",
  "reqwest 0.11.27",
  "reqwest 0.12.28",

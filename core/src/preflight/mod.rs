@@ -1,40 +1,30 @@
-use std::{collections::HashSet, env};
-
 use crate::{
     interfaces::{RaikoError, RaikoResult},
     preflight::util::get_grandparent_timestamp,
-    provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
+    provider::BlockDataProvider,
 };
-use alethia_reth_primitives::{TaikoBlock, TaikoTxEnvelope};
-use alloy_primitives::Bytes;
+use alethia_reth_primitives::TaikoTxEnvelope;
 use futures::future::join_all;
 use raiko_lib::{
-    builder::RethBlockBuilder,
     consts::ChainSpec,
     input::{
         BlobProofType, BlockProposedFork, GuestBatchInput, GuestInput, TaikoGuestInput,
         TaikoProverData,
     },
-    primitives::mpt::proofs_to_tries,
     proof_type::ProofType,
-    utils::txs::{generate_transactions, generate_transactions_for_batch_blocks},
+    utils::txs::generate_transactions_for_batch_blocks,
     Measurement,
 };
 use tracing::{debug, info};
 
 use util::{
-    execute_txs, get_batch_blocks_and_parent_data, get_block_and_parent_data,
-    prepare_taiko_chain_batch_input, prepare_taiko_chain_input,
+    get_batch_blocks_and_parent_data, get_block_and_parent_data, prepare_taiko_chain_batch_input,
+    prepare_taiko_chain_input,
 };
 
 pub use util::{
     parse_l1_batch_proposal_tx_for_pacaya_fork, parse_l1_batch_proposal_tx_for_shasta_fork,
 };
-
-#[cfg(feature = "statedb_lru")]
-use lru::{load_state_db, save_state_db};
-#[cfg(feature = "statedb_lru")]
-mod lru;
 
 mod util;
 
@@ -120,7 +110,6 @@ pub async fn preflight<BDP: BlockDataProvider>(
     info!("preflight: guest input done");
 
     let parent_header: reth_primitives::Header = parent_block.header.inner.clone();
-    let parent_block_number = parent_header.number;
 
     info!("preflight: parent header done");
 
@@ -133,11 +122,6 @@ pub async fn preflight<BDP: BlockDataProvider>(
         ..Default::default()
     };
 
-    #[cfg(feature = "statedb_lru")]
-    let initial_db_with_headers = load_state_db((parent_block_number, parent_block.header.hash));
-    #[cfg(not(feature = "statedb_lru"))]
-    let initial_db_with_headers = None;
-
     // for TDX proofs, we avoid rebuilding the state trie and re-executing the
     // block as the node execution is trusted
     if proof_type == ProofType::Tdx {
@@ -145,102 +129,27 @@ pub async fn preflight<BDP: BlockDataProvider>(
         return Ok(input);
     }
 
-    // Parallelize ProviderDb::new (fetches 256 history blocks) with trace_block_prestate
-    let (provider_db_result, trace_result) = tokio::join!(
-        ProviderDb::new(
-            &provider,
-            taiko_chain_spec,
-            parent_block_number,
-            initial_db_with_headers,
-        ),
-        provider.trace_block_prestate(block_number),
-    );
-    let provider_db = provider_db_result?;
-    let prestate = match trace_result {
-        Some(Ok(ps)) => Some(ps),
-        Some(Err(e)) => {
-            info!("debug_traceBlockByNumber failed (non-fatal): {e}");
-            None
-        }
-        None => None,
-    };
+    // Fetch execution witness from the L2 node
+    let witness = provider
+        .execution_witness(block_number)
+        .await
+        .ok_or_else(|| {
+            RaikoError::Preflight("execution witness not supported by provider".to_owned())
+        })?
+        .map_err(|e| RaikoError::Preflight(format!("execution witness failed: {e}")))?;
 
-    info!("preflight: provider db done");
-
-    // Now re-execute the transactions in the block to collect all required data
-    let mut builder = RethBlockBuilder::new(input.clone(), provider_db);
-    info!("preflight: builder done");
-
-    let pool_tx = generate_transactions(
-        &input.chain_spec,
-        &input.taiko.block_proposed,
-        &input.taiko.tx_data,
-        &input.taiko.anchor_tx,
-    );
-
-    // Optimize data gathering
-    execute_txs(&mut builder, pool_tx, prestate).await?;
-
-    let db = if let Some(db) = builder.db.as_mut() {
-        // use committed state as the init state of next block
-        #[cfg(feature = "statedb_lru")]
-        save_state_db(
-            (parent_block_number + 1, block.hash_slow()),
-            (db.current_db.clone(), {
-                let mut current_headers = db.initial_headers.clone();
-                current_headers.insert(block_number, block.header.clone());
-                current_headers
-            }),
-        );
-        db
-    } else {
-        return Err(RaikoError::Preflight("No db in builder".to_owned()));
-    };
-
-    info!("preflight: db done");
-
-    // Gather inclusion proofs for the initial and final state
-    let measurement = Measurement::start("Fetching storage proofs...", true);
-    let (parent_proofs, proofs, num_storage_proofs) = db.get_proofs().await?;
-    measurement.stop_with_count(&format!(
-        "[{} Account/{num_storage_proofs} Storage]",
-        parent_proofs.len() + proofs.len(),
-    ));
-
-    info!("preflight: get proofs done");
-
-    // Construct the state trie and storage from the storage proofs.
-    let measurement = Measurement::start("Constructing MPT...", true);
-    let (parent_state_trie, parent_storage) =
-        proofs_to_tries(input.parent_header.state_root, parent_proofs, proofs)?;
+    info!("preflight: using execution witness path");
+    let measurement = Measurement::start("Building tries from witness...", true);
+    let (parent_state_trie, parent_storage, contracts, ancestor_headers) =
+        raiko_lib::primitives::mpt::witness_to_tries(
+            input.parent_header.state_root,
+            witness.state,
+            witness.keys,
+            witness.codes,
+            witness.headers,
+        )?;
     measurement.stop();
 
-    info!("preflight: construct mpt done");
-
-    // Gather proofs for block history
-    let measurement = Measurement::start("Fetching historical block headers...", true);
-    let ancestor_headers = db.get_ancestor_headers().await?;
-    measurement.stop();
-
-    info!("preflight: get ancestor headers done");
-
-    // Get the contracts from the initial db.
-    let measurement = Measurement::start("Fetching contract code...", true);
-    let contracts =
-        HashSet::<Bytes>::from_iter(db.initial_db.accounts.values().filter_map(|account| {
-            account
-                .info
-                .code
-                .clone()
-                .map(|code| Bytes(code.original_bytes().0.clone()))
-        }))
-        .into_iter()
-        .collect::<Vec<Bytes>>();
-    measurement.stop();
-
-    info!("preflight: get contract code done");
-
-    // Fill in remaining generated guest input data
     let input = GuestInput {
         parent_state_trie,
         parent_storage,
@@ -249,8 +158,7 @@ pub async fn preflight<BDP: BlockDataProvider>(
         ..input
     };
 
-    info!("preflight: input done");
-
+    info!("preflight: witness-based input done");
     Ok(input)
 }
 
@@ -341,209 +249,115 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
 
     assert_eq!(block_parent_pairs.len(), pool_txs_list.len());
 
-    let mut handles = Vec::new();
-    let chunk_size = env::var("PREFETCH_CHUNK_SIZE")
-        .unwrap_or("10".to_owned())
-        .parse()
-        .unwrap_or(10);
-    let tasks: Vec<(
-        (TaikoBlock, alloy_rpc_types::Block),
-        (Vec<TaikoTxEnvelope>, bool),
-    )> = block_parent_pairs
-        .iter()
-        .cloned()
-        .zip(pool_txs_list.iter().cloned())
-        .collect();
+    // Step 1: Build all GuestInputs sequentially (cheap, no I/O — just grandparent_timestamp tracking)
+    if block_parent_pairs.is_empty() {
+        return Err(RaikoError::Preflight(
+            "No blocks to prove in batch".to_owned(),
+        ));
+    }
+    let first_block_number = block_parent_pairs[0].0.header.number;
+    let mut grandparent_timestamp =
+        get_grandparent_timestamp(&provider, first_block_number).await?;
 
-    for task_batch in tasks.chunks(chunk_size) {
-        let task_batch_vec = task_batch.to_vec();
-        let taiko_guest_batch_input = taiko_guest_batch_input.clone();
-        let taiko_chain_spec = taiko_chain_spec.clone();
+    let mut base_inputs: Vec<GuestInput> = Vec::with_capacity(block_parent_pairs.len());
+    for ((prove_block, parent_block), (_pool_txs, is_force_inclusion)) in
+        block_parent_pairs.iter().zip(pool_txs_list.iter())
+    {
+        let parent_header: reth_primitives::Header = (*parent_block.header).clone();
+        let anchor_tx = prove_block.body.transactions.first().unwrap().clone();
+        let taiko_input = TaikoGuestInput {
+            l1_header: taiko_guest_batch_input.l1_header.clone(),
+            tx_data: Vec::new(),
+            anchor_tx: Some(anchor_tx),
+            block_proposed: taiko_guest_batch_input.batch_proposed.clone(),
+            prover_data: taiko_guest_batch_input.prover_data.clone(),
+            blob_commitment: None,
+            blob_proof: None,
+            blob_proof_type: taiko_guest_batch_input.data_sources[0]
+                .blob_proof_type
+                .clone(),
+            extra_data: match taiko_guest_batch_input.batch_proposed {
+                BlockProposedFork::Shasta(_) => Some(*is_force_inclusion),
+                _ => None,
+            },
+            grandparent_timestamp,
+        };
 
-        // Get first block number in batch, needed for grandparent timestamp fetch
-        let first_block_number_in_batch = task_batch_vec
-            .first()
-            .map(|((block, _), _)| block.header.number)
-            .unwrap_or(0);
+        grandparent_timestamp = Some(parent_header.timestamp);
 
-        // Get grandparent timestamp. This value is needed in consensus validation of the block after execution.
-        let mut grandparent_timestamp =
-            get_grandparent_timestamp(&provider, first_block_number_in_batch).await?;
-
-        let handle = tokio::spawn(async move {
-            let mut chunk_guest_input = Vec::new();
-            for ((prove_block, parent_block), txs_with_force_inc_flag) in task_batch_vec {
-                let taiko_chain_spec = taiko_chain_spec.clone();
-                let taiko_guest_batch_input = taiko_guest_batch_input.clone();
-
-                let parent_header: reth_primitives::Header = (*parent_block.header).clone();
-                let parent_block_number = parent_header.number;
-                #[cfg(feature = "statedb_lru")]
-                let initial_db = load_state_db((parent_block_number, parent_block.header.hash));
-                #[cfg(not(feature = "statedb_lru"))]
-                let initial_db = None;
-
-                let (pure_pool_txs, is_force_inclusion) = txs_with_force_inc_flag;
-                let anchor_tx = prove_block.body.transactions.first().unwrap().clone();
-                let taiko_input = TaikoGuestInput {
-                    l1_header: taiko_guest_batch_input.l1_header.clone(),
-                    tx_data: Vec::new(),
-                    anchor_tx: Some(anchor_tx.clone()),
-                    block_proposed: taiko_guest_batch_input.batch_proposed.clone(),
-                    prover_data: taiko_guest_batch_input.prover_data.clone(),
-                    blob_commitment: None,
-                    blob_proof: None,
-                    blob_proof_type: taiko_guest_batch_input.data_sources[0]
-                        .blob_proof_type
-                        .clone(),
-                    extra_data: match taiko_guest_batch_input.batch_proposed {
-                        BlockProposedFork::Shasta(_) => Some(is_force_inclusion),
-                        _ => None,
-                    },
-                    grandparent_timestamp,
-                };
-
-                // Update grandparent timestamp for next block
-                // Current block's parent becomes next block's grandparent
-                grandparent_timestamp = Some(parent_header.timestamp);
-
-                // Create the guest input
-                let input = GuestInput {
-                    block: prove_block.clone(),
-                    parent_header,
-                    chain_spec: taiko_chain_spec.clone(),
-                    taiko: taiko_input.clone(),
-                    ..Default::default()
-                };
-
-                // for TDX proofs, we avoid rebuilding the state trie and re-executing the
-                // block as the node execution is trusted
-                if proof_type == ProofType::Tdx {
-                    info!("batch_preflight: skipping re-execution since TDX proof");
-                    chunk_guest_input.push(input);
-                    continue;
-                }
-
-                let provider = RpcBlockDataProvider::new(&taiko_chain_spec.rpc)
-                    .await
-                    .expect("Could not create RpcBlockDataProvider");
-
-                // Parallelize ProviderDb::new with trace_block_prestate
-                let block_to_prove = prove_block.header.number;
-                let (provider_db_result, trace_result) = tokio::join!(
-                    ProviderDb::new(
-                        &provider,
-                        taiko_chain_spec.clone(),
-                        parent_block_number,
-                        initial_db,
-                    ),
-                    BlockDataProvider::trace_block_prestate(&provider, block_to_prove),
-                );
-                let provider_db = provider_db_result?;
-                let prestate = match trace_result {
-                    Some(Ok(ps)) => Some(ps),
-                    Some(Err(e)) => {
-                        info!("debug_traceBlockByNumber failed (non-fatal): {e}");
-                        None
-                    }
-                    None => None,
-                };
-
-                // Now re-execute the transactions in the block to collect all required data
-                let mut builder = RethBlockBuilder::new(input.clone(), provider_db);
-
-                let mut pool_txs = vec![anchor_tx.clone()];
-                pool_txs.extend_from_slice(&pure_pool_txs);
-                execute_txs(&mut builder, pool_txs, prestate).await?;
-
-                let db = if let Some(db) = builder.db.as_mut() {
-                    // save committed state as the init state of next block
-                    #[cfg(feature = "statedb_lru")]
-                    save_state_db(
-                        (prove_block.header.number, prove_block.hash_slow()),
-                        (db.current_db.clone(), {
-                            let mut current_headers = db.initial_headers.clone();
-                            current_headers
-                                .insert(prove_block.header.number, prove_block.header.clone());
-                            current_headers
-                        }),
-                    );
-                    db
-                } else {
-                    return Err(RaikoError::Preflight("No db in builder".to_owned()));
-                };
-
-                // Gather inclusion proofs for the initial and final state
-                let measurement = Measurement::start("Fetching storage proofs...", true);
-                let (parent_proofs, current_proofs, num_storage_proofs) = db.get_proofs().await?;
-                measurement.stop_with_count(&format!(
-                    "[{} Account/{num_storage_proofs} Storage]",
-                    parent_proofs.len() + current_proofs.len(),
-                ));
-
-                // Construct the state trie and storage from the storage proofs.
-                let measurement = Measurement::start("Constructing MPT...", true);
-                let (parent_state_trie, parent_storage) = proofs_to_tries(
-                    input.parent_header.state_root,
-                    parent_proofs,
-                    current_proofs,
-                )?;
-                measurement.stop();
-
-                // Gather proofs for block history
-                let measurement = Measurement::start("Fetching historical block headers...", true);
-                let ancestor_headers = db.get_ancestor_headers().await?;
-                measurement.stop();
-
-                // Get the contracts from the initial db.
-                let measurement = Measurement::start("Fetching contract code...", true);
-                let contracts = HashSet::<Bytes>::from_iter(
-                    db.initial_db.accounts.values().filter_map(|account| {
-                        account
-                            .info
-                            .code
-                            .clone()
-                            .map(|code| Bytes(code.original_bytes().0.clone()))
-                    }),
-                )
-                .into_iter()
-                .collect::<Vec<Bytes>>();
-                measurement.stop();
-
-                // Fill in remaining generated guest input data
-                let input = GuestInput {
-                    parent_state_trie,
-                    parent_storage,
-                    contracts,
-                    ancestor_headers,
-                    ..input
-                };
-                chunk_guest_input.push(input);
-            }
-            Ok(chunk_guest_input)
+        base_inputs.push(GuestInput {
+            block: prove_block.clone(),
+            parent_header,
+            chain_spec: taiko_chain_spec.clone(),
+            taiko: taiko_input,
+            ..Default::default()
         });
-        handles.push(handle);
     }
 
-    let batch_results: Vec<Vec<GuestInput>> = join_all(handles)
-        .await
-        .into_iter()
-        .map(|join_result| match join_result {
-            Ok(Ok(batch)) => Ok(batch),
-            Ok(Err(e)) => {
-                eprintln!("Prefetch chunk error: {:?}", e);
-                Err(e)
-            }
-            Err(e) => {
-                eprintln!("JoinError: {:?}", e);
-                Err(RaikoError::Preflight(e.to_string()))
+    // For TDX proofs, skip witness fetching entirely
+    if proof_type == ProofType::Tdx {
+        info!("batch_preflight: skipping re-execution since TDX proof");
+        return Ok(GuestBatchInput {
+            inputs: base_inputs,
+            taiko: taiko_guest_batch_input,
+        });
+    }
+
+    // Step 2: Fetch all witnesses concurrently
+    let witness_block_numbers: Vec<u64> = base_inputs
+        .iter()
+        .map(|input| input.block.header.number)
+        .collect();
+    let witness_futures: Vec<_> = witness_block_numbers
+        .iter()
+        .map(|&block_number| {
+            let provider = &provider;
+            async move {
+                provider
+                    .execution_witness(block_number)
+                    .await
+                    .ok_or_else(|| {
+                        RaikoError::Preflight(format!(
+                            "execution witness not supported for block {block_number}"
+                        ))
+                    })?
+                    .map_err(|e| {
+                        RaikoError::Preflight(format!(
+                            "execution witness failed for block {block_number}: {e}"
+                        ))
+                    })
             }
         })
-        .collect::<Result<_, RaikoError>>()?;
-    let final_result: Vec<GuestInput> = batch_results.into_iter().flatten().collect();
+        .collect();
+    let witnesses: Vec<RaikoResult<_>> = join_all(witness_futures).await;
+
+    // Step 3: Apply witness data to each input
+    let mut final_inputs: Vec<GuestInput> = Vec::with_capacity(base_inputs.len());
+    for (input, witness_result) in base_inputs.into_iter().zip(witnesses) {
+        let witness = witness_result?;
+        let block_number = input.block.header.number;
+        info!("batch_preflight: block {block_number} using execution witness");
+
+        let (parent_state_trie, parent_storage, contracts, ancestor_headers) =
+            raiko_lib::primitives::mpt::witness_to_tries(
+                input.parent_header.state_root,
+                witness.state,
+                witness.keys,
+                witness.codes,
+                witness.headers,
+            )?;
+
+        final_inputs.push(GuestInput {
+            parent_state_trie,
+            parent_storage,
+            contracts,
+            ancestor_headers,
+            ..input
+        });
+    }
 
     Ok(GuestBatchInput {
-        inputs: final_result,
+        inputs: final_inputs,
         taiko: taiko_guest_batch_input,
     })
 }

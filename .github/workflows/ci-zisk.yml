@@ -1,0 +1,57 @@
+name: CI - ZisK
+
+on:
+  workflow_call:
+  pull_request:
+    paths:
+      - "provers/zisk/**"
+      - "!docs/**"
+      - "!**/README.md"
+
+permissions:
+  contents: read
+
+env:
+  CI: 1
+  CARGO_TERM_COLOR: always
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  INSTALL_KEYS: "false"
+
+jobs:
+  build-test-zisk:
+    if: ${{ github.event.pull_request.draft == false }}
+    name: Build and test zisk
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      TARGET: zisk
+      CI: 1
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          submodules: recursive
+
+      - uses: actions-rs/toolchain@63eb9591781c46a70274cb3ebdf190fce92702e8 # v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Install system dependencies
+        run: sudo apt-get install -y nasm libomp-dev libopenmpi-dev protobuf-compiler nlohmann-json3-dev libsodium-dev gcc-riscv64-unknown-elf
+
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@be2934e283ac6e66ff78587cad1f2422e8162fc9 # v1.6.4
+
+      - name: Install zisk
+        run: |
+          export PATH="$HOME/.zisk/bin:$HOME/.sp1/bin:$PATH"
+          make install
+          echo "$HOME/.zisk/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.sp1/bin" >> "$GITHUB_PATH"
+
+      - name: Build zisk prover
+        run: make build
+
+      - name: Test zisk prover
+        run: make test

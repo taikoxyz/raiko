@@ -50,7 +50,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-block"
 version = "0.6.0"
-source = "git+https://github.com/NethermindEth/alethia-reth.git?branch=main#a0acec16fed365c1437d572f228ea3ddcdb4ab38"
+source = "git+https://github.com/NethermindEth/alethia-reth.git?branch=real-time-proving-migration#b8d62d74c9ea12c0a79226ce9aa9e2a00614d2f7"
 dependencies = [
  "alethia-reth-chainspec",
  "alethia-reth-consensus",
@@ -82,7 +82,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-chainspec"
 version = "0.6.0"
-source = "git+https://github.com/NethermindEth/alethia-reth.git?branch=main#a0acec16fed365c1437d572f228ea3ddcdb4ab38"
+source = "git+https://github.com/NethermindEth/alethia-reth.git?branch=real-time-proving-migration#b8d62d74c9ea12c0a79226ce9aa9e2a00614d2f7"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
@@ -105,7 +105,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-consensus"
 version = "0.6.0"
-source = "git+https://github.com/NethermindEth/alethia-reth.git?branch=main#a0acec16fed365c1437d572f228ea3ddcdb4ab38"
+source = "git+https://github.com/NethermindEth/alethia-reth.git?branch=real-time-proving-migration#b8d62d74c9ea12c0a79226ce9aa9e2a00614d2f7"
 dependencies = [
  "alethia-reth-chainspec",
  "alethia-reth-evm",
@@ -132,7 +132,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-evm"
 version = "0.6.0"
-source = "git+https://github.com/NethermindEth/alethia-reth.git?branch=main#a0acec16fed365c1437d572f228ea3ddcdb4ab38"
+source = "git+https://github.com/NethermindEth/alethia-reth.git?branch=real-time-proving-migration#b8d62d74c9ea12c0a79226ce9aa9e2a00614d2f7"
 dependencies = [
  "alloy-evm",
  "alloy-primitives",
@@ -148,7 +148,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-primitives"
 version = "0.6.0"
-source = "git+https://github.com/NethermindEth/alethia-reth.git?branch=main#a0acec16fed365c1437d572f228ea3ddcdb4ab38"
+source = "git+https://github.com/NethermindEth/alethia-reth.git?branch=real-time-proving-migration#b8d62d74c9ea12c0a79226ce9aa9e2a00614d2f7"
 dependencies = [
  "alethia-reth-chainspec",
  "alethia-reth-consensus",
@@ -3732,6 +3732,7 @@ dependencies = [
  "chrono",
  "flate2",
  "hex",
+ "k256",
  "kzg",
  "lazy_static",
  "libflate",
@@ -3758,6 +3759,7 @@ dependencies = [
  "sha2",
  "thiserror 1.0.69",
  "thiserror-no-std",
+ "tiny-keccak",
  "tracing",
  "url",
  "utoipa",

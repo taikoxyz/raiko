@@ -33,6 +33,9 @@ jobs:
   # build-test-sp1:
   #   uses: ./.github/workflows/ci-sp1.yml
 
+  build-test-zisk:
+    uses: ./.github/workflows/ci-zisk.yml
+
   build-test-sgx-all:
     uses: ./.github/workflows/ci-sgx-all.yml
 

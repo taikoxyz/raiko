@@ -5,8 +5,9 @@ edition = "2021"
 description = "ZISK agent HTTP client driver for Raiko integration"
 
 [features]
-enable = ["gpu"]
-gpu = ["zisk-sdk/gpu"]
+enable = ["dep:zisk-sdk", "dep:zisk-common", "dep:fields"]
+gpu = ["enable", "zisk-sdk/gpu"]
+cuda = ["gpu"]
 
 [dependencies]
 # Workspace dependencies (from main raiko workspace)
@@ -28,11 +29,7 @@ once_cell = "1"
 bytemuck = "1"
 libc = "0.2"
 
-# Zisk SDK and related dependencies — v0.16.0
-zisk-sdk = { git = "https://github.com/0xPolygonHermez/zisk.git", tag = "v0.16.1" }
-zisk-common = { git = "https://github.com/0xPolygonHermez/zisk.git", tag = "v0.16.1" }
-fields = { git = "https://github.com/0xPolygonHermez/pil2-proofman.git", tag = "v0.16.1" }
-
-[[bin]]
-name = "dump-proof"
-path = "src/bin/dump_proof.rs"
+# Zisk SDK and related dependencies — v0.16.0 (optional, gated behind "enable")
+zisk-sdk = { git = "https://github.com/0xPolygonHermez/zisk.git", tag = "v0.16.1", optional = true }
+zisk-common = { git = "https://github.com/0xPolygonHermez/zisk.git", tag = "v0.16.1", optional = true }
+fields = { git = "https://github.com/0xPolygonHermez/pil2-proofman.git", tag = "v0.16.1", optional = true }

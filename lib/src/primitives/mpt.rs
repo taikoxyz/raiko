@@ -24,12 +24,11 @@ use alloy_primitives::{b256, Address, TxNumber, B256, U256};
 use alloy_rlp::Encodable;
 use alloy_rlp_derive::{RlpDecodable, RlpEncodable, RlpMaxEncodedLen};
 
-use alloy_rpc_types::EIP1186AccountProofResponse;
-use anyhow::{Context, Result};
+use anyhow::{ensure, Context, Result};
 use rlp::{Decodable, DecoderError, Prototype, Rlp};
 use serde::{Deserialize, Serialize};
 use thiserror::Error as ThisError;
-use tracing::debug;
+use tracing::{debug, warn};
 
 pub type StorageEntry = (MptNode, Vec<U256>);
 
@@ -1032,108 +1031,231 @@ pub fn shorten_node_path(node: &MptNode) -> Vec<MptNode> {
     res
 }
 
-pub fn proofs_to_tries(
+/// Converts an execution witness (from `debug_executionWitness`) into the partial state trie,
+/// per-account storage tries, contract codes, and ancestor headers needed for guest execution.
+///
+/// This replaces the optimistic execution loop + `proofs_to_tries` flow with a single
+/// deterministic conversion from the witness data.
+pub fn witness_to_tries(
     state_root: B256,
-    parent_proofs: HashMap<Address, EIP1186AccountProofResponse>,
-    post_proofs: HashMap<Address, EIP1186AccountProofResponse>,
-) -> Result<(MptNode, HashMap<Address, StorageEntry>)> {
-    // if no addresses are provided, return the trie only consisting of the state root
-    if parent_proofs.is_empty() {
-        return Ok((node_from_digest(state_root), HashMap::default()));
+    witness_state: Vec<alloy_primitives::Bytes>,
+    witness_keys: Vec<alloy_primitives::Bytes>,
+    witness_codes: Vec<alloy_primitives::Bytes>,
+    witness_headers: Vec<alloy_primitives::Bytes>,
+) -> Result<(
+    MptNode,
+    HashMap<Address, StorageEntry>,
+    Vec<alloy_primitives::Bytes>,
+    Vec<reth_primitives::Header>,
+)> {
+    // Step 1: Build node store from raw trie node preimages
+    let mut node_store: HashMap<MptNodeReference, MptNode> = HashMap::new();
+    for raw_node in &witness_state {
+        let node = MptNode::decode(raw_node.as_ref())?;
+        let reference = node.reference();
+        node_store.insert(reference, node.clone());
+        // Also add shortened path variants for nodes that may have been extended
+        // during deletions (same as add_orphaned_leafs does for proofs)
+        for shortened in shorten_node_path(&node) {
+            node_store.insert(shortened.reference(), shortened);
+        }
     }
 
-    let mut storage: HashMap<Address, StorageEntry> =
-        HashMap::with_capacity_and_hasher(parent_proofs.len(), Default::default());
+    debug!(
+        "witness_to_tries: built node store with {} entries from {} preimages",
+        node_store.len(),
+        witness_state.len(),
+    );
 
-    let mut state_nodes = HashMap::default();
-    let mut state_root_node = MptNode::default();
-    for (address, proof) in parent_proofs {
-        let proof_nodes = parse_proof(&proof.account_proof).unwrap();
-        mpt_from_proof(&proof_nodes).unwrap();
-
-        // the first node in the proof is the root
-        if let Some(node) = proof_nodes.first() {
-            state_root_node = node.clone();
-        }
-
-        for node in proof_nodes {
-            state_nodes.insert(node.reference(), node);
-        }
-
-        let fini_proofs = post_proofs.get(&address).unwrap();
-
-        // assure that addresses can be deleted from the state trie
-        add_orphaned_leafs(address, &fini_proofs.account_proof, &mut state_nodes)?;
-
-        // if no slots are provided, return the trie only consisting of the storage root
-        let storage_root = proof.storage_hash;
-        if proof.storage_proof.is_empty() {
-            let storage_root_node = node_from_digest(storage_root);
-            storage.insert(address, (storage_root_node, vec![]));
-            continue;
-        }
-
-        let mut storage_nodes = HashMap::default();
-        let mut storage_root_node = MptNode::default();
-        for storage_proof in &proof.storage_proof {
-            let proof_nodes = parse_proof(&storage_proof.proof).unwrap();
-            mpt_from_proof(&proof_nodes).unwrap();
-
-            // the first node in the proof is the root
-            if let Some(node) = proof_nodes.first() {
-                storage_root_node = node.clone();
+    // Step 2: Build keccak preimage lookups from keys
+    let mut address_preimages: HashMap<B256, Address> = HashMap::new();
+    let mut slot_preimages: HashMap<B256, U256> = HashMap::new();
+    for key in &witness_keys {
+        match key.len() {
+            20 => {
+                let address = Address::from_slice(key.as_ref());
+                let hash = keccak(address).into();
+                address_preimages.insert(hash, address);
             }
-
-            for node in proof_nodes {
-                storage_nodes.insert(node.reference(), node);
+            32 => {
+                // Witness keys are raw storage slot values (big-endian U256).
+                // The trie path is keccak256(raw_slot), so we hash to get the lookup key.
+                let slot = U256::from_be_bytes::<32>(key.as_ref().try_into().unwrap());
+                let hash = keccak(key.as_ref()).into();
+                slot_preimages.insert(hash, slot);
+            }
+            _ => {
+                debug!(
+                    "witness_to_tries: skipping key with unexpected length {}",
+                    key.len()
+                );
             }
         }
-
-        // assure that slots can be deleted from the storage trie
-        for storage_proof in &fini_proofs.storage_proof {
-            add_orphaned_leafs(
-                storage_proof.key.as_b256().0,
-                &storage_proof.proof,
-                &mut storage_nodes,
-            )?;
-        }
-        // create the storage trie, from all the relevant nodes
-        let storage_trie = resolve_nodes(&storage_root_node, &storage_nodes);
-        assert_eq!(storage_trie.hash(), storage_root);
-
-        // convert the slots to a vector of U256
-        let slots = proof
-            .storage_proof
-            .iter()
-            .map(|p| U256::from_be_bytes(p.key.as_b256().0))
-            .collect();
-        storage.insert(address, (storage_trie, slots));
     }
-    let state_trie = resolve_nodes(&state_root_node, &state_nodes);
-    assert_eq!(state_trie.hash(), state_root);
 
-    Ok((state_trie, storage))
+    debug!(
+        "witness_to_tries: {} address preimages, {} slot preimages",
+        address_preimages.len(),
+        slot_preimages.len(),
+    );
+
+    // Step 3: Resolve the state trie
+    let state_root_node = node_from_digest(state_root);
+    let state_trie = resolve_nodes(&state_root_node, &node_store);
+
+    ensure!(
+        state_trie.hash() == state_root,
+        "State trie root mismatch: expected {state_root}, got {}",
+        state_trie.hash()
+    );
+
+    // Step 4: Walk state trie leaves to extract accounts and build storage tries
+    let mut storage: HashMap<Address, StorageEntry> = HashMap::new();
+    collect_accounts_from_trie(
+        &state_trie,
+        &[],
+        &address_preimages,
+        &slot_preimages,
+        &node_store,
+        &mut storage,
+    )?;
+
+    debug!("witness_to_tries: collected {} accounts", storage.len());
+
+    // Step 5: Contracts — direct mapping
+    let contracts = witness_codes;
+
+    // Step 6: Decode headers
+    let mut ancestor_headers: Vec<reth_primitives::Header> = Vec::new();
+    for header_bytes in &witness_headers {
+        let header: reth_primitives::Header =
+            alloy_rlp::Decodable::decode(&mut header_bytes.as_ref())
+                .context("Failed to RLP-decode witness header")?;
+        ancestor_headers.push(header);
+    }
+
+    debug!(
+        "witness_to_tries: decoded {} ancestor headers",
+        ancestor_headers.len(),
+    );
+
+    Ok((state_trie, storage, contracts, ancestor_headers))
 }
 
-/// Adds all the leaf nodes of non-inclusion proofs to the nodes.
-fn add_orphaned_leafs(
-    key: impl AsRef<[u8]> + std::fmt::Debug + Clone,
-    proof: &[impl AsRef<[u8]>],
-    nodes_by_reference: &mut HashMap<MptNodeReference, MptNode>,
+/// Recursively walks an MptNode trie and collects account data from leaf nodes.
+/// For each account leaf, resolves its storage trie from the shared node store.
+fn collect_accounts_from_trie(
+    node: &MptNode,
+    path: &[u8],
+    address_preimages: &HashMap<B256, Address>,
+    slot_preimages: &HashMap<B256, U256>,
+    node_store: &HashMap<MptNodeReference, MptNode>,
+    storage: &mut HashMap<Address, StorageEntry>,
 ) -> Result<()> {
-    if !proof.is_empty() {
-        let proof_nodes = parse_proof(proof).context("invalid proof encoding")?;
-        if is_not_included(&keccak(key.clone()), &proof_nodes)? {
-            debug!("Adding orphaned leafs for key {:?}", hex::encode(&key));
-            // add the leaf node to the nodes
-            let leaf = proof_nodes.last().unwrap();
-            for node in shorten_node_path(leaf) {
-                nodes_by_reference.insert(node.reference(), node);
+    match node.as_data() {
+        MptNodeData::Null | MptNodeData::Digest(_) => {}
+        MptNodeData::Leaf(prefix, value) => {
+            let mut full_path = path.to_vec();
+            full_path.extend(prefix_nibs(prefix));
+
+            // Convert nibble path to bytes (the keccak hash of the address)
+            let hash_bytes = nibs_to_bytes(&full_path);
+            if hash_bytes.len() == 32 {
+                let hash = B256::from_slice(&hash_bytes);
+                if let Some(&address) = address_preimages.get(&hash) {
+                    // Decode the account from the leaf value
+                    let state_account: StateAccount =
+                        alloy_rlp::Decodable::decode(&mut value.as_slice())
+                            .context("Failed to decode StateAccount from trie leaf")?;
+
+                    // Resolve storage trie for this account
+                    let storage_root_node = node_from_digest(state_account.storage_root);
+                    let storage_trie = resolve_nodes(&storage_root_node, node_store);
+
+                    // Collect storage slot keys by walking the storage trie
+                    let mut slots: Vec<U256> = Vec::new();
+                    collect_slots_from_trie(&storage_trie, &[], slot_preimages, &mut slots);
+
+                    storage.insert(address, (storage_trie, slots));
+                } else {
+                    warn!("no address preimage for trie leaf hash {hash}");
+                }
             }
         }
+        MptNodeData::Branch(children) => {
+            for (i, child) in children.iter().enumerate() {
+                if let Some(child_node) = child {
+                    let mut child_path = path.to_vec();
+                    child_path.push(i as u8);
+                    collect_accounts_from_trie(
+                        child_node,
+                        &child_path,
+                        address_preimages,
+                        slot_preimages,
+                        node_store,
+                        storage,
+                    )?;
+                }
+            }
+        }
+        MptNodeData::Extension(prefix, child) => {
+            let mut child_path = path.to_vec();
+            child_path.extend(prefix_nibs(prefix));
+            collect_accounts_from_trie(
+                child,
+                &child_path,
+                address_preimages,
+                slot_preimages,
+                node_store,
+                storage,
+            )?;
+        }
     }
-
     Ok(())
+}
+
+/// Recursively walks a storage trie and collects slot keys from leaf nodes.
+fn collect_slots_from_trie(
+    node: &MptNode,
+    path: &[u8],
+    slot_preimages: &HashMap<B256, U256>,
+    slots: &mut Vec<U256>,
+) {
+    match node.as_data() {
+        MptNodeData::Null | MptNodeData::Digest(_) => {}
+        MptNodeData::Leaf(prefix, _) => {
+            let mut full_path = path.to_vec();
+            full_path.extend(prefix_nibs(prefix));
+            let hash_bytes = nibs_to_bytes(&full_path);
+            if hash_bytes.len() == 32 {
+                let hash = B256::from_slice(&hash_bytes);
+                if let Some(&slot) = slot_preimages.get(&hash) {
+                    slots.push(slot);
+                }
+            }
+        }
+        MptNodeData::Branch(children) => {
+            for (i, child) in children.iter().enumerate() {
+                if let Some(child_node) = child {
+                    let mut child_path = path.to_vec();
+                    child_path.push(i as u8);
+                    collect_slots_from_trie(child_node, &child_path, slot_preimages, slots);
+                }
+            }
+        }
+        MptNodeData::Extension(prefix, child) => {
+            let mut child_path = path.to_vec();
+            child_path.extend(prefix_nibs(prefix));
+            collect_slots_from_trie(child, &child_path, slot_preimages, slots);
+        }
+    }
+}
+
+/// Converts a nibble path back to bytes.
+fn nibs_to_bytes(nibs: &[u8]) -> Vec<u8> {
+    nibs.chunks(2)
+        .map(|pair| (pair[0] << 4) | pair.get(1).copied().unwrap_or(0))
+        .collect()
 }
 
 /// Creates a new MPT node from a digest.

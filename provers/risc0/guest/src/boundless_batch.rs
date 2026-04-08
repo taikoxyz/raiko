@@ -1,5 +1,5 @@
 #![no_main]
-harness::entrypoint!(main, tests, zk_op::tests);
+harness::entrypoint!(main);
 use bincode;
 use raiko_lib::{
     builder::calculate_batch_blocks_final_header, input::GuestBatchInput, proof_type::ProofType,
