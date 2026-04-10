@@ -1,3 +1,57 @@
+# zk:v1.17.0
+
+## image
+
+us-docker.pkg.dev/evmchain/images/raiko-zk:1.17.0
+
+## risc0
+
+boundless elf image id: c9bf29ab9cbb4a0e7841437ac2b3844a23027ec06bcfe29bf1f0112f10d4200a
+"/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-batch"
+boundless elf image id: 04563878235eb33d9d2a1f0946459b388b008c2adb09375306fb9dc601014860
+"/opt/raiko/provers/risc0/guest/target/riscv32im-risc0-zkvm-elf/release/boundless-shasta-aggregation"
+
+## sp1
+
+"/opt/raiko/provers/sp1/guest/target/riscv32im-succinct-zkvm-elf/release/sp1-batch"
+sp1 elf vk bn256 is: 0x00977e9c0d1c5e2e46e0be0396dd5cbe5ef1f2a5acc5ade359ab5022b2b0788e
+sp1 elf vk hash_bytes is: 4bbf4e0647178b915c17c0726dd5cbe5778f952d3316b78d3356a04532b0788e
+"/opt/raiko/provers/sp1/guest/target/riscv32im-succinct-zkvm-elf/release/sp1-shasta-aggregation"
+sp1 elf vk bn256 is: 0x0007fcd8561aa16682477dd8f51be236f7e192c06db73ee47880dd0c4ed0f772
+sp1 elf vk hash_bytes is: 03fe6c2b06a859a048efbb1e51be236f3f0c960336dcfb917101ba184ed0f772
+
+# v1.17.0
+
+## image
+
+us-docker.pkg.dev/evmchain/images/raiko:1.17.0
+
+## gaiko
+
+- mrenclave: f0c49d9abdf4c3243d54c40862a9c24cde020efe08efa10041ec18739a7f9caf
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+## raiko
+
+- mrenclave: c0ca6c1af10949a4fbd8b9b5a1759e2360c3052abb187e72df42d8304fc17ab0
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+# v1.17.0-edmm
+
+## image
+
+us-docker.pkg.dev/evmchain/images/raiko:1.17.0-edmm
+
+## gaiko
+
+- mrenclave: f0c49d9abdf4c3243d54c40862a9c24cde020efe08efa10041ec18739a7f9caf
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
+## raiko
+
+- mrenclave: 3f9c6095cf00e595b68c63927c2a6c55b56f1c73af621c30d6155c760354aaa0
+- mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
+
 # zk:v1.16.1
 
 ## image
@@ -912,4 +966,3 @@ us-docker.pkg.dev/evmchain/images/raiko:1.7.0-edmm
 
 - mrenclave: b5cd6a283fcd221ffa893f56e8d9d533e07a2ece7e772d68c22949fd4783d16c
 - mrsigner: ca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5
-
