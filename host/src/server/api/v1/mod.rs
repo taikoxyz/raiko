@@ -2,7 +2,6 @@ use axum::{response::IntoResponse, Router};
 use raiko_lib::input::GuestOutput;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tower::ServiceBuilder;
 use utoipa::{OpenApi, ToSchema};
 use utoipa_scalar::{Scalar, Servable};
 use utoipa_swagger_ui::SwaggerUi;
@@ -12,7 +11,6 @@ use raiko_reqactor::Actor;
 
 pub mod health;
 pub mod metrics;
-pub mod proof;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -105,29 +103,18 @@ pub struct GuestOutputDoc {
 
 #[must_use]
 pub fn create_docs() -> utoipa::openapi::OpenApi {
-    [
-        health::create_docs(),
-        metrics::create_docs(),
-        proof::create_docs(),
-    ]
-    .into_iter()
-    .fold(Docs::openapi(), |mut doc, sub_doc| {
-        doc.merge(sub_doc);
-        doc
-    })
+    [health::create_docs(), metrics::create_docs()]
+        .into_iter()
+        .fold(Docs::openapi(), |mut doc, sub_doc| {
+            doc.merge(sub_doc);
+            doc
+        })
 }
 
-pub fn create_router(concurrency_limit: usize) -> Router<Actor> {
+pub fn create_router(_concurrency_limit: usize) -> Router<Actor> {
     let docs = create_docs();
 
     Router::new()
-        // Only add the concurrency limit to the proof route. We want to still be able to call
-        // healthchecks and metrics to have insight into the system.
-        .nest(
-            "/proof",
-            proof::create_router()
-                .layer(ServiceBuilder::new().concurrency_limit(concurrency_limit)),
-        )
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", docs.clone()))
         .merge(Scalar::with_url("/scalar", docs))
 }

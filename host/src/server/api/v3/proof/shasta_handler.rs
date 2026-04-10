@@ -29,6 +29,48 @@ use utoipa::OpenApi;
 
 use super::batch::process_shasta_batch;
 
+/// Resolves proof_type for zk_any requests. Returns Some(Status) to return early, or None to continue.
+async fn resolve_zk_any_proof_type(
+    actor: &Actor,
+    shasta_request_opt: &mut Value,
+) -> HostResult<Option<Status>> {
+    if !is_zk_any_request(shasta_request_opt) {
+        return Ok(None);
+    }
+
+    let proposals =
+        shasta_request_opt["proposals"]
+            .as_array()
+            .ok_or(RaikoError::InvalidRequestConfig(
+                "Missing proposals".to_string(),
+            ))?;
+    let first_batch = proposals.first().ok_or(RaikoError::InvalidRequestConfig(
+        "batches is empty".to_string(),
+    ))?;
+    let first_batch_id = first_batch["proposal_id"]
+        .as_u64()
+        .ok_or_else(|| RaikoError::InvalidRequestConfig("Missing proposal_id".to_string()))?;
+    let l1_inclusion_block = first_batch["l1_inclusion_block_number"]
+        .as_u64()
+        .ok_or_else(|| {
+            RaikoError::InvalidRequestConfig("Missing l1_inclusion_block_number".to_string())
+        })?;
+
+    match draw_shasta_zk_request(actor, first_batch_id, l1_inclusion_block).await? {
+        Some(proof_type) => {
+            shasta_request_opt["proof_type"] = serde_json::to_value(proof_type).unwrap();
+            Ok(None)
+        }
+        None => Ok(Some(Status::Ok {
+            proof_type: ProofType::Native,
+            batch_id: Some(first_batch_id),
+            data: ProofResponse::Status {
+                status: TaskStatus::ZKAnyNotDrawn,
+            },
+        })),
+    }
+}
+
 #[utoipa::path(post, path = "/batch/shasta",
     tag = "Proving",
     request_body = ShastaProofRequest,
@@ -55,38 +97,9 @@ async fn shasta_batch_handler(
         authenticated_key.name
     );
 
-    // For zk_any request, draw zk proof type based on the block hash.
-    if is_zk_any_request(&shasta_request_opt) {
-        let (first_batch_id, l1_inclusioin_block) = {
-            let proposals = shasta_request_opt["proposals"].as_array().ok_or(
-                RaikoError::InvalidRequestConfig("Missing proposals".to_string()),
-            )?;
-            let first_batch = proposals.first().ok_or(RaikoError::InvalidRequestConfig(
-                "batches is empty".to_string(),
-            ))?;
-            let first_batch_id = first_batch["proposal_id"]
-                .as_u64()
-                .expect("first_batch_id ok");
-            let l1_inclusioin_block = first_batch["l1_inclusion_block_number"]
-                .as_u64()
-                .expect("check l1_inclusion_block_number");
-            (first_batch_id, l1_inclusioin_block)
-        };
-
-        match draw_shasta_zk_request(&actor, first_batch_id, l1_inclusioin_block).await? {
-            Some(proof_type) => {
-                shasta_request_opt["proof_type"] = serde_json::to_value(proof_type).unwrap()
-            }
-            None => {
-                return Ok(Status::Ok {
-                    proof_type: ProofType::Native,
-                    batch_id: Some(first_batch_id),
-                    data: ProofResponse::Status {
-                        status: TaskStatus::ZKAnyNotDrawn,
-                    },
-                });
-            }
-        }
+    // For zk_any request, draw proof type from block hash; return early if not drawn.
+    if let Some(early_status) = resolve_zk_any_proof_type(&actor, &mut shasta_request_opt).await? {
+        return Ok(early_status);
     }
 
     let shasta_request: ShastaProofRequest = finalize_shasta_request(&actor, shasta_request_opt)?;
@@ -113,8 +126,7 @@ async fn shasta_batch_handler(
     ) = process_shasta_batch(&shasta_request, &image_id);
 
     // Run input step first to reuse cached guest input (both aggregate and non-aggregate)
-    let statuses =
-        prove_many(&actor, sub_input_request_keys, sub_input_request_entities).await?;
+    let statuses = prove_many(&actor, sub_input_request_keys, sub_input_request_entities).await?;
     let is_all_sub_success = statuses
         .iter()
         .all(|status| matches!(status, raiko_reqpool::Status::Success { .. }));
@@ -193,7 +205,7 @@ fn finalize_shasta_request(
 ) -> Result<ShastaProofRequest, RaikoError> {
     let mut opts = serde_json::to_value(actor.default_request_config())?;
     // Override the existing proof request config from the config file and command line
-    // options with the request from the client, and convert to a BatchProofRequest.
+    // options with the request from the client, and convert to ShastaProofRequest.
     merge(&mut opts, &shasta_request_opt);
 
     let shasta_request_opt: ShastaProofRequestOpt = serde_json::from_value(opts)?;

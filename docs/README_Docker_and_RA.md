@@ -323,7 +323,7 @@ You can copy the template with the following:
 cp .env.sample .env
 ```
 
-If you are running Raiko for Taiko Hekla, ensure `SGXGETH=true`, `NETWORK=taiko_a7` and `L1_NETWORK=holesky` in `.env`.
+If you are running Raiko for Taiko Hekla, ensure `SGXGETH=true`, `NETWORK=taiko_a7` and `L1_NETWORK=hoodi` in `.env`.
 If you are running Raiko for Taiko Alethia, ensure `SGXGETH=true`, `NETWORK=taiko_mainnet` and `L1_NETWORK=ethereum` in `.env`.
 
 8. Bootstrap Raiko with the following command:
@@ -377,7 +377,7 @@ pnpm compile
 
 You can find it with `cat ~/.config/raiko/config/bootstrap.json` or  `cat ~/.config/raiko/config/bootstrap.gaiko.json`.
 
-4. Export an RPC url for the L1 network you are registering for. i.e. `FORK_URL=https://any_holesky_rpc_url/` for Hekla, `FORK_URL=https://any_ethereum_rpc_url/` for Alethia.
+4. Export an RPC url for the L1 network you are registering for. i.e. `FORK_URL=https://any_hoodi_rpc_url/` for Hekla, `FORK_URL=https://any_ethereum_rpc_url/` for Alethia.
 
 5. Call the script with `PRIVATE_KEY=0x{YOUR_PRIVATE_KEY} ./script/layer1/provers/config_dcap_sgx_verifier.sh --env {NETWORK} --quote {YOUR_QUOTE_HERE}`. "YOUR_QUOTE_HERE" comes from above step 5.
 
@@ -407,22 +407,22 @@ Raiko now supports more configurations, which need to be carefully checked to av
     - SGXGETH_PACAYA_INSTANCE_ID： registered instance ID for the sgxgeth proof for pacaya fork. (must be set for pacaya with sgxgeth)
     - ETHEREUM_RPC: ethereum node url, from which you query the ethereum data.
     - ETHEREUM_BEACON_RPC: ethereum beacon node url, from which you query the ethereum data.
-    - HOLESKY_RPC: ethereum holesky test node url.
-    - HOLESKY_BEACON_RPC: ethereum holesky test beacon node url.
+    - HOODI_RPC: Ethereum Hoodi testnet execution RPC (L1 for Hekla / taiko_a7).
+    - HOODI_BEACON_RPC: Ethereum Hoodi beacon RPC.
     - TAIKO_A7_RPC: taiko hekla(a7) testnet node url.
     - TAIKO_MAINNET_RPC: taiko mainnet node url.
-    - L1_NETWORK: specify the l1 network if exist, default is "holesky".
-    - NETWORK: specify the network to be proven, could be one of ["taiko_a7", "taiko_mainnet", "ethereum", "holesky"], default is "taiko_a7". make sure both L1_NETWORK & NETWORK in chain_spec_list.docker.json
+    - L1_NETWORK: specify the l1 network if exist, default is "hoodi".
+    - NETWORK: specify the network to be proven, e.g. ["taiko_a7", "taiko_mainnet", "ethereum"], default is "taiko_a7". make sure both L1_NETWORK & NETWORK in chain_spec_list.docker.json
 
 A most common setup in hekla testnet when as of the Pacaya fork is:
 ```
 cd ~/raiko/docker
 export SGX_PACAYA_INSTANCE_ID={YOUR_PACAYA_INSTANCE_ID}
 export SGXGETH_PACAYA_INSTANCE_ID={YOUR_SGXGETH_INSTANCE_ID}
-export L1_NETWORK="holesky"
+export L1_NETWORK="hoodi"
 export NETWORK="taiko_a7"
-export HOLESKY_RPC={YOUR_FAST_HOLESKY_NODE}
-export HOLESKY_BEACON_RPC={YOUR_FAST_HOLESKY_BEACON_NODE}
+export HOODI_RPC={YOUR_FAST_HOODI_NODE}
+export HOODI_BEACON_RPC={YOUR_FAST_HOODI_BEACON_NODE}
 export TAIKO_A7_RPC={YOUR_FAST_A7_NODE}
 docker compose up raiko -d
 ```
@@ -588,7 +588,7 @@ curl --location --request POST 'http://localhost:8080/v3/proof/batch' \
     --header 'Authorization: Bearer' \
     --data-raw '{
         "network": "taiko_a7",
-        "l1_network": "holesky",
+        "l1_network": "hoodi",
         "batches": [{"batch_id": 1407735, "l1_inclusion_block_number": 3881175}],
         "prover": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
         "graffiti": "0x0000000000000000000000000000000000000000000000000000000000000000",

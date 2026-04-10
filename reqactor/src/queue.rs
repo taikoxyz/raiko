@@ -74,26 +74,25 @@ impl Queue {
         request_key: RequestKey,
         request_entity: RequestEntity,
     ) -> Result<(), String> {
-        // Check if queue is at capacity
         if self.is_at_capacity() {
             return Err("Reached the maximum queue size, please try again later".to_string());
         }
 
-        if self.queued_keys.insert(request_key.clone()) {
-            // Check priority and add to appropriate queue using pattern matching
-            match &request_key {
-                RequestKey::Aggregation(_) => {
-                    tracing::info!("Adding aggregation request to high priority queue");
-                    self.agg_queue.push_back((request_key, request_entity));
-                }
-                RequestKey::BatchProof(_) => {
-                    tracing::info!("Adding batch proof request to medium priority queue");
-                    self.batch_queue.push_back((request_key, request_entity));
-                }
-                _ => {
-                    self.preflight_queue
-                        .push(PreflightItem(request_key, request_entity));
-                }
+        if !self.queued_keys.insert(request_key.clone()) {
+            return Ok(());
+        }
+        match &request_key {
+            RequestKey::Aggregation(_) => {
+                tracing::info!("Adding aggregation request to high priority queue");
+                self.agg_queue.push_back((request_key, request_entity));
+            }
+            RequestKey::BatchProof(_) => {
+                tracing::info!("Adding batch proof request to medium priority queue");
+                self.batch_queue.push_back((request_key, request_entity));
+            }
+            _ => {
+                self.preflight_queue
+                    .push(PreflightItem(request_key, request_entity));
             }
         }
         Ok(())

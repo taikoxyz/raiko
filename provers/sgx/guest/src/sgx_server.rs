@@ -1,6 +1,6 @@
 use crate::{
     app_args::{GlobalOpts, OneShotArgs, ServerArgs},
-    one_shot::{aggregate, bootstrap, one_shot, one_shot_batch, shasta_aggregate},
+    one_shot::{bootstrap, one_shot, one_shot_batch, shasta_aggregate},
 };
 use anyhow::Context;
 use axum::{
@@ -10,9 +10,7 @@ use axum::{
 };
 use raiko_lib::{
     consts::SpecId,
-    input::{
-        GuestBatchInput, GuestInput, RawAggregationGuestInput, ShastaRawAggregationGuestInput,
-    },
+    input::{GuestBatchInput, GuestInput, ShastaRawAggregationGuestInput},
     primitives::B256,
 };
 use serde::{Deserialize, Serialize};
@@ -57,7 +55,6 @@ pub async fn serve(server_args: ServerArgs, global_opts: GlobalOpts) {
     let router = Router::new()
         .route("/prove/block", post(prove_block))
         .route("/prove/batch", post(prove_batch))
-        .route("/prove/aggregate", post(prove_aggregation))
         .route("/prove/shasta-aggregate", post(prove_shasta_aggregation))
         .route("/check", post(check_server))
         .route("/bootstrap", post(bootstrap_server))
@@ -154,45 +151,6 @@ async fn prove_batch(
                     ..Default::default()
                 }),
             }
-        }
-        Err(e) => Json(ServerResponse {
-            status: "error".to_owned(),
-            message: e.to_string(),
-            ..Default::default()
-        }),
-    }
-}
-
-async fn prove_aggregation(
-    State(state): State<ServerStateConfig>,
-    Json(input): Json<RawAggregationGuestInput>,
-) -> Json<ServerResponse> {
-    let sgx_instance_id = match state
-        .server_args
-        .sgx_instance_ids
-        .get(&SpecId::PACAYA)
-        .copied()
-    {
-        Some(id) => id,
-        None => {
-            return Json(ServerResponse {
-                status: "error".to_owned(),
-                message: "No instance id found for PACAYA fork".to_owned(),
-                ..Default::default()
-            })
-        }
-    };
-
-    let args = OneShotArgs { sgx_instance_id };
-    match aggregate(state.global_opts, args, input).await {
-        Ok(sgx_proof) => {
-            let sgx_response: SgxResponse =
-                serde_json::from_value(sgx_proof).expect("deserialize proof to response");
-            Json(ServerResponse {
-                status: "success".to_owned(),
-                message: "".to_owned(),
-                proof: sgx_response,
-            })
         }
         Err(e) => Json(ServerResponse {
             status: "error".to_owned(),

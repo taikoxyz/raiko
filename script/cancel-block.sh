@@ -26,15 +26,13 @@ rangeEnd="$4"
 # Check the chain name and set the corresponding RPC values
 if [ "$chain" == "ethereum" ]; then
 	l1_network="ethereum"
-elif [ "$chain" == "holesky" ]; then
-	l1_network="holesky"
 elif [ "$chain" == "taiko_mainnet" ]; then
 	l1_network="ethereum"
 elif [ "$chain" == "taiko_a7" ]; then
-	l1_network="holesky"
+	l1_network="hoodi"
 else
 	echo "Using customized chain name $1. Please double check the RPCs."
-	l1_network="holesky"
+	l1_network="hoodi"
 fi
 
 if [ "$proof" == "native" ]; then

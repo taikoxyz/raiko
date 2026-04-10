@@ -904,8 +904,8 @@ impl From<SingleProofRequestEntity> for RequestEntity {
 
 impl From<AggregationRequestEntity> for RequestEntity {
     fn from(entity: AggregationRequestEntity) -> Self {
-        // Pacaya and earlier forks still wrap AggregationRequestEntity in RequestEntity::Aggregation.
-        // Shasta builds RequestEntity::ShastaAggregation explicitly, so this conversion is not used there.
+        // Legacy path: `AggregationRequestEntity` maps to `RequestEntity::Aggregation` (rejected at runtime in Shasta-only mode).
+        // Shasta aggregation uses `RequestEntity::ShastaAggregation` directly.
         RequestEntity::Aggregation(entity)
     }
 }

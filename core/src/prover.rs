@@ -16,6 +16,24 @@ use tracing::trace;
 
 pub struct NativeProver;
 
+fn get_native_param(config: &ProverConfig) -> ProverResult<NativeParam> {
+    let param = config
+        .get("native")
+        .ok_or(ProverError::Param(serde_json::Error::custom(
+            "native param not provided",
+        )))?;
+    serde_json::from_value(param.clone()).map_err(ProverError::Param)
+}
+
+fn maybe_dump_json_guest_input(path: &str, data: impl serde::Serialize) -> ProverResult<()> {
+    if let Some(parent) = Path::new(path).parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let json = serde_json::to_string(&data)?;
+    std::fs::write(path, json)?;
+    Ok(())
+}
+
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NativeParam {
@@ -35,21 +53,9 @@ impl Prover for NativeProver {
         config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        let param =
-            config
-                .get("native")
-                .map(NativeParam::deserialize)
-                .ok_or(ProverError::Param(serde_json::Error::custom(
-                    "native param not provided",
-                )))??;
-
-        if let Some(path) = param.json_guest_input {
-            let path = Path::new(&path);
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
-            let json = serde_json::to_string(&input)?;
-            std::fs::write(path, json)?;
+        let param = get_native_param(config)?;
+        if let Some(ref path) = param.json_guest_input {
+            maybe_dump_json_guest_input(path, &input)?;
         }
 
         trace!("Running the native prover for input {input:?}");
@@ -79,21 +85,9 @@ impl Prover for NativeProver {
         config: &ProverConfig,
         _store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        let param =
-            config
-                .get("native")
-                .map(NativeParam::deserialize)
-                .ok_or(ProverError::Param(serde_json::Error::custom(
-                    "native param not provided",
-                )))??;
-
-        if let Some(path) = param.json_guest_input {
-            let path = Path::new(&path);
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
-            let json = serde_json::to_string(&batch_input)?;
-            std::fs::write(path, json)?;
+        let param = get_native_param(config)?;
+        if let Some(ref path) = param.json_guest_input {
+            maybe_dump_json_guest_input(path, &batch_input)?;
         }
 
         trace!("Running the native prover for batch input: {batch_input:?}");
@@ -124,18 +118,6 @@ impl Prover for NativeProver {
         Ok(())
     }
 
-    async fn aggregate(
-        &self,
-        _input: raiko_lib::input::AggregationGuestInput,
-        _output: &raiko_lib::input::AggregationGuestOutput,
-        _config: &ProverConfig,
-        _store: Option<&mut dyn IdWrite>,
-    ) -> ProverResult<Proof> {
-        Ok(Proof {
-            ..Default::default()
-        })
-    }
-
     async fn shasta_aggregate(
         &self,
         input: raiko_lib::input::ShastaAggregationGuestInput,
@@ -148,9 +130,12 @@ impl Prover for NativeProver {
             proofs: input
                 .proofs
                 .iter()
-                .map(|proof| RawProof {
-                    input: proof.input.clone().unwrap(),
-                    proof: Default::default(),
+                .map(|proof| {
+                    #[allow(clippy::clone_on_copy)]
+                    RawProof {
+                        input: proof.input.clone().unwrap(),
+                        proof: Default::default(),
+                    }
                 })
                 .collect(),
             proof_carry_data_vec: input

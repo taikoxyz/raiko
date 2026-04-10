@@ -9,23 +9,6 @@ edition = "2021"
 name = "zk_op"
 path = "src/zk_op.rs"
 
-# deprecated binary target for ontake fork block processing
-# [[bin]]
-# name = "risc0-block"
-# path = "src/block.rs"
-
-[[bin]]
-name = "risc0-aggregation"
-path = "src/aggregation.rs"
-
-[[bin]]
-name = "risc0-batch"
-path = "src/batch.rs"
-
-[[bin]]
-name = "boundless-aggregation"
-path = "src/boundless_agg.rs"
-
 [[bin]]
 name = "boundless-batch"
 path = "src/boundless_batch.rs"
@@ -33,10 +16,6 @@ path = "src/boundless_batch.rs"
 [[bin]]
 name = "boundless-shasta-aggregation"
 path = "src/boundless_shasta_aggregation.rs"
-
-[[bin]]
-name = "risc0-shasta-aggregation"
-path = "src/shasta_aggregation.rs"
 
 [[bin]]
 name = "sha256"

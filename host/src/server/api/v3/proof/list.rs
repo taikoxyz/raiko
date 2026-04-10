@@ -5,12 +5,13 @@ use utoipa::OpenApi;
 use crate::interfaces::HostResult;
 use raiko_reqactor::Actor;
 
-#[utoipa::path(post, path = "/proof/list",
+#[utoipa::path(get, path = "/proof/list",
     tag = "Proving",
     responses (
-        (status = 200, description = "Successfully listed all proofs & Ids", body = CancelStatus)
+        (status = 200, description = "Successfully listed all proofs and IDs", body = Value)
     )
 )]
+/// List all proofs and their IDs. Implementation pending.
 async fn list_handler(State(_actor): State<Actor>) -> HostResult<Json<Value>> {
     todo!()
 }

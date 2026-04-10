@@ -4,9 +4,8 @@ use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use raiko_lib::{
     input::{
-        AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, ShastaAggregationGuestInput, ShastaSp1AggregationGuestInput,
-        ZkAggregationGuestInput,
+        AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput,
+        ShastaAggregationGuestInput, ShastaSp1AggregationGuestInput,
     },
     libhash::hash_shasta_subproof_input,
     proof_type::ProofType,
@@ -32,7 +31,6 @@ use tracing::info;
 mod proof_verify;
 use proof_verify::remote_contract_verify::verify_sol_by_contract_call;
 
-pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-aggregation");
 pub const BATCH_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-batch");
 pub const SHASTA_AGG_ELF: &[u8] = include_bytes!("../../guest/elf/sp1-shasta-aggregation");
 
@@ -116,7 +114,6 @@ struct Sp1ProverClient {
 }
 
 //TODO: use prover object to save such local storage members.
-static AGGREGATION_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
 static SHASTA_AGG_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
 static BATCH_PROOF_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
 
@@ -134,160 +131,6 @@ impl Prover for Sp1Prover {
     async fn cancel(&self, key: ProofKey, id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
         id_store.remove_id(key).await?;
         Ok(())
-    }
-
-    async fn aggregate(
-        &self,
-        input: AggregationGuestInput,
-        _output: &AggregationGuestOutput,
-        config: &ProverConfig,
-        _store: Option<&mut dyn IdWrite>,
-    ) -> ProverResult<Proof> {
-        let mut param = Sp1Param::deserialize(config.get("sp1").unwrap()).unwrap();
-
-        // TODO: remove param.recursion, hardcode to Plonk
-        param.recursion = RecursionMode::Plonk;
-
-        let mode = param.prover.clone().unwrap_or_else(get_env_mock);
-        let block_inputs: Vec<B256> = input
-            .proofs
-            .iter()
-            .map(|proof| proof.input.unwrap())
-            .collect::<Vec<_>>();
-        let block_proof_vk = serde_json::from_str::<SP1VerifyingKey>(
-            &input.proofs.first().unwrap().uuid.clone().unwrap(),
-        )
-        .map_err(|e| ProverError::GuestError(format!("Failed to parse SP1 vk: {e}")))?;
-        let stark_vk = block_proof_vk.vk.clone();
-        let image_id = block_proof_vk.hash_u32();
-        let aggregation_input = ZkAggregationGuestInput {
-            image_id,
-            block_inputs,
-        };
-        info!(
-            "Collect {:?} proofs aggregation pi inputs: {:?}",
-            input.proofs.len(),
-            aggregation_input.block_inputs
-        );
-
-        let mut stdin = SP1Stdin::new();
-        stdin.write(&aggregation_input);
-        for proof in input.proofs.iter() {
-            let sp1_proof = serde_json::from_str::<SP1Proof>(&proof.quote.clone().unwrap())
-                .map_err(|e| ProverError::GuestError(format!("Failed to parse SP1 proof: {e}")))?;
-            match sp1_proof {
-                SP1Proof::Compressed(block_proof) => {
-                    stdin.write_proof(*block_proof, stark_vk.clone());
-                }
-                _ => {
-                    tracing::error!("unsupported proof type for aggregation: {sp1_proof:?}");
-                }
-            }
-        }
-
-        // Generate the proof for the given program.
-        let Sp1ProverClient {
-            client,
-            pk,
-            vk,
-            network_client,
-        } = AGGREGATION_CLIENT
-            .entry(param.prover.clone().unwrap_or_else(get_env_mock))
-            .or_insert_with(|| {
-                let network_client = Arc::new(ProverClient::builder().network().build());
-                let base_client: Box<dyn SP1ProverTrait<CpuProverComponents>> = param
-                    .prover
-                    .map(|mode| {
-                        let prover: Box<dyn SP1ProverTrait<CpuProverComponents>> = match mode {
-                            ProverMode::Mock => Box::new(ProverClient::builder().mock().build()),
-                            ProverMode::Local => Box::new(ProverClient::builder().cpu().build()),
-                            ProverMode::Network => {
-                                Box::new(ProverClient::builder().network().build())
-                            }
-                        };
-                        prover
-                    })
-                    .unwrap_or_else(|| Box::new(ProverClient::from_env()));
-
-                let client = Arc::new(base_client);
-                let (pk, vk) = client.setup(AGGREGATION_ELF);
-                info!(
-                    "new client and setup() for aggregation based on {:?} proofs with vk {:?}",
-                    input.proofs.len(),
-                    vk.bytes32()
-                );
-                Sp1ProverClient {
-                    client,
-                    pk,
-                    vk,
-                    network_client,
-                }
-            })
-            .clone();
-        info!(
-            "sp1 aggregate: {:?} based {:?} blocks with vk {:?}",
-            reth_primitives::hex::encode_prefixed(stark_vk.hash_bytes()),
-            input.proofs.len(),
-            vk.bytes32()
-        );
-
-        let prove_result = if !matches!(mode, ProverMode::Network) {
-            let prove_result = client
-                .prove(&pk, &stdin, SP1ProofMode::Plonk)
-                .expect("proving failed");
-            prove_result
-        } else {
-            let proof_id = network_client
-                .prove(&pk, &stdin)
-                .mode(param.recursion.clone().into())
-                .cycle_limit(1_000_000_000_000)
-                .skip_simulation(true)
-                .strategy(FulfillmentStrategy::Reserved)
-                .request_async()
-                .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Sp1: network proving failed: {e}"))
-                })?;
-            info!("Sp1: network proof id: {proof_id:?} for aggregation");
-            network_client
-                .wait_proof(proof_id.clone(), Some(sp1_network_wait_timeout()))
-                .await
-                .map_err(|e| ProverError::GuestError(format!("Sp1: network proof failed {e:?}")))?
-        };
-
-        let proof_bytes = prove_result.bytes();
-        if param.verify && !proof_bytes.is_empty() {
-            let time = Measurement::start("verify", false);
-            let aggregation_pi = prove_result.clone().borrow_mut().public_values.raw();
-            let fixture = RaikoProofFixture {
-                vkey: vk.bytes32().to_string(),
-                public_values: aggregation_pi,
-                proof: proof_bytes.clone(),
-            };
-
-            verify_sol_by_contract_call(&fixture).await?;
-            time.stop_with("==> Aggregation verification complete");
-        }
-
-        let proof = (!proof_bytes.is_empty()).then_some(
-            // 0x + 64 bytes of the vkey + the proof
-            // vkey itself contains 0x prefix
-            format!(
-                "{}{}{}",
-                vk.bytes32(),
-                reth_primitives::hex::encode(stark_vk.hash_bytes()),
-                reth_primitives::hex::encode(proof_bytes)
-            ),
-        );
-
-        Ok::<_, ProverError>(
-            Sp1Response {
-                proof,
-                sp1_proof: None,
-                vkey: None,
-            }
-            .into(),
-        )
     }
 
     async fn batch_run(

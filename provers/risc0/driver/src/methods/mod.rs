@@ -1,4 +1,3 @@
-pub mod boundless_aggregation;
 pub mod boundless_batch;
 pub mod boundless_shasta_aggregation;
 
@@ -10,4 +9,4 @@ pub mod ecdsa;
 #[cfg(feature = "bench")]
 pub mod sha256;
 #[cfg(test)]
-pub mod test_risc0_batch;
+pub mod test_boundless_batch;

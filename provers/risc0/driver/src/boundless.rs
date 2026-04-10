@@ -1,6 +1,5 @@
 use crate::{
     methods::{
-        boundless_aggregation::{BOUNDLESS_AGGREGATION_ELF, BOUNDLESS_AGGREGATION_ID},
         boundless_batch::{BOUNDLESS_BATCH_ELF, BOUNDLESS_BATCH_ID},
         boundless_shasta_aggregation::{
             BOUNDLESS_SHASTA_AGGREGATION_ELF, BOUNDLESS_SHASTA_AGGREGATION_ID,
@@ -14,8 +13,8 @@ use alloy_sol_types::SolValue;
 use hex;
 use raiko_lib::{
     input::{
-        AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, ShastaAggregationGuestInput,
+        AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput,
+        ShastaAggregationGuestInput,
     },
     libhash::hash_shasta_subproof_input,
     primitives::keccak::keccak,
@@ -208,21 +207,15 @@ pub struct BoundlessProver {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum AggType {
-    Base,
-    Shasta,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ImageType {
     Batch,
-    Aggregation(AggType),
+    ShastaAggregation,
 }
 
 #[derive(Default, Debug, Clone, Copy)]
 struct ImagesUploaded {
     batch: bool,
-    aggregation: Option<AggType>,
+    shasta_aggregation: bool,
 }
 
 impl BoundlessProver {
@@ -370,16 +363,9 @@ impl BoundlessProver {
         self.ensure_uploaded(ImageType::Batch).await
     }
 
-    /// Ensure base aggregation ELF is uploaded.
-    async fn ensure_base_agg_uploaded(&self) -> ProverResult<()> {
-        self.ensure_uploaded(ImageType::Aggregation(AggType::Base))
-            .await
-    }
-
     /// Ensure shasta aggregation ELF is uploaded.
     async fn ensure_shasta_agg_uploaded(&self) -> ProverResult<()> {
-        self.ensure_uploaded(ImageType::Aggregation(AggType::Shasta))
-            .await
+        self.ensure_uploaded(ImageType::ShastaAggregation).await
     }
 
     async fn ensure_uploaded(&self, image_type: ImageType) -> ProverResult<()> {
@@ -392,14 +378,7 @@ impl BoundlessProver {
                     BOUNDLESS_BATCH_ELF,
                     BOUNDLESS_BATCH_ID,
                 ),
-                ImageType::Aggregation(AggType::Base) => (
-                    None,
-                    Some(BOUNDLESS_AGGREGATION_ID),
-                    "aggregation",
-                    BOUNDLESS_AGGREGATION_ELF,
-                    BOUNDLESS_AGGREGATION_ID,
-                ),
-                ImageType::Aggregation(AggType::Shasta) => (
+                ImageType::ShastaAggregation => (
                     None,
                     Some(BOUNDLESS_SHASTA_AGGREGATION_ID),
                     "aggregation",
@@ -411,7 +390,7 @@ impl BoundlessProver {
         let mut state = self.images_uploaded.write().await;
         let already_uploaded = match image_type {
             ImageType::Batch => state.batch,
-            ImageType::Aggregation(agg_type) => state.aggregation == Some(agg_type),
+            ImageType::ShastaAggregation => state.shasta_aggregation,
         };
 
         if already_uploaded {
@@ -427,10 +406,7 @@ impl BoundlessProver {
 
         match image_type {
             ImageType::Batch => tracing::info!("Uploading batch ELF image to boundless agent..."),
-            ImageType::Aggregation(AggType::Base) => {
-                tracing::info!("Uploading aggregation ELF image to boundless agent...")
-            }
-            ImageType::Aggregation(AggType::Shasta) => {
+            ImageType::ShastaAggregation => {
                 tracing::info!("Uploading shasta aggregation ELF image to boundless agent...")
             }
         }
@@ -440,7 +416,7 @@ impl BoundlessProver {
 
         match image_type {
             ImageType::Batch => state.batch = true,
-            ImageType::Aggregation(agg_type) => state.aggregation = Some(agg_type),
+            ImageType::ShastaAggregation => state.shasta_aggregation = true,
         }
 
         Ok(())
@@ -728,230 +704,6 @@ impl Prover for BoundlessProver {
         unimplemented!("No need for post pacaya");
     }
 
-    async fn aggregate(
-        &self,
-        input: AggregationGuestInput,
-        _output: &AggregationGuestOutput,
-        _config: &ProverConfig,
-        _id_store: Option<&mut dyn IdWrite>,
-    ) -> ProverResult<Proof> {
-        // Ensure batch ELF is uploaded before first use
-        // self.ensure_batch_uploaded().await?;
-        self.ensure_base_agg_uploaded().await?;
-
-        let input_proof_hex_str = input
-            .proofs
-            .first()
-            .and_then(|proof| proof.proof.as_ref())
-            .ok_or_else(|| {
-                ProverError::GuestError("Missing proof in aggregation input".to_string())
-            })?;
-        let input_proof_bytes = hex::decode(input_proof_hex_str.trim_start_matches("0x"))
-            .map_err(|e| ProverError::GuestError(format!("Failed to decode input proof: {e}")))?;
-        let input_image_id_bytes: [u8; 32] = input_proof_bytes
-            .get(32..64)
-            .ok_or_else(|| {
-                ProverError::GuestError("Input proof too short for image_id".to_string())
-            })?
-            .try_into()
-            .map_err(|_| {
-                ProverError::GuestError("Invalid image_id bytes in input proof".to_string())
-            })?;
-        let input_proof_image_id = Digest::from(input_image_id_bytes);
-        let agent_input = Risc0AgentAggGuestInput {
-            image_id: input_proof_image_id,
-            receipts: input
-                .proofs
-                .iter()
-                .map(|p| {
-                    let receipt_json = p.quote.clone().ok_or_else(|| {
-                        ProverError::GuestError(
-                            "Missing quote in proof for aggregation".to_string(),
-                        )
-                    })?;
-                    let receipt: ZkvmReceipt =
-                        serde_json::from_str(&receipt_json).map_err(|e| {
-                            ProverError::GuestError(format!(
-                                "Failed to deserialize receipt from quote: {e}"
-                            ))
-                        })?;
-                    Ok(receipt)
-                })
-                .collect::<ProverResult<Vec<_>>>()?,
-        };
-
-        // Prepare the input for the agent
-        let agent_input_bytes = bincode::serialize(&agent_input).map_err(|e| {
-            ProverError::GuestError(format!("Failed to serialize agent input: {e}"))
-        })?;
-
-        // Compute aggregation image_id for cache key
-        let agg_image_id = compute_image_id(BOUNDLESS_AGGREGATION_ELF).map_err(|e| {
-            ProverError::GuestError(format!(
-                "Failed to compute image ID for BOUNDLESS_AGGREGATION_ELF: {e}"
-            ))
-        })?;
-
-        // Check cache first
-        let label = cache_label(&agg_image_id, &agent_input_bytes);
-        if let Some(cached_proof) = load_proof(&label) {
-            tracing::info!("Using cached boundless aggregation proof");
-
-            // Verify and return cached proof
-            let journal_digest = cached_proof.journal.digest();
-            let encoded_proof = verify_boundless_groth16_snark_impl(
-                agg_image_id,
-                cached_proof.seal.to_vec(),
-                journal_digest,
-            )
-            .await
-            .map_err(|e| {
-                ProverError::GuestError(format!("Failed to verify cached aggregation proof: {e}"))
-            })?;
-            let proof: Vec<u8> = (
-                encoded_proof,
-                B256::from_slice(input_proof_image_id.as_bytes()),
-                B256::from_slice(agg_image_id.as_bytes()),
-            )
-                .abi_encode()
-                .iter()
-                .skip(32)
-                .copied()
-                .collect();
-
-            return Ok(Proof {
-                proof: Some(alloy_primitives::hex::encode_prefixed(proof)),
-                input: Some(B256::from_slice(journal_digest.as_bytes())),
-                quote: cached_proof.receipt,
-                uuid: None,
-                kzg_proof: None,
-                extra_data: None,
-            });
-        }
-
-        // Make a remote call to the boundless agent at localhost:9999/proof and await the response
-
-        use reqwest::Client as HttpClient;
-        use serde_json::json;
-
-        // Compose the request payload
-        // NOTE: `boundless-aggregation` guest commits `aggregation_output(program, public_inputs)`
-        // via `env::commit_slice`, so the journal is the raw concatenation:
-        //   32 bytes program image_id (as B256) || 32 bytes per public input (as B256)
-        // (no length-prefix framing).
-        let public_inputs: Vec<B256> = agent_input
-            .receipts
-            .iter()
-            .map(|receipt| B256::from_slice(&receipt.journal.bytes[4..]))
-            .collect();
-        let batch_image_words: [u32; 8] = input_proof_image_id
-            .as_words()
-            .try_into()
-            .expect("image_id should have 8 words");
-        let program = B256::from(raiko_lib::protocol_instance::words_to_bytes_le(
-            &batch_image_words,
-        ));
-        let expected_output =
-            raiko_lib::protocol_instance::aggregation_output(program, public_inputs);
-
-        let payload = json!({
-            "prover_type": "boundless",
-            "input": agent_input_bytes,
-            "proof_type": "Aggregate",
-            "output": expected_output,
-        });
-
-        // Acquire semaphore permit to limit concurrent HTTP requests
-        let _permit = self.request_semaphore.acquire().await.map_err(|e| {
-            ProverError::GuestError(format!("Failed to acquire request semaphore: {e}"))
-        })?;
-
-        // Send the request to the agent and await the response
-        let client = HttpClient::builder()
-            .connect_timeout(Duration::from_secs(self.config.http_connect_timeout_secs))
-            .timeout(Duration::from_secs(self.config.http_timeout_secs))
-            .build()
-            .map_err(|e| ProverError::GuestError(format!("Failed to build HTTP client: {e}")))?;
-        let resp = client.post(&self.remote_prover_url);
-        let resp = self
-            .with_api_key(resp)
-            .json(&payload)
-            .send()
-            .await
-            .map_err(|e| {
-                ProverError::GuestError(format!("Failed to send request to agent: {e}"))
-            })?;
-
-        if !resp.status().is_success() {
-            if let Some(message) = agent_auth_error(resp.status()) {
-                return Err(ProverError::GuestError(message));
-            }
-            return Err(ProverError::GuestError(format!(
-                "Agent returned error status: {}",
-                resp.status()
-            )));
-        }
-
-        // Parse the response
-        let resp_json: serde_json::Value = resp
-            .json()
-            .await
-            .map_err(|e| ProverError::GuestError(format!("Failed to parse agent response: {e}")))?;
-
-        // Extract request_id from initial response for polling
-        let request_id = resp_json
-            .get("request_id")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                ProverError::GuestError("Missing request_id in agent response".to_string())
-            })?;
-
-        // Poll until completion
-        let agent_proof_bytes = wait_boundless_proof(
-            &self.remote_prover_url,
-            request_id.to_string(),
-            &self.config,
-            self.api_key.as_deref(),
-        )
-        .await?;
-
-        let agent_proof: Risc0AgentResponse =
-            bincode::deserialize(&agent_proof_bytes).map_err(|e| {
-                ProverError::GuestError(format!("Failed to deserialize output file: {e}"))
-            })?;
-
-        // Save to cache after receiving from agent
-        save_proof(&label, &agent_proof);
-
-        let journal_digest = agent_proof.journal.digest();
-        let encoded_proof = verify_boundless_groth16_snark_impl(
-            agg_image_id,
-            agent_proof.seal.to_vec(),
-            journal_digest,
-        )
-        .await
-        .map_err(|e| ProverError::GuestError(format!("Failed to verify groth16 snark: {e}")))?;
-        let proof: Vec<u8> = (
-            encoded_proof,
-            B256::from_slice(input_proof_image_id.as_bytes()),
-            B256::from_slice(agg_image_id.as_bytes()),
-        )
-            .abi_encode()
-            .iter()
-            .skip(32)
-            .copied()
-            .collect();
-
-        Ok(Proof {
-            proof: Some(alloy_primitives::hex::encode_prefixed(proof)),
-            input: Some(B256::from_slice(journal_digest.as_bytes())),
-            quote: agent_proof.receipt,
-            uuid: None,
-            kzg_proof: None,
-            extra_data: None,
-        })
-    }
-
     async fn cancel(&self, _key: ProofKey, _id_store: Box<&mut dyn IdStore>) -> ProverResult<()> {
         todo!()
     }
@@ -1205,7 +957,7 @@ impl Prover for BoundlessProver {
         _config: &ProverConfig,
         _id_store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof> {
-        // Ensure batch + base aggregation ELF are uploaded before first use
+        // Ensure batch ELF is uploaded before first use
         self.ensure_batch_uploaded().await?;
 
         // Serialize the input using bincode
@@ -1487,27 +1239,5 @@ mod tests {
 
         let zkvm_receipt: ZkvmReceipt = serde_json::from_str(&proof.quote.unwrap()).unwrap();
         println!("Deserialized zkvm receipt: {:#?}", zkvm_receipt);
-    }
-
-    #[ignore = "reason: no need to run in CI"]
-    #[tokio::test]
-    async fn test_run_proof_aggregation() {
-        env_logger::init();
-
-        let file_name = format!("../../../boundless_receipt_test.json");
-        let receipt_json = std::fs::read_to_string(file_name).unwrap();
-        let proof: Proof = serde_json::from_str(&receipt_json).unwrap();
-        println!("Deserialized proof: {:#?}", proof);
-
-        let input: AggregationGuestInput = AggregationGuestInput {
-            proofs: vec![proof],
-        };
-        let output: AggregationGuestOutput = AggregationGuestOutput { hash: B256::ZERO };
-        let config = ProverConfig::default();
-        let proof = BoundlessProver::new()
-            .aggregate(input, &output, &config, None)
-            .await
-            .unwrap();
-        println!("proof: {:?}", proof);
     }
 }

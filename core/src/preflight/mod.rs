@@ -1,5 +1,8 @@
 use std::{collections::HashSet, env};
 
+/// Default number of blocks to process per prefetch task.
+const PREFETCH_CHUNK_SIZE_DEFAULT: usize = 7;
+
 use crate::{
     interfaces::{RaikoError, RaikoResult},
     provider::{db::ProviderDb, rpc::RpcBlockDataProvider, BlockDataProvider},
@@ -14,20 +17,15 @@ use raiko_lib::{
         TaikoProverData,
     },
     primitives::mpt::proofs_to_tries,
-    utils::txs::{generate_transactions, generate_transactions_for_batch_blocks},
+    utils::txs::generate_transactions_for_batch_blocks,
     Measurement,
 };
 use reth_primitives::TransactionSigned;
 use tracing::{debug, info};
 
-use util::{
-    execute_txs, get_batch_blocks_and_parent_data, get_block_and_parent_data,
-    prepare_taiko_chain_batch_input, prepare_taiko_chain_input,
-};
+use util::{execute_txs, get_batch_blocks_and_parent_data, prepare_taiko_chain_batch_input};
 
-pub use util::{
-    parse_l1_batch_proposal_tx_for_pacaya_fork, parse_l1_batch_proposal_tx_for_shasta_fork,
-};
+pub use util::parse_l1_batch_proposal_tx_for_shasta_fork;
 
 #[cfg(feature = "statedb_lru")]
 use lru::{load_state_db, save_state_db};
@@ -35,15 +33,6 @@ use lru::{load_state_db, save_state_db};
 mod lru;
 
 mod util;
-
-pub struct PreflightData {
-    pub block_number: u64,
-    pub l1_chain_spec: ChainSpec,
-    pub l1_inclusion_block_number: u64,
-    pub taiko_chain_spec: ChainSpec,
-    pub prover_data: TaikoProverData,
-    pub blob_proof_type: BlobProofType,
-}
 
 pub struct BatchPreflightData {
     pub batch_id: u64,
@@ -55,163 +44,6 @@ pub struct BatchPreflightData {
     pub blob_proof_type: BlobProofType,
     /// Cached event data to avoid duplicate RPC calls
     pub cached_event_data: Option<raiko_lib::input::BlockProposedFork>,
-}
-
-impl PreflightData {
-    pub fn new(
-        block_number: u64,
-        l1_inclusion_block_number: u64,
-        l1_chain_spec: ChainSpec,
-        taiko_chain_spec: ChainSpec,
-        prover_data: TaikoProverData,
-        blob_proof_type: BlobProofType,
-    ) -> Self {
-        Self {
-            block_number,
-            l1_chain_spec,
-            l1_inclusion_block_number,
-            taiko_chain_spec,
-            prover_data,
-            blob_proof_type,
-        }
-    }
-}
-
-pub async fn preflight<BDP: BlockDataProvider>(
-    provider: BDP,
-    PreflightData {
-        block_number,
-        l1_chain_spec,
-        taiko_chain_spec,
-        prover_data,
-        blob_proof_type,
-        l1_inclusion_block_number,
-    }: PreflightData,
-) -> RaikoResult<GuestInput> {
-    let measurement = Measurement::start("Fetching block data...", false);
-
-    let (block, parent_block) = get_block_and_parent_data(&provider, block_number).await?;
-
-    let taiko_guest_input = if taiko_chain_spec.is_taiko() {
-        prepare_taiko_chain_input(
-            &l1_chain_spec,
-            &taiko_chain_spec,
-            block_number,
-            (l1_inclusion_block_number != 0).then_some(l1_inclusion_block_number),
-            &block,
-            prover_data,
-            &blob_proof_type,
-        )
-        .await?
-    } else {
-        // For Ethereum blocks we just convert the block transactions in a tx_list
-        // so that we don't have to supports separate paths.
-        TaikoGuestInput::try_from(block.body.clone()).map_err(|e| RaikoError::Conversion(e.0))?
-    };
-    measurement.stop();
-
-    let parent_header: reth_primitives::Header =
-        parent_block.header.clone().try_into().map_err(|e| {
-            RaikoError::Conversion(format!("Failed converting to reth header: {e}"))
-        })?;
-    let parent_block_number = parent_header.number;
-
-    // Create the guest input
-    let input = GuestInput {
-        block: block.clone(),
-        parent_header,
-        chain_spec: taiko_chain_spec.clone(),
-        taiko: taiko_guest_input,
-        ..Default::default()
-    };
-
-    #[cfg(feature = "statedb_lru")]
-    let initial_db_with_headers =
-        load_state_db((parent_block_number, parent_block.header.hash.unwrap()));
-    #[cfg(not(feature = "statedb_lru"))]
-    let initial_db_with_headers = None;
-
-    // Create the block builder, run the transactions and extract the DB
-    let provider_db = ProviderDb::new(
-        &provider,
-        taiko_chain_spec,
-        parent_block_number,
-        initial_db_with_headers,
-    )
-    .await?;
-
-    // Now re-execute the transactions in the block to collect all required data
-    let mut builder = RethBlockBuilder::new(&input, provider_db);
-
-    let pool_tx = generate_transactions(
-        &input.chain_spec,
-        &input.taiko.block_proposed,
-        &input.taiko.tx_data,
-        &input.taiko.anchor_tx,
-    );
-
-    // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
-    execute_txs(&mut builder, pool_tx).await?;
-
-    let db = if let Some(db) = builder.db.as_mut() {
-        // use committed state as the init state of next block
-        #[cfg(feature = "statedb_lru")]
-        save_state_db(
-            (parent_block_number + 1, block.hash_slow()),
-            (db.current_db.clone(), {
-                let mut current_headers = db.initial_headers.clone();
-                current_headers.insert(block_number, block.header.clone());
-                current_headers
-            }),
-        );
-        db
-    } else {
-        return Err(RaikoError::Preflight("No db in builder".to_owned()));
-    };
-
-    // Gather inclusion proofs for the initial and final state
-    let measurement = Measurement::start("Fetching storage proofs...", true);
-    let (parent_proofs, proofs, num_storage_proofs) = db.get_proofs().await?;
-    measurement.stop_with_count(&format!(
-        "[{} Account/{num_storage_proofs} Storage]",
-        parent_proofs.len() + proofs.len(),
-    ));
-
-    // Construct the state trie and storage from the storage proofs.
-    let measurement = Measurement::start("Constructing MPT...", true);
-    let (parent_state_trie, parent_storage) =
-        proofs_to_tries(input.parent_header.state_root, parent_proofs, proofs)?;
-    measurement.stop();
-
-    // Gather proofs for block history
-    let measurement = Measurement::start("Fetching historical block headers...", true);
-    let ancestor_headers = db.get_ancestor_headers().await?;
-    measurement.stop();
-
-    // Get the contracts from the initial db.
-    let measurement = Measurement::start("Fetching contract code...", true);
-    let contracts =
-        HashSet::<Bytes>::from_iter(db.initial_db.accounts.values().filter_map(|account| {
-            account
-                .info
-                .code
-                .clone()
-                .map(|code| Bytes(code.original_bytes().0.clone()))
-        }))
-        .into_iter()
-        .collect::<Vec<Bytes>>();
-    measurement.stop();
-
-    // Fill in remaining generated guest input data
-    let input = GuestInput {
-        parent_state_trie,
-        parent_storage,
-        contracts,
-        ancestor_headers,
-        ..input
-    };
-
-    Ok(input)
 }
 
 pub async fn batch_preflight<BDP: BlockDataProvider>(
@@ -250,10 +82,8 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         )
     };
 
-    let l2_block_numbers: Vec<(u64, Option<u64>)> = block_numbers
-        .iter()
-        .map(|&block_number| (block_number, None))
-        .collect::<Vec<(u64, Option<u64>)>>();
+    let l2_block_numbers: Vec<(u64, Option<u64>)> =
+        block_numbers.iter().map(|&n| (n, None)).collect();
     info!(
         "batch preflight {} l2_block_numbers: {:?} to {:?}.",
         l2_block_numbers.len(),
@@ -264,24 +94,18 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         .iter()
         .map(|(block, _)| block.clone())
         .collect::<Vec<_>>();
-    let taiko_guest_batch_input = if taiko_chain_spec.is_taiko() {
-        prepare_taiko_chain_batch_input(
-            &l1_chain_spec,
-            &taiko_chain_spec,
-            l1_inclusion_block_number,
-            batch_id,
-            &all_prove_blocks,
-            prover_data,
-            &blob_proof_type,
-            cached_event_data,
-            l2_grandparent_header,
-        )
-        .await?
-    } else {
-        return Err(RaikoError::Preflight(
-            "Batch preflight is only used for Taiko chains".to_owned(),
-        ));
-    };
+    let taiko_guest_batch_input = prepare_taiko_chain_batch_input(
+        &l1_chain_spec,
+        &taiko_chain_spec,
+        l1_inclusion_block_number,
+        batch_id,
+        &all_prove_blocks,
+        prover_data,
+        &blob_proof_type,
+        cached_event_data,
+        l2_grandparent_header,
+    )
+    .await?;
     measurement.stop();
 
     debug!("proven (block, parent) pairs: {:?}", block_parent_pairs);
@@ -319,11 +143,13 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
 
     assert_eq!(block_parent_pairs.len(), pool_txs_list.len());
 
-    let mut handles = Vec::new();
     let chunk_size = env::var("PREFETCH_CHUNK_SIZE")
-        .unwrap_or("10".to_owned())
-        .parse()
-        .unwrap_or(10);
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(PREFETCH_CHUNK_SIZE_DEFAULT);
+
+    let mut handles = Vec::new();
+    #[allow(clippy::type_complexity)]
     let tasks: Vec<(
         (reth_primitives::Block, alloy_rpc_types::Block),
         (Vec<TransactionSigned>, bool),

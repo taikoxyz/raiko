@@ -10,30 +10,20 @@ use raiko_tasks::{
 use serde_json::Value;
 use utoipa::OpenApi;
 
-#[utoipa::path(post, path = "/proof/report",
-    tag = "Proving",
-    responses (
-        (status = 200, description = "Successfully listed all current tasks", body = CancelStatus)
-    )
-)]
-/// List all tasks.
-///
-/// Retrieve a list of `{ chain_id, blockhash, prover_type, prover, status }` items.
-async fn report_handler(State(actor): State<Actor>) -> HostResult<Json<Value>> {
-    let statuses = actor
-        .pool_list_status()
-        .await
-        .map_err(|e| anyhow::anyhow!(e))?;
-
-    // For compatibility with the old API, we need to convert the statuses to the old format.
-    let to_task_status = |status: StatusWithContext| match status.into_status() {
+/// Maps reqpool status to TaskStatus for API compatibility.
+fn reqpool_status_to_task_status(status: StatusWithContext) -> TaskStatus {
+    match status.into_status() {
         Status::Registered => TaskStatus::Registered,
         Status::WorkInProgress => TaskStatus::WorkInProgress,
         Status::Cancelled => TaskStatus::Cancelled,
         Status::Success { .. } => TaskStatus::Success,
         Status::Failed { error } => TaskStatus::AnyhowError(error),
-    };
-    let to_task_descriptor = |request_key: RequestKey| match request_key {
+    }
+}
+
+/// Maps RequestKey to TaskDescriptor for API compatibility.
+fn request_key_to_task_descriptor(request_key: RequestKey) -> TaskDescriptor {
+    match request_key {
         RequestKey::GuestInput(key) => TaskDescriptor::GuestInput(GuestInputTaskDescriptor {
             chain_id: *key.chain_id(),
             block_id: *key.block_number(),
@@ -84,12 +74,34 @@ async fn report_handler(State(actor): State<Actor>) -> HostResult<Json<Value>> {
                 proof_type: Some(key.proof_type().to_string()),
             })
         }
-    };
+    }
+}
+
+#[utoipa::path(post, path = "/proof/report",
+    tag = "Proving",
+    responses (
+        (status = 200, description = "Successfully listed all current tasks")
+    )
+)]
+/// List all tasks.
+///
+/// Retrieve a list of `{ chain_id, blockhash, prover_type, prover, status }` items.
+async fn report_handler(State(actor): State<Actor>) -> HostResult<Json<Value>> {
+    let statuses = actor
+        .pool_list_status()
+        .await
+        .map_err(|e| anyhow::anyhow!(e))?;
 
     let task_report: Vec<TaskReport> = statuses
         .into_iter()
-        .map(|(request_key, status)| (to_task_descriptor(request_key), to_task_status(status)))
+        .map(|(request_key, status)| {
+            (
+                request_key_to_task_descriptor(request_key),
+                reqpool_status_to_task_status(status),
+            )
+        })
         .collect();
+
     Ok(Json(serde_json::to_value(task_report)?))
 }
 

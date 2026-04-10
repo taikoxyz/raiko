@@ -3,10 +3,8 @@ extern crate secp256k1;
 
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use one_shot::{aggregate, shasta_aggregate};
-use raiko_lib::input::{
-    GuestBatchInput, GuestInput, RawAggregationGuestInput, ShastaRawAggregationGuestInput,
-};
+use one_shot::shasta_aggregate;
+use raiko_lib::input::{GuestBatchInput, GuestInput, ShastaRawAggregationGuestInput};
 
 use crate::{
     app_args::{App, Command},
@@ -34,12 +32,6 @@ pub async fn main() -> Result<()> {
             let batch_input: GuestBatchInput = bincode::deserialize_from(std::io::stdin())
                 .expect("unable to deserialize batch input");
             one_shot_batch(args.global_opts, one_shot_args, batch_input).await?;
-        }
-        Command::Aggregate(one_shot_args) => {
-            println!("Starting one shot aggregate prove");
-            let input: RawAggregationGuestInput =
-                bincode::deserialize_from(std::io::stdin()).expect("unable to deserialize input");
-            aggregate(args.global_opts, one_shot_args, input).await?;
         }
         Command::Bootstrap => {
             println!("Bootstrapping the app");

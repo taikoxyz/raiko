@@ -48,7 +48,7 @@ function bootstrap() {
 }
 
 function bootstrap_with_self_register() {
-    L1_NETWORK="${L1_NETWORK:-holesky}"
+    L1_NETWORK="${L1_NETWORK:-hoodi}"
     NETWORK="${NETWORK:-taiko_a7}"
     mkdir -p "$RAIKO_DOCKER_VOLUME_SECRETS_PATH"
     cd "$RAIKO_APP_DIR"
@@ -83,14 +83,6 @@ function update_docker_chain_specs() {
 
     if [ -n "${ETHEREUM_BEACON_RPC}" ]; then
         update_chain_spec_json $CONFIG_FILE "ethereum" "beacon_rpc" $ETHEREUM_BEACON_RPC
-    fi
-
-    if [ -n "${HOLESKY_RPC}" ]; then
-        update_chain_spec_json $CONFIG_FILE "holesky" "rpc" $HOLESKY_RPC
-    fi
-
-    if [ -n "${HOLESKY_BEACON_RPC}" ]; then
-        update_chain_spec_json $CONFIG_FILE "holesky" "beacon_rpc" $HOLESKY_BEACON_RPC
     fi
 
     if [ -n "${TAIKO_A7_RPC}" ]; then
@@ -143,34 +135,6 @@ function update_raiko_network() {
 
 function update_raiko_sgx_instance_id() {
     CONFIG_FILE=$1
-    if [[ -n $SGX_INSTANCE_ID ]]; then
-        jq \
-            --arg update_value "$SGX_INSTANCE_ID" \
-            '.sgx.instance_ids.HEKLA = ($update_value | tonumber)' $CONFIG_FILE \
-            >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
-        echo "Update hekla sgx instance id to $SGX_INSTANCE_ID"
-    fi
-    if [[ -n $SGX_ONTAKE_INSTANCE_ID ]]; then
-        jq \
-            --arg update_value "$SGX_ONTAKE_INSTANCE_ID" \
-            '.sgx.instance_ids.ONTAKE = ($update_value | tonumber)' $CONFIG_FILE \
-            >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
-        echo "Update ontake sgx instance id to $SGX_ONTAKE_INSTANCE_ID"
-    fi
-    if [[ -n $SGX_PACAYA_INSTANCE_ID ]]; then
-        jq \
-            --arg update_value "$SGX_PACAYA_INSTANCE_ID" \
-            '.sgx.instance_ids.PACAYA = ($update_value | tonumber)' $CONFIG_FILE \
-            >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
-        echo "Update pacaya sgx instance id to $SGX_PACAYA_INSTANCE_ID"
-    fi
-    if [[ -n $SGXGETH_PACAYA_INSTANCE_ID ]]; then
-        jq \
-            --arg update_value "$SGXGETH_PACAYA_INSTANCE_ID" \
-            '.sgxgeth.instance_ids.PACAYA = ($update_value | tonumber)' $CONFIG_FILE \
-            >/tmp/config_tmp.json && mv /tmp/config_tmp.json $CONFIG_FILE
-        echo "Update pacaya sgxgeth instance id to $SGXGETH_PACAYA_INSTANCE_ID"
-    fi
     if [[ -n $SGX_SHASTA_INSTANCE_ID ]]; then
         jq \
             --arg update_value "$SGX_SHASTA_INSTANCE_ID" \
@@ -290,23 +254,18 @@ if [[ -n $SGX_SERVER ]]; then
         # keep it now for future refactory
         bootstrap
     else
-        if [[ -z $SGX_PACAYA_INSTANCE_ID || -z $SGXGETH_PACAYA_INSTANCE_ID ]]; then
-            echo "SGX_PACAYA_INSTANCE_ID and SGXGETH_PACAYA_INSTANCE_ID must be presented, please check."
-            exit 1
-        fi
-
         if [[ -z $SGX_SHASTA_INSTANCE_ID || -z $SGXGETH_SHASTA_INSTANCE_ID ]]; then
             echo "SGX_SHASTA_INSTANCE_ID and SGXGETH_SHASTA_INSTANCE_ID must be presented, please check."
             exit 1
         fi
 
-        echo "Expanded instance IDs: {\"PACAYA\": ${SGX_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGX_SHASTA_INSTANCE_ID}}"
-        echo "start sgx-guest --sgx-instance-ids='{\"PACAYA\": ${SGX_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGX_SHASTA_INSTANCE_ID}}' --address 0.0.0.0 --port 9090"
-        gramine-sgx /opt/raiko/bin/sgx-guest serve --sgx-instance-ids="{\"PACAYA\": ${SGX_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGX_SHASTA_INSTANCE_ID}}" --address 0.0.0.0 --port 9090 | sed 's/^/[raiko] /' &
+        echo "Expanded instance IDs: {\"SHASTA\": ${SGX_SHASTA_INSTANCE_ID}}"
+        echo "start sgx-guest --sgx-instance-ids='{\"SHASTA\": ${SGX_SHASTA_INSTANCE_ID}}' --address 0.0.0.0 --port 9090"
+        gramine-sgx /opt/raiko/bin/sgx-guest serve --sgx-instance-ids="{\"SHASTA\": ${SGX_SHASTA_INSTANCE_ID}}" --address 0.0.0.0 --port 9090 | sed 's/^/[raiko] /' &
 
-        echo "Expanded geth instance IDs: {\"PACAYA\": ${SGXGETH_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGXGETH_SHASTA_INSTANCE_ID}}"
-        echo "start gaiko serve --sgx-instance-ids='{\"PACAYA\": ${SGXGETH_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGXGETH_SHASTA_INSTANCE_ID}}' --port 8090"
-        /opt/raiko/bin/gaiko --verbosity $GAIKO_GUEST_APP_VERBOSE_LEVEL serve --sgx-instance-ids="{\"PACAYA\": ${SGXGETH_PACAYA_INSTANCE_ID}, \"SHASTA\": ${SGXGETH_SHASTA_INSTANCE_ID}}" --port 8090 | sed 's/^/[gaiko] /' &
+        echo "Expanded geth instance IDs: {\"SHASTA\": ${SGXGETH_SHASTA_INSTANCE_ID}}"
+        echo "start gaiko serve --sgx-instance-ids='{\"SHASTA\": ${SGXGETH_SHASTA_INSTANCE_ID}}' --port 8090"
+        /opt/raiko/bin/gaiko --verbosity $GAIKO_GUEST_APP_VERBOSE_LEVEL serve --sgx-instance-ids="{\"SHASTA\": ${SGXGETH_SHASTA_INSTANCE_ID}}" --port 8090 | sed 's/^/[gaiko] /' &
         wait
     fi
 fi

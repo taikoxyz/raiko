@@ -6,15 +6,11 @@ use std::path::PathBuf;
 fn main() {
     let pipeline = Risc0Pipeline::new("provers/risc0/guest", "release");
     pipeline.bins(
-        &[
-            "boundless-aggregation",
-            "boundless-batch",
-            "boundless-shasta-aggregation",
-        ],
+        &["boundless-batch", "boundless-shasta-aggregation"],
         "provers/risc0/driver/src/methods",
     );
     #[cfg(feature = "test")]
-    pipeline.tests(&["risc0-batch"], "provers/risc0/driver/src/methods");
+    pipeline.tests(&["boundless-batch"], "provers/risc0/driver/src/methods");
     #[cfg(feature = "bench")]
     pipeline.bins(&["ecdsa", "sha256"], "provers/risc0/driver/src/methods");
 }
