@@ -24,3 +24,6 @@ syn = { workspace = true }
 alloy-primitives = { workspace = true }
 lazy_static = { workspace = true }
 lru = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
