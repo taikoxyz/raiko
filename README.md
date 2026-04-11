@@ -89,7 +89,7 @@ TARGET=risc0 make test
 
 #### Bonsai
 
-If you are using the Bonsai service, edit `run-bonsai.sh` to setup your API key, endpoint, and on-chain verifier address.
+If you are using the Bonsai service, edit `script/setup-bonsai.sh` to setup your API key, endpoint, and on-chain verifier address.
 
 ```shell
 ./script/setup-bonsai.sh
