@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.17.0](https://github.com/taikoxyz/raiko/compare/v1.16.0...v1.17.0) (2026-04-10)
+
+
+### Features
+
+* **proof:** enhance aggregation request handling with prover isolation ([#682](https://github.com/taikoxyz/raiko/issues/682)) ([336d037](https://github.com/taikoxyz/raiko/commit/336d0370636d6a1b70461a310b6894fe8095f410))
+
+
+### Bug Fixes
+
+* bound batch preflight retries and timeouts ([#683](https://github.com/taikoxyz/raiko/issues/683)) ([a714846](https://github.com/taikoxyz/raiko/commit/a7148465644e9fa5c1b4ad8e69eda778f02eb6dc))
+* **raiko:** enhance Shasta proof carry data validation with detailed error logging ([#680](https://github.com/taikoxyz/raiko/issues/680)) ([a0dad37](https://github.com/taikoxyz/raiko/commit/a0dad37de0903b537044653ee53c07dce1d09704))
+* **raiko:** transition network has same settings as mainnet ([#677](https://github.com/taikoxyz/raiko/issues/677)) ([84eb2f3](https://github.com/taikoxyz/raiko/commit/84eb2f3e0ed207c63571e4184501780c68ad3b3e))
+
 ## [1.16.0](https://github.com/taikoxyz/raiko/compare/v1.15.0...v1.16.0) (2026-03-07)
 
 
