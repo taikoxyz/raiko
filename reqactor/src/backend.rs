@@ -179,6 +179,31 @@ impl Backend {
                     request_key_.clone(),
                     StatusWithContext::new(status, chrono::Utc::now()),
                 );
+                // Guest input success entries hold large compressed batch input; once the proof
+                // succeeds, that pool row is useless for serving traffic. Drop it to shrink LRU/RSS.
+                if result.is_ok() {
+                    if let RequestKey::ShastaProof(proof_key) = &request_key_ {
+                        let guest_input_key =
+                            RequestKey::ShastaGuestInput(proof_key.guest_input_key().clone());
+                        match pool_.remove(&guest_input_key) {
+                            Ok(0) => tracing::debug!(
+                                %guest_input_key,
+                                %request_key_,
+                                "shasta guest input pool entry already absent after proof success"
+                            ),
+                            Ok(_) => tracing::info!(
+                                %guest_input_key,
+                                %request_key_,
+                                "removed shasta guest input from pool after successful proof"
+                            ),
+                            Err(e) => tracing::warn!(
+                                %guest_input_key,
+                                error = %e,
+                                "failed to remove shasta guest input from pool after proof success"
+                            ),
+                        }
+                    }
+                }
             });
 
             let mut pool_ = self.pool.clone();
