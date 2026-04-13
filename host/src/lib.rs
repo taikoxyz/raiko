@@ -81,6 +81,7 @@ pub struct Opts {
     #[arg(long, require_equals = true, default_value = "3600")]
     pub redis_ttl: u64,
 
+    /// Memory LRU for all keys; when true, also mirror Shasta proof / aggregation keys to Redis.
     #[arg(long, default_value = "false")]
     pub enable_redis_pool: bool,
 
