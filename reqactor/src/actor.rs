@@ -122,7 +122,24 @@ impl Actor {
         start_time: chrono::DateTime<chrono::Utc>,
     ) -> Result<StatusWithContext, String> {
         let pool_status_opt = self.pool_get_status(&request_key).await?;
+        self.act_with_pool_status(
+            request_key,
+            request_entity,
+            start_time,
+            pool_status_opt,
+        )
+        .await
+    }
 
+    /// Same as [`act`], but uses a single prior [`pool_get_status`] result so batch callers do not
+    /// query the pool twice per request (e.g. `Success` short-circuit + register path).
+    pub async fn act_with_pool_status(
+        &self,
+        request_key: RequestKey,
+        request_entity: RequestEntity,
+        start_time: chrono::DateTime<chrono::Utc>,
+        pool_status_opt: Option<StatusWithContext>,
+    ) -> Result<StatusWithContext, String> {
         if pool_status_opt
             .as_ref()
             .is_some_and(|s| matches!(s.status(), Status::Success { .. }))

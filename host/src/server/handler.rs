@@ -17,8 +17,14 @@ pub async fn prove(
         return Err("System is paused".to_string());
     }
 
+    let pool_status_opt = actor.pool_get_status(&request_key).await?;
     actor
-        .act(request_key.clone(), request_entity, chrono::Utc::now())
+        .act_with_pool_status(
+            request_key,
+            request_entity,
+            chrono::Utc::now(),
+            pool_status_opt,
+        )
         .await
         .map(|status| status.into_status())
 }
@@ -83,33 +89,28 @@ pub(crate) async fn prove_many(
 ) -> Result<Vec<Status>, String> {
     let mut statuses = Vec::with_capacity(request_keys.len());
     for (request_key, request_entity) in request_keys.into_iter().zip(request_entities) {
-        match (request_key, request_entity) {
-            (RequestKey::SingleProof(key), RequestEntity::SingleProof(entity)) => {
-                let status = prove(actor, key.into(), entity.into()).await?;
-                statuses.push(status);
-            }
-            (RequestKey::BatchProof(key), RequestEntity::BatchProof(entity)) => {
-                let status = prove(actor, key.into(), entity.into()).await?;
-                statuses.push(status);
-            }
-            (RequestKey::BatchGuestInput(key), RequestEntity::BatchGuestInput(entity)) => {
-                let status = prove(actor, key.into(), entity.into()).await?;
-                statuses.push(status);
-            }
-            (RequestKey::ShastaGuestInput(key), RequestEntity::ShastaGuestInput(entity)) => {
-                let status = prove(actor, key.into(), entity.into()).await?;
-                statuses.push(status);
-            }
-            (RequestKey::ShastaProof(key), RequestEntity::ShastaProof(entity)) => {
-                let status = prove(actor, key.into(), entity.into()).await?;
-                statuses.push(status);
-            }
-            (RequestKey::ShastaAggregation(key), RequestEntity::ShastaAggregation(entity)) => {
-                let status = prove(actor, key.into(), entity.into()).await?;
-                statuses.push(status);
-            }
+        if actor.is_paused() {
+            return Err("System is paused".to_string());
+        }
+        match (&request_key, &request_entity) {
+            (RequestKey::SingleProof(_), RequestEntity::SingleProof(_))
+            | (RequestKey::BatchProof(_), RequestEntity::BatchProof(_))
+            | (RequestKey::BatchGuestInput(_), RequestEntity::BatchGuestInput(_))
+            | (RequestKey::ShastaGuestInput(_), RequestEntity::ShastaGuestInput(_))
+            | (RequestKey::ShastaProof(_), RequestEntity::ShastaProof(_))
+            | (RequestKey::ShastaAggregation(_), RequestEntity::ShastaAggregation(_)) => {}
             _ => return Err("Invalid request key and entity".to_string()),
         }
+        let pool_status_opt = actor.pool_get_status(&request_key).await?;
+        let ctx = actor
+            .act_with_pool_status(
+                request_key,
+                request_entity,
+                chrono::Utc::now(),
+                pool_status_opt,
+            )
+            .await?;
+        statuses.push(ctx.into_status());
     }
 
     Ok(statuses)
