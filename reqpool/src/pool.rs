@@ -17,6 +17,72 @@ pub struct Pool {
 }
 
 impl Pool {
+    fn redis_mirror_enabled(&self) -> bool {
+        self.config.enable_redis_pool
+    }
+
+    /// Shasta guest input stays memory-only; proof and aggregation rows are mirrored to Redis when enabled.
+    fn mirrors_shasta_proof_or_agg_to_redis(key: &RequestKey) -> bool {
+        matches!(
+            key,
+            RequestKey::ShastaProof(_) | RequestKey::ShastaAggregation(_)
+        )
+    }
+
+    fn redis_mirror_set_request(
+        &mut self,
+        request_key: &RequestKey,
+        value: &RequestEntityAndStatus,
+    ) {
+        match self.redis_conn() {
+            Ok(mut conn) => {
+                if let Err(e) = conn.set_ex::<RequestKey, RequestEntityAndStatus, ()>(
+                    request_key.clone(),
+                    value.clone(),
+                    self.config.redis_ttl,
+                ) {
+                    tracing::warn!(
+                        %request_key,
+                        error = %e,
+                        "RedisPool: mirror write failed (memory already updated)"
+                    );
+                }
+            }
+            Err(e) => tracing::warn!(
+                error = %e,
+                "RedisPool: mirror write skipped (no Redis connection)"
+            ),
+        }
+    }
+
+    fn redis_mirror_get_request(
+        &mut self,
+        request_key: &RequestKey,
+    ) -> Result<Option<RequestEntityAndStatus>, String> {
+        let mut conn = match self.redis_conn() {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::debug!(
+                    error = %e,
+                    "RedisPool: mirror get skipped (no Redis connection)"
+                );
+                return Ok(None);
+            }
+        };
+        let result: RedisResult<RequestEntityAndStatus> = conn.get(request_key);
+        match result {
+            Ok(value) => Ok(Some(value)),
+            Err(e) if e.kind() == redis::ErrorKind::TypeError => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    fn redis_mirror_del_request(&mut self, request_key: &RequestKey) {
+        if let Ok(mut conn) = self.redis_conn() {
+            let _: RedisResult<usize> = conn.del(request_key.clone());
+        }
+    }
+
     pub fn add(
         &mut self,
         request_key: RequestKey,
@@ -31,11 +97,14 @@ impl Pool {
         self.conn()
             .map_err(|e| e.to_string())?
             .set_ex(
-                request_key,
-                request_entity_and_status,
+                request_key.clone(),
+                request_entity_and_status.clone(),
                 self.config.redis_ttl,
             )
             .map_err(|e| e.to_string())?;
+        if self.redis_mirror_enabled() && Self::mirrors_shasta_proof_or_agg_to_redis(&request_key) {
+            self.redis_mirror_set_request(&request_key, &request_entity_and_status);
+        }
         Ok(())
     }
 
@@ -46,6 +115,9 @@ impl Pool {
             .map_err(|e| e.to_string())?
             .del(request_key)
             .map_err(|e| e.to_string())?;
+        if self.redis_mirror_enabled() && Self::mirrors_shasta_proof_or_agg_to_redis(request_key) {
+            self.redis_mirror_del_request(request_key);
+        }
         Ok(result)
     }
 
@@ -57,7 +129,16 @@ impl Pool {
             self.conn().map_err(|e| e.to_string())?.get(request_key);
         match result {
             Ok(value) => Ok(Some(value.into())),
-            Err(e) if e.kind() == redis::ErrorKind::TypeError => Ok(None),
+            Err(e) if e.kind() == redis::ErrorKind::TypeError => {
+                if self.redis_mirror_enabled()
+                    && Self::mirrors_shasta_proof_or_agg_to_redis(request_key)
+                {
+                    self.redis_mirror_get_request(request_key)
+                        .map(|opt| opt.map(Into::into))
+                } else {
+                    Ok(None)
+                }
+            }
             Err(e) => Err(e.to_string()),
         }
     }
@@ -176,23 +257,23 @@ impl IdWrite for Pool {
 impl Pool {
     pub fn open(config: RedisPoolConfig) -> Result<Self, redis::RedisError> {
         if config.enable_redis_pool {
-            tracing::info!("RedisPool.open using redis: {}", config.redis_url);
+            tracing::info!(
+                "RedisPool.open: memory primary + Redis mirror for Shasta proof/aggregation ({})",
+                config.redis_url
+            );
         } else {
-            tracing::info!("RedisPool.open using memory pool");
+            tracing::info!("RedisPool.open using memory pool only");
         }
 
         let client = Client::open(config.redis_url.clone())?;
         Ok(Self { client, config })
     }
 
+    /// Primary store is always the in-memory LRU; Redis is only used when mirroring selected keys.
     pub fn conn(&mut self) -> Result<Backend, redis::RedisError> {
-        if self.config.enable_redis_pool {
-            Ok(Backend::Redis(self.redis_conn()?))
-        } else {
-            Ok(Backend::Memory(MemoryBackend::new(
-                self.config.redis_url.clone(),
-            )))
-        }
+        Ok(Backend::Memory(MemoryBackend::new(
+            self.config.redis_url.clone(),
+        )))
     }
 
     fn redis_conn(&mut self) -> Result<redis::Connection, redis::RedisError> {

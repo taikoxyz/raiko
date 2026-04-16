@@ -3,9 +3,8 @@ use crate::{
     server::{
         api::v3::{ProofResponse, Status},
         auth::AuthenticatedApiKey,
-        handler::prove_many,
+        handler::{prove, prove_aggregation, prove_many},
         metrics::{record_shasta_request_in, record_shasta_request_out},
-        prove_aggregation,
         utils::{draw_shasta_zk_request, is_zk_any_request, to_v3_status},
     },
 };
@@ -15,6 +14,7 @@ use raiko_core::{
     merge,
 };
 use raiko_lib::proof_type::ProofType;
+use raiko_lib::prover::Proof;
 use raiko_lib::utils::shasta_guest_input::{
     encode_guest_input_str_to_prover_arg_value, PROVER_ARG_SHASTA_GUEST_INPUT,
 };
@@ -28,6 +28,124 @@ use serde_json::Value;
 use utoipa::OpenApi;
 
 use super::batch::process_shasta_batch;
+
+/// Guest-input phase outcome for one Shasta proposal. If the corresponding [`RequestKey::ShastaProof`]
+/// is already `Success` in the pool, guest input is **not** required (and may be absent after
+/// pool eviction); otherwise we run guest-input `prove` and record its status.
+#[derive(Debug)]
+enum ShastaGuestInputStep {
+    SkippedSubProofDone,
+    Ran(raiko_reqpool::Status),
+}
+
+/// For each proposal, skip guest-input work when that proposal's `ShastaProof` key is already
+/// successful in the pool (depends-on-proof semantics).
+async fn run_shasta_guest_inputs_with_subproof_dependency(
+    actor: &Actor,
+    sub_input_request_keys: Vec<RequestKey>,
+    sub_input_request_entities: Vec<RequestEntity>,
+    sub_request_keys: &[RequestKey],
+) -> Result<Vec<ShastaGuestInputStep>, String> {
+    let n = sub_input_request_keys.len();
+    if n != sub_request_keys.len() {
+        return Err("shasta batch: input keys and proof keys length mismatch".to_string());
+    }
+    let mut out = Vec::with_capacity(n);
+    for i in 0..n {
+        let sub_proof_done = matches!(
+            actor.pool_get_status(&sub_request_keys[i]).await?,
+            Some(ref ctx) if matches!(ctx.status(), raiko_reqpool::Status::Success { .. })
+        );
+        if sub_proof_done {
+            tracing::info!(
+                proposal_index = i,
+                "skipping Shasta guest input: corresponding ShastaProof already successful in pool"
+            );
+            out.push(ShastaGuestInputStep::SkippedSubProofDone);
+            continue;
+        }
+        let st = prove(
+            actor,
+            sub_input_request_keys[i].clone(),
+            sub_input_request_entities[i].clone(),
+        )
+        .await?;
+        out.push(ShastaGuestInputStep::Ran(st));
+    }
+    Ok(out)
+}
+
+fn all_shasta_guest_input_steps_resolved(steps: &[ShastaGuestInputStep]) -> bool {
+    steps.iter().all(|step| {
+        matches!(
+            step,
+            ShastaGuestInputStep::SkippedSubProofDone
+                | ShastaGuestInputStep::Ran(raiko_reqpool::Status::Success { .. })
+        )
+    })
+}
+
+fn build_shasta_sub_request_entities_with_guest_input(
+    sub_request_entities: &[RequestEntity],
+    steps: &[ShastaGuestInputStep],
+) -> Result<Vec<RequestEntity>, String> {
+    if sub_request_entities.len() != steps.len() {
+        return Err(
+            "shasta batch: proof entities and guest-input steps length mismatch".to_string(),
+        );
+    }
+    sub_request_entities
+        .iter()
+        .zip(steps)
+        .map(|(entity, step)| match (entity, step) {
+            (_, ShastaGuestInputStep::SkippedSubProofDone) => Ok(entity.clone()),
+            (
+                RequestEntity::ShastaProof(e),
+                ShastaGuestInputStep::Ran(raiko_reqpool::Status::Success { proof }),
+            ) => {
+                let guest_input = proof.proof.clone().ok_or_else(|| {
+                    "guest input success status missing compressed payload".to_string()
+                })?;
+                let mut prover_args = e.prover_args().clone();
+                prover_args.insert(
+                    PROVER_ARG_SHASTA_GUEST_INPUT.to_string(),
+                    encode_guest_input_str_to_prover_arg_value(&guest_input)?,
+                );
+                Ok(ShastaProofRequestEntity::new_with_guest_input_entity(
+                    e.guest_input_entity().clone(),
+                    *e.proof_type(),
+                    prover_args,
+                )
+                .into())
+            }
+            (RequestEntity::ShastaProof(_), ShastaGuestInputStep::Ran(_)) => Err(
+                "guest input step did not succeed for a proposal that still needs proof"
+                    .to_string(),
+            ),
+            _ => Err("invalid Shasta proof entity in batch".to_string()),
+        })
+        .collect()
+}
+
+/// When every `ShastaProof` pool entry is already successful, returns those proofs so the handler
+/// can skip regenerating guest input (which may have been removed from the pool after proof).
+async fn collect_shasta_subproofs_if_all_successful(
+    actor: &Actor,
+    sub_request_keys: &[RequestKey],
+) -> Result<Option<Vec<Proof>>, String> {
+    let mut proofs = Vec::with_capacity(sub_request_keys.len());
+    for key in sub_request_keys {
+        let ctx = match actor.pool_get_status(key).await? {
+            Some(c) => c,
+            None => return Ok(None),
+        };
+        match ctx.into_status() {
+            raiko_reqpool::Status::Success { proof } => proofs.push(proof),
+            _ => return Ok(None),
+        }
+    }
+    Ok(Some(proofs))
+}
 
 #[utoipa::path(post, path = "/batch/shasta",
     tag = "Proving",
@@ -112,45 +230,16 @@ async fn shasta_batch_handler(
         sub_batch_ids,
     ) = process_shasta_batch(&shasta_request, &image_id);
 
-    // Run input step first to reuse cached guest input (both aggregate and non-aggregate)
-    let statuses =
-        prove_many(&actor, sub_input_request_keys, sub_input_request_entities).await?;
-    let is_all_sub_success = statuses
-        .iter()
-        .all(|status| matches!(status, raiko_reqpool::Status::Success { .. }));
-    let result = if !is_all_sub_success {
-        Ok(raiko_reqpool::Status::Registered)
-    } else {
-        let guest_inputs: Vec<_> = statuses
-            .iter()
-            .map(|s| match s {
-                raiko_reqpool::Status::Success { proof, .. } => proof.proof.clone().unwrap(),
-                _ => unreachable!(),
-            })
-            .collect();
-        let sub_request_entities_with_input: Vec<_> = sub_request_entities
-            .iter()
-            .zip(guest_inputs)
-            .map(|(entity, guest_input)| match entity {
-                raiko_reqpool::RequestEntity::ShastaProof(e) => {
-                    let mut prover_args = e.prover_args().clone();
-                    prover_args.insert(
-                        PROVER_ARG_SHASTA_GUEST_INPUT.to_string(),
-                        encode_guest_input_str_to_prover_arg_value(&guest_input).expect("wrap"),
-                    );
-                    ShastaProofRequestEntity::new_with_guest_input_entity(
-                        e.guest_input_entity().clone(),
-                        *e.proof_type(),
-                        prover_args,
-                    )
-                    .into()
-                }
-                _ => unreachable!(),
-            })
-            .collect();
-
+    let result = if let Some(existing_proofs) =
+        collect_shasta_subproofs_if_all_successful(&actor, &sub_request_keys).await?
+    {
+        tracing::info!(
+            n = existing_proofs.len(),
+            aggregate = shasta_request.aggregate,
+            "Shasta batch: all sub-proofs already in pool; skipping guest input step"
+        );
         if shasta_request.aggregate {
-            prove_aggregation(
+            prove(
                 &actor,
                 RequestKey::ShastaAggregation(AggregationRequestKey::new_with_image_id_and_prover(
                     shasta_request.proof_type,
@@ -160,24 +249,73 @@ async fn shasta_batch_handler(
                 )),
                 RequestEntity::ShastaAggregation(AggregationRequestEntity::new(
                     sub_batch_ids,
-                    vec![],
+                    existing_proofs,
                     shasta_request.proof_type,
                     shasta_request.prover_args.clone(),
                 )),
-                sub_request_keys,
-                sub_request_entities_with_input,
             )
             .await
         } else {
-            prove_many(&actor, sub_request_keys, sub_request_entities_with_input)
+            Ok(existing_proofs
+                .into_iter()
+                .next()
+                .map(|proof| raiko_reqpool::Status::Success { proof })
+                .unwrap_or_else(|| raiko_reqpool::Status::Failed {
+                    error: "empty shasta batch".to_string(),
+                }))
+        }
+    } else {
+        // Guest input only where the corresponding ShastaProof is not already successful
+        // (proof may exist while guest-input row was evicted — do not redo input in that case).
+        let guest_input_steps = run_shasta_guest_inputs_with_subproof_dependency(
+            &actor,
+            sub_input_request_keys,
+            sub_input_request_entities,
+            &sub_request_keys,
+        )
+        .await?;
+
+        if !all_shasta_guest_input_steps_resolved(&guest_input_steps) {
+            Ok(raiko_reqpool::Status::Registered)
+        } else {
+            let sub_request_entities_with_input =
+                build_shasta_sub_request_entities_with_guest_input(
+                    &sub_request_entities,
+                    &guest_input_steps,
+                )?;
+
+            if shasta_request.aggregate {
+                prove_aggregation(
+                    &actor,
+                    RequestKey::ShastaAggregation(
+                        AggregationRequestKey::new_with_image_id_and_prover(
+                            shasta_request.proof_type,
+                            sub_batch_ids.clone(),
+                            image_id.clone(),
+                            shasta_request.prover.to_string(),
+                        ),
+                    ),
+                    RequestEntity::ShastaAggregation(AggregationRequestEntity::new(
+                        sub_batch_ids,
+                        vec![],
+                        shasta_request.proof_type,
+                        shasta_request.prover_args.clone(),
+                    )),
+                    sub_request_keys,
+                    sub_request_entities_with_input,
+                )
                 .await
-                .map(|s| {
-                    s.into_iter()
-                        .next()
-                        .unwrap_or_else(|| raiko_reqpool::Status::Failed {
-                            error: "No status returned".to_string(),
-                        })
-                })
+            } else {
+                prove_many(&actor, sub_request_keys, sub_request_entities_with_input)
+                    .await
+                    .map(|s| {
+                        s.into_iter()
+                            .next()
+                            .unwrap_or_else(|| raiko_reqpool::Status::Failed {
+                                error: "No status returned".to_string(),
+                            })
+                    })
+            }
         }
     };
 
