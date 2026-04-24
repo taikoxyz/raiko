@@ -24,7 +24,7 @@ pub fn create_shasta_requests(
             l2_block_numbers,
             last_anchor_block_number,
         } = proposal;
-        // Create Shasta input request key
+        // Create Shasta input request key (prover not in key; we override when passing to prover backend)
         let input_request_key = RequestKey::ShastaGuestInput(ShastaInputRequestKey::new(
             *proposal_id, // proposal_id
             batch_request.l1_network.clone(),
@@ -76,7 +76,7 @@ pub fn create_shasta_requests(
     requests
 }
 
-/// Process Shasta batch requests and return the necessary data for the handler
+/// Process Shasta batch requests and return keys, entities, and batch IDs for the handler.
 pub fn process_shasta_batch(
     batch_request: &ShastaProofRequest,
     image_id: &ImageId,
@@ -88,19 +88,22 @@ pub fn process_shasta_batch(
     Vec<u64>,
 ) {
     let shasta_requests = create_shasta_requests(batch_request, image_id);
+    let n = shasta_requests.len();
 
-    let mut sub_input_request_keys = Vec::with_capacity(shasta_requests.len());
-    let mut sub_request_keys = Vec::with_capacity(shasta_requests.len());
-    let mut sub_input_request_entities = Vec::with_capacity(shasta_requests.len());
-    let mut sub_request_entities = Vec::with_capacity(shasta_requests.len());
-    let mut sub_batch_ids = Vec::with_capacity(shasta_requests.len());
+    let mut sub_input_request_keys = Vec::with_capacity(n);
+    let mut sub_request_keys = Vec::with_capacity(n);
+    let mut sub_input_request_entities = Vec::with_capacity(n);
+    let mut sub_request_entities = Vec::with_capacity(n);
+    let mut sub_batch_ids = Vec::with_capacity(n);
 
-    for (input_key, request_key, input_entity, request_entity) in shasta_requests {
+    for (i, (input_key, request_key, input_entity, request_entity)) in
+        shasta_requests.into_iter().enumerate()
+    {
         sub_input_request_keys.push(input_key);
         sub_request_keys.push(request_key);
         sub_input_request_entities.push(input_entity.into());
         sub_request_entities.push(request_entity.into());
-        sub_batch_ids.push(batch_request.proposals[sub_batch_ids.len()].proposal_id);
+        sub_batch_ids.push(batch_request.proposals[i].proposal_id);
     }
 
     (

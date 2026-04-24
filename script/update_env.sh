@@ -1,9 +1,9 @@
 #!/bin/bash
 
 echo "choose env"
-select net in tolba hekla mainnet devnet others; do
+select net in tolba transition hekla mainnet devnet others; do
   case $net in
-    tolba|hekla|mainnet|devnet)
+    tolba|transition|hekla|mainnet|devnet)
       network=$net
       break
       ;;
@@ -29,8 +29,6 @@ if [ ! -d "$base_dir" ]; then
 fi
 
 TARGET_BASE_DIR="$network/$version"
-NEW_SGX=$(jq -r '.sgx.instance_ids.PACAYA // 3131899904' $TARGET_BASE_DIR/raiko/config/config.sgx.json)
-NEW_SGXGETH=$(jq -r '.sgxgeth.instance_ids.PACAYA // 3131899904' $TARGET_BASE_DIR/raiko/config/config.sgx.json)
 NEW_SGXSHASTA=$(jq -r '.sgx.instance_ids.SHASTA // 3131899904' $TARGET_BASE_DIR/raiko/config/config.sgx.json)
 NEW_SGXGETHSHASTA=$(jq -r '.sgxgeth.instance_ids.SHASTA // 3131899904' $TARGET_BASE_DIR/raiko/config/config.sgx.json)
 
@@ -42,13 +40,11 @@ TARGET_FILE=".env.${network}.remote-sgx.${version}"
 cp "$ENV_FILE" "$TARGET_FILE"
 
 # replace
-sed -i -E "s/^SGX_PACAYA_INSTANCE_ID=.*/SGX_PACAYA_INSTANCE_ID=${NEW_SGX}/" "$TARGET_FILE"
-sed -i -E "s/^SGXGETH_PACAYA_INSTANCE_ID=.*/SGXGETH_PACAYA_INSTANCE_ID=${NEW_SGXGETH}/" "$TARGET_FILE"
 sed -i -E "s/^SGX_SHASTA_INSTANCE_ID=.*/SGX_SHASTA_INSTANCE_ID=${NEW_SGXSHASTA}/" "$TARGET_FILE"
 sed -i -E "s/^SGXGETH_SHASTA_INSTANCE_ID=.*/SGXGETH_SHASTA_INSTANCE_ID=${NEW_SGXGETHSHASTA}/" "$TARGET_FILE"
 
 echo "Updated .env file:"
-grep "SGX_PACAYA_INSTANCE_ID\|SGXGETH_PACAYA_INSTANCE_ID\|SGX_SHASTA_INSTANCE_ID\|SGXGETH_SHASTA_INSTANCE_ID" "$TARGET_FILE"
+grep "SGX_SHASTA_INSTANCE_ID\|SGXGETH_SHASTA_INSTANCE_ID" "$TARGET_FILE"
 
 base_dir=${network}/${version}
 echo "then run: \n"

@@ -69,3 +69,7 @@ log.build.*
 venv/
 .venv/
 
+*.pyc
+.env*
+log
+*.patch

@@ -9,18 +9,12 @@ use anyhow::{anyhow, bail, Context, Error, Result};
 use base64_serde::base64_serde_type;
 use raiko_lib::{
     builder::{calculate_batch_blocks_final_header, calculate_block_header},
-    input::{
-        GuestBatchInput, GuestInput, RawAggregationGuestInput, ShastaRawAggregationGuestInput,
-    },
+    input::{GuestBatchInput, GuestInput, ShastaRawAggregationGuestInput},
     libhash::hash_shasta_subproof_input,
-    primitives::{
-        keccak::{self},
-        Address, B256,
-    },
+    primitives::{Address, B256},
     proof_type::ProofType,
     protocol_instance::{
-        aggregation_output_combine, shasta_pcd_aggregation_hash,
-        validate_shasta_aggregate_proof_carry_data, ProtocolInstance,
+        shasta_pcd_aggregation_hash, validate_shasta_aggregate_proof_carry_data, ProtocolInstance,
     },
 };
 use secp256k1::{Keypair, PublicKey, SecretKey};
@@ -249,87 +243,6 @@ pub async fn one_shot_batch(
     Ok(data)
 }
 
-pub async fn aggregate(
-    global_opts: GlobalOpts,
-    args: OneShotArgs,
-    input: RawAggregationGuestInput,
-) -> Result<Value> {
-    // Make sure this SGX instance was bootstrapped
-    let prev_privkey = load_bootstrap(&global_opts.secrets_dir)
-        .or_else(|_| bail!("Application was not bootstrapped or has a deprecated bootstrap."))
-        .unwrap();
-
-    println!("Global options: {global_opts:?}, OneShot options: {args:?}");
-
-    let new_pubkey = public_key(&prev_privkey);
-    let new_instance = public_key_to_address(&new_pubkey);
-
-    // Make sure the chain of old/new public keys is preserved
-    let old_instance = Address::from_slice(&input.proofs[0].proof.clone()[4..24]);
-    let mut cur_instance = old_instance;
-
-    // Verify the proofs
-    for proof in input.proofs.iter() {
-        // TODO: verify protocol instance data so we can trust the old/new instance data
-        assert_eq!(
-            recover_signer_unchecked(&proof.proof.clone()[24..].try_into().unwrap(), &proof.input,)
-                .unwrap(),
-            cur_instance,
-        );
-        cur_instance = Address::from_slice(&proof.proof.clone()[4..24]);
-    }
-
-    // Current public key needs to match latest proof new public key
-    assert_eq!(cur_instance, new_instance);
-
-    // Calculate the aggregation hash
-    let aggregation_hash = keccak::keccak(aggregation_output_combine(
-        [
-            vec![
-                B256::left_padding_from(old_instance.as_ref()),
-                B256::left_padding_from(new_instance.as_ref()),
-            ],
-            input
-                .proofs
-                .iter()
-                .map(|proof| proof.input)
-                .collect::<Vec<_>>(),
-        ]
-        .concat(),
-    ));
-
-    // Sign the public aggregation hash
-    let sig = sign_message(&prev_privkey, aggregation_hash.into())?;
-
-    // Create the proof for the onchain SGX verifier
-    const SGX_PROOF_LEN: usize = 109;
-    // 4(id) + 20(old) + 20(new) + 65(sig) = 109
-    let mut proof = Vec::with_capacity(SGX_PROOF_LEN);
-    proof.extend(args.sgx_instance_id.to_be_bytes());
-    proof.extend(old_instance);
-    proof.extend(new_instance);
-    proof.extend(sig);
-    let proof = hex::encode(proof);
-
-    // Store the public key address in the attestation data
-    save_attestation_user_report_data(new_instance)?;
-
-    // Print out the proof and updated public info
-    let quote = get_sgx_quote()?;
-    let data = serde_json::json!({
-        "proof": format!("0x{proof}"),
-        "quote": hex::encode(quote),
-        "public_key": format!("0x{new_pubkey}"),
-        "instance_address": new_instance.to_string(),
-        "input": B256::from(aggregation_hash).to_string(),
-    });
-    println!("{data}");
-
-    // Print out general SGX information
-    let _ = print_sgx_info();
-    Ok(data)
-}
-
 pub async fn shasta_aggregate(
     global_opts: GlobalOpts,
     args: OneShotArgs,
@@ -350,7 +263,9 @@ pub async fn shasta_aggregate(
     let expected_instance = Address::from_slice(&input.proofs[0].proof.clone()[4..24]);
     assert_eq!(expected_instance, sgx_instance);
 
-    assert!(validate_shasta_aggregate_proof_carry_data(&input));
+    if !validate_shasta_aggregate_proof_carry_data(&input) {
+        bail!("invalid shasta proof carry data for aggregation (see stderr for details)");
+    }
 
     // Verify the proofs
     for (i, proof) in input.proofs.iter().enumerate() {

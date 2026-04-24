@@ -4,8 +4,8 @@ use utoipa::ToSchema;
 
 use crate::{
     input::{
-        shasta::Checkpoint, AggregationGuestInput, AggregationGuestOutput, GuestBatchInput,
-        GuestBatchOutput, GuestInput, GuestOutput, ShastaAggregationGuestInput,
+        shasta::Checkpoint, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput,
+        GuestOutput, ShastaAggregationGuestInput,
     },
     proof_type::ProofType,
 };
@@ -76,32 +76,34 @@ pub struct Proof {
     pub extra_data: Option<ProofCarryData>,
 }
 
-// impl display for proof to easy read log
+fn format_opt_proof(s: Option<&String>) -> String {
+    s.map(|p| {
+        if p.len() <= 120 {
+            p.clone()
+        } else {
+            format!("{:?}...", p.chars().take(120).collect::<String>())
+        }
+    })
+    .unwrap_or_else(|| "None".to_string())
+}
+
 impl std::fmt::Display for Proof {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!(
+        write!(
+            f,
             "Proof {{ proof: {}, input: {}, quote: {}, uuid: {}, kzg_proof: {} }}",
-            self.proof
-                .as_ref()
-                .map(|p| {
-                    if p.len() <= 120 {
-                        format!("{}", p)
-                    } else {
-                        format!("{:?}...", p.chars().take(120).collect::<String>())
-                    }
-                })
-                .unwrap_or("None".to_string()),
+            format_opt_proof(self.proof.as_ref()),
             self.input
                 .as_ref()
                 .map(|v| format!("{:?}", v))
-                .unwrap_or("None".to_string()),
+                .unwrap_or_else(|| "None".to_string()),
             self.quote
                 .as_ref()
                 .map(|v| format!("quote size:{}", v.len()))
-                .unwrap_or("None".to_string()),
-            self.uuid.as_ref().unwrap_or(&"None".to_string()),
-            self.kzg_proof.as_ref().unwrap_or(&"None".to_string())
-        ))
+                .unwrap_or_else(|| "None".to_string()),
+            self.uuid.as_deref().unwrap_or("None"),
+            self.kzg_proof.as_deref().unwrap_or("None")
+        )
     }
 }
 
@@ -131,14 +133,6 @@ pub trait Prover {
         &self,
         input: GuestBatchInput,
         output: &GuestBatchOutput,
-        config: &ProverConfig,
-        store: Option<&mut dyn IdWrite>,
-    ) -> ProverResult<Proof>;
-
-    async fn aggregate(
-        &self,
-        input: AggregationGuestInput,
-        output: &AggregationGuestOutput,
         config: &ProverConfig,
         store: Option<&mut dyn IdWrite>,
     ) -> ProverResult<Proof>;

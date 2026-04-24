@@ -1,9 +1,7 @@
 use core::{fmt::Debug, str::FromStr};
 
 use anyhow::{anyhow, Error, Result};
-use ontake::BlockProposedV2;
-use pacaya::{BatchInfo, BatchProposed};
-use reth_evm_ethereum::taiko::{ProtocolBaseFeeConfig, ANCHOR_GAS_LIMIT, ANCHOR_V3_GAS_LIMIT};
+use reth_evm_ethereum::taiko::ProtocolBaseFeeConfig;
 use reth_primitives::{
     revm_primitives::{Address, Bytes, HashMap, SpecId, B256, U256},
     Block, Header, TransactionSigned,
@@ -85,13 +83,6 @@ pub struct GuestBatchInput {
     pub taiko: TaikoGuestBatchInput,
 }
 
-/// External aggregation input.
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub struct AggregationGuestInput {
-    /// All block proofs to prove
-    pub proofs: Vec<Proof>,
-}
-
 /// The raw proof data necessary to verify a proof
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct RawProof {
@@ -101,24 +92,11 @@ pub struct RawProof {
     pub input: B256,
 }
 
-/// External aggregation input.
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub struct RawAggregationGuestInput {
-    /// All block proofs to prove
-    pub proofs: Vec<RawProof>,
-}
-
-/// External aggregation input.
+/// Aggregation guest output (used for Shasta aggregation).
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct AggregationGuestOutput {
     /// The resulting hash
     pub hash: B256,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ZkAggregationGuestInput {
-    pub image_id: [u32; 8],
-    pub block_inputs: Vec<B256>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -156,9 +134,6 @@ pub struct ShastaSp1AggregationGuestInput {
 pub enum BlockProposedFork {
     #[default]
     Nothing,
-    Hekla(BlockProposed),
-    Ontake(BlockProposedV2),
-    Pacaya(BatchProposed),
     Shasta(ShastaEventData),
 }
 
@@ -179,14 +154,7 @@ impl BlockProposedFork {
 
     pub fn block_number(&self) -> u64 {
         match self {
-            BlockProposedFork::Hekla(block) => block.meta.id,
-            BlockProposedFork::Ontake(block) => block.meta.id,
-            BlockProposedFork::Pacaya(_batch) => {
-                _batch.info.lastBlockId - (_batch.info.blocks.len() as u64) + 1
-            }
-            BlockProposedFork::Shasta(_event_data) => {
-                unimplemented!("can not get block number from shasta proposal")
-            }
+            BlockProposedFork::Shasta(event_data) => event_data.proposal.originBlockNumber + 1,
             _ => 0,
         }
     }
@@ -207,20 +175,6 @@ impl BlockProposedFork {
 
     pub fn base_fee_config(&self) -> ProtocolBaseFeeConfig {
         match self {
-            BlockProposedFork::Ontake(block) => ProtocolBaseFeeConfig {
-                adjustment_quotient: block.meta.baseFeeConfig.adjustmentQuotient,
-                sharing_pctg: block.meta.baseFeeConfig.sharingPctg,
-                gas_issuance_per_second: block.meta.baseFeeConfig.gasIssuancePerSecond,
-                min_gas_excess: block.meta.baseFeeConfig.minGasExcess,
-                max_gas_issuance_per_block: block.meta.baseFeeConfig.maxGasIssuancePerBlock,
-            },
-            BlockProposedFork::Pacaya(batch) => ProtocolBaseFeeConfig {
-                adjustment_quotient: batch.info.baseFeeConfig.adjustmentQuotient,
-                sharing_pctg: batch.info.baseFeeConfig.sharingPctg,
-                gas_issuance_per_second: batch.info.baseFeeConfig.gasIssuancePerSecond,
-                min_gas_excess: batch.info.baseFeeConfig.minGasExcess,
-                max_gas_issuance_per_block: batch.info.baseFeeConfig.maxGasIssuancePerBlock,
-            },
             BlockProposedFork::Shasta(event_data) => ProtocolBaseFeeConfig {
                 adjustment_quotient: 0,
                 sharing_pctg: event_data.proposal.basefeeSharingPctg,
@@ -234,14 +188,6 @@ impl BlockProposedFork {
 
     pub fn blob_tx_slice_param(&self) -> Option<(usize, usize)> {
         match self {
-            BlockProposedFork::Ontake(block) => Some((
-                block.meta.blobTxListOffset as usize,
-                block.meta.blobTxListLength as usize,
-            )),
-            BlockProposedFork::Pacaya(batch) => Some((
-                batch.info.blobByteOffset as usize,
-                batch.info.blobByteSize as usize,
-            )),
             BlockProposedFork::Shasta(_) => {
                 error!("blob_tx_slice_param not supported for shasta proposal");
                 None
@@ -250,30 +196,8 @@ impl BlockProposedFork {
         }
     }
 
-    pub fn blob_hash(&self) -> B256 {
-        match self {
-            BlockProposedFork::Hekla(block) => block.meta.blobHash,
-            BlockProposedFork::Ontake(block) => block.meta.blobHash,
-            // meaningless for pacaya and shasta
-            _ => B256::default(),
-        }
-    }
-
-    pub fn batch_info(&self) -> Option<&BatchInfo> {
-        match self {
-            BlockProposedFork::Pacaya(batch) => Some(&batch.info),
-            BlockProposedFork::Shasta(_) => unimplemented!("Shasta batch_info implementation"),
-            _ => None,
-        }
-    }
-
     pub fn gas_limit_with_anchor(&self) -> u64 {
-        match self {
-            BlockProposedFork::Hekla(block) => block.meta.gasLimit as u64 + ANCHOR_GAS_LIMIT,
-            BlockProposedFork::Ontake(block) => block.meta.gasLimit as u64 + ANCHOR_GAS_LIMIT,
-            BlockProposedFork::Pacaya(batch) => batch.info.gasLimit as u64 + ANCHOR_V3_GAS_LIMIT,
-            _ => 0,
-        }
+        unreachable!("gas_limit_with_anchor is unsupported in shasta-only mode");
     }
 
     pub fn proposer(&self) -> Address {
@@ -286,24 +210,17 @@ impl BlockProposedFork {
     pub fn fork_spec(&self) -> SpecId {
         match self {
             BlockProposedFork::Shasta(_) => SpecId::SHASTA,
-            BlockProposedFork::Pacaya(_) => SpecId::PACAYA,
-            BlockProposedFork::Hekla(_) => SpecId::HEKLA,
-            BlockProposedFork::Ontake(_) => SpecId::ONTAKE,
             _ => unimplemented!("unsupported fork spec"),
         }
     }
 
     pub fn is_shasta(&self) -> bool {
-        match self {
-            BlockProposedFork::Shasta(_) => true,
-            _ => false,
-        }
+        matches!(self, BlockProposedFork::Shasta(_))
     }
 
     pub fn proposal_id(&self) -> u64 {
         match self {
             BlockProposedFork::Shasta(event_data) => event_data.proposal.id,
-            BlockProposedFork::Pacaya(batch) => batch.meta.batchId,
             _ => 0,
         }
     }
@@ -330,9 +247,6 @@ impl BlockProposedFork {
                 .iter()
                 .map(|s| s.blobSlice.blobHashes.clone())
                 .collect(),
-            BlockProposedFork::Pacaya(batch_proposed) => {
-                vec![batch_proposed.info.blobHashes.clone()]
-            }
             _ => Vec::new(),
         }
     }
@@ -482,12 +396,7 @@ pub fn get_input_path(dir: &Path, block_number: u64, network: &str) -> PathBuf {
     dir.join(format!("input-{network}-{block_number}.bin"))
 }
 
-mod hekla;
-pub mod ontake;
-pub mod pacaya;
 pub mod shasta;
-
-pub use hekla::*;
 
 #[cfg(test)]
 mod test {

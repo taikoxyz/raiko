@@ -12,6 +12,7 @@ use crate::no_std::*;
 use crate::utils::blobs::{decode_blob_data, zlib_decompress_data};
 use crate::utils::shasta_rules::*;
 
+/// Builds a default block manifest for a derivation source when validation fails.
 fn make_default_manifest(
     guest_batch_input: &GuestBatchInput,
     last_parent_block_timestamp: u64,
@@ -29,10 +30,13 @@ fn make_default_manifest(
         Some(ForkCondition::Timestamp(timestamp)) => *timestamp,
         _ => unreachable!("shasta fork should be a timestamp fork"),
     };
+    let timestamp_max_offset =
+        timestamp_max_offset_for_chain(guest_batch_input.taiko.chain_spec.chain_id());
     let timestamp = clamp_timestamp_lower_bound(
         last_parent_block_timestamp,
         proposal_timestamp,
         shasta_fork_timestamp,
+        timestamp_max_offset,
     );
     let coinbase = taiko_guest_batch_input.batch_proposed.proposer();
     let anchor_block_number = last_anchor_block_number;
@@ -114,39 +118,29 @@ pub fn generate_transactions_for_shasta_blocks(
                 match DerivationSourceManifest::decode(&mut protocol_manifest_bytes.as_ref()) {
                     Ok(manifest)
                         if validate_normal_proposal_manifest(
-                            &guest_batch_input,
+                            guest_batch_input,
                             &manifest,
                             last_anchor_block_number,
                         ) =>
                     {
                         // parent is pacaya means this is the first shasta block
-                        let is_first_shasta_proposal = guest_batch_input
-                            .taiko
-                            .chain_spec
-                            .active_fork(
-                                guest_batch_input.inputs[0].parent_header.number,
-                                guest_batch_input.inputs[0].parent_header.timestamp,
-                            )
-                            .unwrap()
-                            == SpecId::PACAYA
-                            || guest_batch_input.inputs[0].parent_header.number == 0;
+                        let use_init_base_fee =
+                            guest_batch_input.inputs[0].parent_header.number == 0;
 
+                        let min_base_fee = min_base_fee_for_shasta_chain(
+                            guest_batch_input.taiko.chain_spec.chain_id(),
+                        );
                         //TODO: move to validate_normal_proposal_manifest
                         if !validate_shasta_block_base_fee(
                             &guest_batch_input.inputs,
-                            is_first_shasta_proposal,
+                            use_init_base_fee,
                             guest_batch_input.taiko.l2_grandparent_header.as_ref(),
+                            min_base_fee,
                         ) {
                             warn!("shasta block base fee is invalid, need double check");
-                            make_default_manifest(
-                                guest_batch_input,
-                                last_parent_block_timestamp,
-                                last_parent_block_gas_limit,
-                                last_anchor_block_number,
-                            )
-                        } else {
-                            manifest
+                            panic!("shasta block base fee is invalid");
                         }
+                        manifest
                     }
                     _ => {
                         let manifest = make_default_manifest(

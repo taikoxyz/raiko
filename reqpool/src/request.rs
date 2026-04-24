@@ -57,9 +57,7 @@ impl Status {
     }
 }
 
-#[derive(
-    PartialEq, Debug, Clone, Deserialize, Serialize, Eq, RedisValue, Getters,
-)]
+#[derive(PartialEq, Debug, Clone, Deserialize, Serialize, Eq, RedisValue, Getters)]
 /// The status of a request with context
 pub struct StatusWithContext {
     /// The status of the request
@@ -211,6 +209,8 @@ pub struct AggregationRequestKey {
     block_numbers: Vec<u64>,
     /// The image ID for zk provers (optional)
     image_id: Option<ImageId>,
+    /// The prover address (optional); when set, isolates aggregate proofs per prover
+    prover_address: Option<String>,
 }
 
 impl AggregationRequestKey {
@@ -219,6 +219,7 @@ impl AggregationRequestKey {
             proof_type,
             block_numbers,
             image_id: None,
+            prover_address: None,
         }
     }
 
@@ -231,6 +232,22 @@ impl AggregationRequestKey {
             proof_type,
             block_numbers,
             image_id: Some(image_id.clone()),
+            prover_address: None,
+        }
+    }
+
+    /// Create an aggregation key with image ID and prover address for prover isolation.
+    pub fn new_with_image_id_and_prover(
+        proof_type: ProofType,
+        block_numbers: Vec<u64>,
+        image_id: ImageId,
+        prover_address: String,
+    ) -> Self {
+        Self {
+            proof_type,
+            block_numbers,
+            image_id: Some(image_id.clone()),
+            prover_address: Some(prover_address),
         }
     }
 }
@@ -519,6 +536,20 @@ impl RequestKey {
             RequestKey::ShastaGuestInput(_) => None, // ShastaGuestInput doesn't have image_id
             RequestKey::ShastaProof(key) => key.image_id.as_ref(),
             RequestKey::ShastaAggregation(key) => key.image_id.as_ref(),
+        }
+    }
+
+    /// Ordering key for preflight queue: lower values are processed first.
+    /// Shasta uses proposal_id; others use block_number/batch_id.
+    pub fn ordering_key(&self) -> Option<u64> {
+        match self {
+            RequestKey::ShastaGuestInput(key) => Some(*key.proposal_id()),
+            RequestKey::ShastaProof(key) => Some(*key.guest_input_key().proposal_id()),
+            RequestKey::ShastaAggregation(key) => key.block_numbers().first().copied(),
+            RequestKey::SingleProof(key) => Some(*key.block_number()),
+            RequestKey::BatchGuestInput(key) => Some(*key.batch_id()),
+            RequestKey::GuestInput(key) => Some(*key.block_number()),
+            RequestKey::Aggregation(_) | RequestKey::BatchProof(_) => None,
         }
     }
 }
@@ -873,8 +904,8 @@ impl From<SingleProofRequestEntity> for RequestEntity {
 
 impl From<AggregationRequestEntity> for RequestEntity {
     fn from(entity: AggregationRequestEntity) -> Self {
-        // Pacaya and earlier forks still wrap AggregationRequestEntity in RequestEntity::Aggregation.
-        // Shasta builds RequestEntity::ShastaAggregation explicitly, so this conversion is not used there.
+        // Legacy path: `AggregationRequestEntity` maps to `RequestEntity::Aggregation` (rejected at runtime in Shasta-only mode).
+        // Shasta aggregation uses `RequestEntity::ShastaAggregation` directly.
         RequestEntity::Aggregation(entity)
     }
 }

@@ -1,5 +1,50 @@
 # Changelog
 
+## [1.17.0](https://github.com/taikoxyz/raiko/compare/v1.16.0...v1.17.0) (2026-04-10)
+
+
+### Features
+
+* **proof:** enhance aggregation request handling with prover isolation ([#682](https://github.com/taikoxyz/raiko/issues/682)) ([336d037](https://github.com/taikoxyz/raiko/commit/336d0370636d6a1b70461a310b6894fe8095f410))
+
+
+### Bug Fixes
+
+* bound batch preflight retries and timeouts ([#683](https://github.com/taikoxyz/raiko/issues/683)) ([a714846](https://github.com/taikoxyz/raiko/commit/a7148465644e9fa5c1b4ad8e69eda778f02eb6dc))
+* **raiko:** enhance Shasta proof carry data validation with detailed error logging ([#680](https://github.com/taikoxyz/raiko/issues/680)) ([a0dad37](https://github.com/taikoxyz/raiko/commit/a0dad37de0903b537044653ee53c07dce1d09704))
+* **raiko:** transition network has same settings as mainnet ([#677](https://github.com/taikoxyz/raiko/issues/677)) ([84eb2f3](https://github.com/taikoxyz/raiko/commit/84eb2f3e0ed207c63571e4184501780c68ad3b3e))
+
+## [1.16.0](https://github.com/taikoxyz/raiko/compare/v1.15.0...v1.16.0) (2026-03-07)
+
+
+### Features
+
+* **raiko:** remove pacaya verifier and image registration ([#672](https://github.com/taikoxyz/raiko/issues/672)) ([7c0e162](https://github.com/taikoxyz/raiko/commit/7c0e162f9c7a252c7696a3c6f73d368f80a27c46))
+
+## [1.15.0](https://github.com/taikoxyz/raiko/compare/v1.13.0...v1.15.0) (2026-03-05)
+
+
+### Features
+
+* align PROPOSAL_MAX_BLOCKS to 192 ([#660](https://github.com/taikoxyz/raiko/issues/660)) ([7d06d41](https://github.com/taikoxyz/raiko/commit/7d06d41281986b84bc993a733cd37939b149221a))
+* **raiko:** enhance Shasta base fee/anchor offset calculation according to mono ([#669](https://github.com/taikoxyz/raiko/issues/669)) ([42db63c](https://github.com/taikoxyz/raiko/commit/42db63c126b7ff66442aa4999696ae43b0cc9d01))
+* refine docker build ([#666](https://github.com/taikoxyz/raiko/issues/666)) ([ee96ba0](https://github.com/taikoxyz/raiko/commit/ee96ba0249b049f68a27c2e42108d450ab243b8f))
+* support taiko_transition chain spec ([#668](https://github.com/taikoxyz/raiko/issues/668)) ([a12ec18](https://github.com/taikoxyz/raiko/commit/a12ec18946c18b8358037b813db6ed16d6d42f89))
+* update hoodi shasta timestamp ([#661](https://github.com/taikoxyz/raiko/issues/661)) ([ee54807](https://github.com/taikoxyz/raiko/commit/ee54807c3a274638a84fb0e532bd3175baa6a73f))
+
+
+### Bug Fixes
+
+* **raiko:** remove useless log & fix prove script ([#665](https://github.com/taikoxyz/raiko/issues/665)) ([1202add](https://github.com/taikoxyz/raiko/commit/1202add538f0110c32b751d900debd6c1bf032fe))
+* **raiko:** update base fee validation logic in Shasta block processing ([#664](https://github.com/taikoxyz/raiko/issues/664)) ([137cd59](https://github.com/taikoxyz/raiko/commit/137cd595664ca09454cd3e4cc70d9e67be82449a))
+* **shasta:** bypass anchor linkage on stalled anchors ([#657](https://github.com/taikoxyz/raiko/issues/657)) ([d624c4c](https://github.com/taikoxyz/raiko/commit/d624c4ca8910b463d20ceed76673a7746bae1a1e))
+* update ego-dev image version to v1.8.1 and update gaiko subproject commit ([#658](https://github.com/taikoxyz/raiko/issues/658)) ([87a1c86](https://github.com/taikoxyz/raiko/commit/87a1c8634d6321ddae9383ce0fa434afbcc7b21f))
+
+
+### Miscellaneous Chores
+
+* release 1.15.0 ([#671](https://github.com/taikoxyz/raiko/issues/671)) ([a3a517b](https://github.com/taikoxyz/raiko/commit/a3a517b89a798a3ce20b6fd06c60e23b0080a3e9))
+
 ## [1.13.0](https://github.com/taikoxyz/raiko/compare/v1.12.0...v1.13.0) (2026-01-16)
 
 

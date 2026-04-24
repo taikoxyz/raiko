@@ -8,8 +8,8 @@ use std::{
 use raiko_lib::{
     consts::SpecId,
     input::{
-        AggregationGuestInput, AggregationGuestOutput, GuestBatchInput, GuestBatchOutput,
-        GuestInput, GuestOutput, ShastaAggregationGuestInput,
+        AggregationGuestOutput, GuestBatchInput, GuestBatchOutput, GuestInput, GuestOutput,
+        ShastaAggregationGuestInput,
     },
     primitives::B256,
     proof_type::ProofType,
@@ -130,19 +130,6 @@ impl Prover for SgxProver {
         }
     }
 
-    async fn aggregate(
-        &self,
-        input: AggregationGuestInput,
-        output: &AggregationGuestOutput,
-        config: &ProverConfig,
-        store: Option<&mut dyn IdWrite>,
-    ) -> ProverResult<Proof> {
-        match self {
-            SgxProver::Local(prover) => prover.aggregate(input, output, config, store).await,
-            SgxProver::Remote(prover) => prover.aggregate(input, output, config, store).await,
-        }
-    }
-
     async fn shasta_aggregate(
         &self,
         input: ShastaAggregationGuestInput,
@@ -152,7 +139,9 @@ impl Prover for SgxProver {
     ) -> ProverResult<Proof> {
         match self {
             SgxProver::Local(prover) => prover.shasta_aggregate(input, output, config, store).await,
-            SgxProver::Remote(prover) => prover.shasta_aggregate(input, output, config, store).await,
+            SgxProver::Remote(prover) => {
+                prover.shasta_aggregate(input, output, config, store).await
+            }
         }
     }
 

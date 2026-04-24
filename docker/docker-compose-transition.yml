@@ -14,7 +14,7 @@ services:
     volumes:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
-      - ${HOME}/.config/raiko:/root/.config/raiko
+      - ${TRANSITION_HOME}/raiko:/root/.config/raiko
     environment:
       - SGX=true
       - SGXGETH=${SGXGETH}
@@ -40,14 +40,16 @@ services:
     volumes:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
-      - ${HOME}/.config/raiko:/root/.config/raiko
-      - ${HOME}/.config/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
+      - ${TRANSITION_HOME}/raiko:/root/.config/raiko
+      - ${TRANSITION_HOME}/raiko/config/config.sgx.json:/etc/raiko/config.sgx.json
     environment:
       - SGX=true
       - SGXGETH=${SGXGETH}
       - SENDER_PRIV_KEY=${SENDER_PRIV_KEY}
       - SGX_VERIFIER_ADDRESS=${SGX_VERIFIER_ADDRESS}
-      - TAIKO_A7_RPC=${TAIKO_A7_RPC}
+      - HOODI_RPC=${HOODI_RPC}
+      - HOODI_BEACON_RPC=${HOODI_BEACON_RPC}
+      - TAIKO_TRANS_RPC=${TAIKO_TRANS_RPC}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - NETWORK=${NETWORK}
       - L1_NETWORK=${L1_NETWORK}
@@ -69,15 +71,15 @@ services:
     volumes:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
-      - ${HOME}/.config/raiko:/root/.config/raiko
+      - ${TRANSITION_HOME}/raiko:/root/.config/raiko
     ports:
       - "8080:8080"
     environment:
       - SGX=true
       - SGXGETH=${SGXGETH}
       - SGX_MODE=${SGX_MODE:-local}
-      - RAIKO_REMOTE_URL=${RAIKO_REMOTE_URL:-http://raiko-sgx-server:9090}
-      - GAIKO_REMOTE_URL=${GAIKO_REMOTE_URL:-http://raiko-sgx-server:8090}
+      - RAIKO_REMOTE_URL=${RAIKO_REMOTE_URL:-http://transition-sgx-server:9090}
+      - GAIKO_REMOTE_URL=${GAIKO_REMOTE_URL:-http://transition-sgx-server:8090}
       - PREFETCH_CHUNK_SIZE=${PREFETCH_CHUNK_SIZE}
       - BASE_CONFIG_FILE=${BASE_CONFIG_FILE:-config.sgx.json}
       - BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
@@ -89,8 +91,9 @@ services:
       - SGXGETH_SHASTA_INSTANCE_ID=${SGXGETH_SHASTA_INSTANCE_ID}
       - ETHEREUM_RPC=${ETHEREUM_RPC}
       - ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
-      - TAIKO_A7_RPC=${TAIKO_A7_RPC}
-      - TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
+      - HOODI_RPC=${HOODI_RPC}
+      - HOODI_BEACON_RPC=${HOODI_BEACON_RPC}
+      - TAIKO_TRANS_RPC=${TAIKO_TRANS_RPC}
       - L1_NETWORK=${L1_NETWORK}
       - NETWORK=${NETWORK}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
@@ -128,8 +131,9 @@ services:
       - BASE_CHAINSPEC_FILE=${BASE_CHAINSPEC_FILE:-chain_spec_list.docker.json}
       - ETHEREUM_RPC=${ETHEREUM_RPC}
       - ETHEREUM_BEACON_RPC=${ETHEREUM_BEACON_RPC}
-      - TAIKO_A7_RPC=${TAIKO_A7_RPC}
-      - TAIKO_MAINNET_RPC=${TAIKO_MAINNET_RPC}
+      - HOODI_RPC=${HOODI_RPC}
+      - HOODI_BEACON_RPC=${HOODI_BEACON_RPC}
+      - TAIKO_TRANS_RPC=${TAIKO_TRANS_RPC}
       - L1_NETWORK=${L1_NETWORK}
       - NETWORK=${NETWORK}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
@@ -150,12 +154,12 @@ services:
       - redis
     profiles:
       - prod-redis
-  raiko-sgx-server:
+  transition-raiko-sgx-server:
     build:
       context: ..
       dockerfile: Dockerfile
     image: us-docker.pkg.dev/evmchain/images/raiko:latest
-    container_name: sgx-server
+    container_name: transition-sgx-server
     command:
     env_file:
       - .env
@@ -165,7 +169,7 @@ services:
     volumes:
       - /var/log/raiko:/var/log/raiko
       - ${HOME}/.config/gramine:/root/.config/gramine
-      - ${HOME}/.config/raiko:/root/.config/raiko
+      - ${TRANSITION_HOME}/raiko:/root/.config/raiko
     ports:
       - "8090:8090"
       - "9090:9090"

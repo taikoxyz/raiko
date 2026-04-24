@@ -85,19 +85,18 @@ impl From<i32> for TaskStatus {
 
 impl FromIterator<TaskStatus> for TaskStatus {
     fn from_iter<T: IntoIterator<Item = TaskStatus>>(iter: T) -> Self {
-        iter.into_iter()
-            .min()
-            .unwrap_or(TaskStatus::UnspecifiedFailureReason)
+        min_status_or_default(iter.into_iter())
     }
 }
 
 impl<'a> FromIterator<&'a TaskStatus> for TaskStatus {
     fn from_iter<T: IntoIterator<Item = &'a TaskStatus>>(iter: T) -> Self {
-        iter.into_iter()
-            .min()
-            .cloned()
-            .unwrap_or(TaskStatus::UnspecifiedFailureReason)
+        min_status_or_default(iter.into_iter().cloned())
     }
+}
+
+fn min_status_or_default(iter: impl Iterator<Item = TaskStatus>) -> TaskStatus {
+    iter.min().unwrap_or(TaskStatus::UnspecifiedFailureReason)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
@@ -137,7 +136,7 @@ impl From<&AggregationOnlyRequest> for AggregationTaskDescriptor {
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(default)]
-/// A request for proof aggregation of multiple proofs.
+/// Descriptor for batch guest input generation.
 pub struct BatchGuestInputTaskDescriptor {
     pub chain_id: ChainId,
     pub batch_id: u64,
@@ -146,7 +145,7 @@ pub struct BatchGuestInputTaskDescriptor {
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 #[serde(default)]
-/// A request for proof aggregation of multiple proofs.
+/// Descriptor for batch proof generation.
 pub struct BatchProofTaskDescriptor {
     pub chain_id: ChainId,
     pub batch_id: u64,

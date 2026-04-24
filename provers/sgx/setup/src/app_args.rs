@@ -32,7 +32,7 @@ pub struct BootstrapArgs {
     /// Path to a chain spec file that includes supported chain list
     pub chain_spec_path: PathBuf,
 
-    #[arg(long, default_value = "holesky")]
+    #[arg(long, default_value = "hoodi")]
     pub l1_network: String,
 
     #[arg(long, default_value = "taiko_a7")]

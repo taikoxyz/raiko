@@ -14,6 +14,15 @@ use lru::LruCache;
 type SingleStorage = Arc<Mutex<LruCache<Value, Value>>>;
 type GlobalStorage = Mutex<HashMap<String, SingleStorage>>;
 
+const DEFAULT_MEMORY_BACKEND_CAPACITY: usize = 512;
+
+fn parse_memory_backend_capacity() -> usize {
+    std::env::var("MEMORY_BACKEND_SIZE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(DEFAULT_MEMORY_BACKEND_CAPACITY)
+}
+
 lazy_static! {
     // #{redis_url => single_storage}
     //
@@ -29,17 +38,13 @@ pub struct MemoryBackend {
 impl MemoryBackend {
     pub fn new(redis_url: String) -> Self {
         let mut global = GLOBAL_STORAGE.lock().unwrap();
-
-        let mem_capacity = std::env::var("MEMORY_BACKEND_SIZE")
-            .unwrap_or("2048".to_string())
-            .parse::<usize>()
-            .unwrap_or_else(|_| 2048);
+        let capacity = parse_memory_backend_capacity();
         Self {
             storage: global
                 .entry(redis_url)
                 .or_insert_with(|| {
                     Arc::new(Mutex::new(LruCache::new(
-                        NonZeroUsize::new(mem_capacity).unwrap(),
+                        NonZeroUsize::new(capacity).unwrap(),
                     )))
                 })
                 .clone(),
@@ -169,20 +174,20 @@ mod tests {
         let mut pool = memory_pool("test_memory_pool");
         let mut conn = pool.conn().expect("memory conn");
 
-        for i in 0..2048 {
+        for i in 0..DEFAULT_MEMORY_BACKEND_CAPACITY {
             let key = format!("key{}", i);
             let val = format!("val{}", i);
             conn.set_ex(key.clone(), val.clone(), 111)
                 .expect("memory set_ex");
         }
 
-        for i in 0..2048 {
+        for i in 0..DEFAULT_MEMORY_BACKEND_CAPACITY {
             let key = format!("key{}", i);
             let actual: RedisResult<String> = conn.get(&key);
             assert_eq!(actual, Ok(format!("val{}", i)));
         }
 
-        for i in 2048..2048 + 10 {
+        for i in DEFAULT_MEMORY_BACKEND_CAPACITY..DEFAULT_MEMORY_BACKEND_CAPACITY + 10 {
             let key = format!("key{}", i);
             let val = format!("val{}", i);
             conn.set_ex(key.clone(), val.clone(), 111)
@@ -195,7 +200,7 @@ mod tests {
             assert!(actual.is_err());
         }
 
-        for i in 10..2048 + 10 {
+        for i in 10..DEFAULT_MEMORY_BACKEND_CAPACITY + 10 {
             let key = format!("key{}", i);
             let actual: RedisResult<String> = conn.get(&key);
             assert_eq!(actual, Ok(format!("val{}", i)));
