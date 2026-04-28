@@ -332,13 +332,19 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
         .cloned()
         .zip(pool_txs_list.iter().cloned())
         .collect();
+    let mut batch_block_offset: usize = 0;
     for task_batch in tasks.chunks(chunk_size) {
+        let batch_start_idx = batch_block_offset;
+        batch_block_offset += task_batch.len();
         let task_batch_vec = task_batch.to_vec();
         let taiko_guest_batch_input = taiko_guest_batch_input.clone();
         let taiko_chain_spec = taiko_chain_spec.clone();
         let handle = tokio::spawn(async move {
             let mut chunk_guest_input = Vec::new();
-            for ((prove_block, parent_block), txs_with_force_inc_flag) in task_batch_vec {
+            for (local_i, ((prove_block, parent_block), txs_with_force_inc_flag)) in
+                task_batch_vec.into_iter().enumerate()
+            {
+                let batch_block_idx = batch_start_idx + local_i;
                 let taiko_chain_spec = taiko_chain_spec.clone();
                 let taiko_guest_batch_input = taiko_guest_batch_input.clone();
 
@@ -396,8 +402,11 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                 )
                 .await?;
 
-                // Now re-execute the transactions in the block to collect all required data
-                let mut builder = RethBlockBuilder::new(&input, provider_db);
+                // Now re-execute the transactions in the block to collect all required data.
+                // Match guest batch execution (`core::Raiko::batch_input`): only the first L2 block
+                // in this proposal batch must satisfy Shasta anchor `prevAnchorBlockNumber` rules.
+                let mut builder = RethBlockBuilder::new(&input, provider_db)
+                    .set_is_first_block_in_proposal(batch_block_idx == 0);
 
                 // Optimize data gathering by executing the transactions multiple times so data can be requested in batches
                 let mut pool_txs = vec![anchor_tx.clone()];
