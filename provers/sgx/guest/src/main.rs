@@ -40,7 +40,7 @@ pub async fn main() -> Result<()> {
         Command::Check => {
             println!("Checking if bootstrap is readable");
             load_bootstrap(&args.global_opts.secrets_dir)
-                .map_err(|err| anyhow!("check booststrap failed: {err}"))?;
+                .map_err(|err| anyhow!("check bootstrap failed: {err}"))?;
         }
         Command::Serve(server_args) => {
             println!("Sgx proof server");
