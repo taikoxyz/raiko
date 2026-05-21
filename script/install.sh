@@ -96,10 +96,10 @@ if [ -z "$1" ] || [ "$1" == "sp1" ]; then
 	source ${PROFILE}
 	if command -v sp1up >/dev/null 2>&1; then
 		echo "sp1 found in path"
-		sp1up -v v6.1.0
+		sp1up -v v6.2.1
 	else
 		echo "sp1 not found in path"
-		"$HOME/.sp1/bin/sp1up" -v v6.1.0
+		"$HOME/.sp1/bin/sp1up" -v v6.2.1
 	fi
 	# else
 	# 	echo "CI environment"

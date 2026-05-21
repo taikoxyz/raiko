@@ -45,6 +45,13 @@ sp1-zkvm = { version = "=6.1.0", features = ["verify"] }
 sp1-curves = { version = "=6.1.0" }
 sp1-lib = { version = "=6.1.0" }
 sp1-primitives = { version = "=6.1.0" }
+slop-algebra = "=6.1.0"
+slop-bn254 = "=6.1.0"
+slop-challenger = "=6.1.0"
+slop-koala-bear = "=6.1.0"
+slop-poseidon2 = "=6.1.0"
+slop-primitives = "=6.1.0"
+slop-symmetric = "=6.1.0"
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.8-sp1-4.0.0" }
 harness-core = { path = "../../../harness/core" }
 harness = { path = "../../../harness/macro", features = ["sp1"] }

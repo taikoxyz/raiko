@@ -21,13 +21,13 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use sp1_prover::Groth16Bn254Proof;
 use sp1_sdk::{
-    blocking::{
-        EnvProver, EnvProvingKey, NetworkProver as BlockingNetworkProver, ProveRequest,
-        Prover as SP1ProverTrait, ProverClient,
+    blocking::{EnvProver, EnvProvingKey, ProveRequest, Prover as SP1ProverTrait, ProverClient},
+    network::{
+        get_default_rpc_url_for_mode, signer::NetworkSigner, FulfillmentStrategy, NetworkMode,
     },
-    network::FulfillmentStrategy,
-    Elf, ProvingKey, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey,
-    SP1VerifyingKey,
+    Elf, NetworkProver as AsyncNetworkProver, ProveRequest as SP1AsyncProveRequestTrait,
+    Prover as SP1AsyncProverTrait, ProvingKey, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues,
+    SP1ProvingKey, SP1VerifyingKey,
 };
 use sp1_sdk::{HashableKey, SP1Stdin};
 use std::{borrow::BorrowMut, env, sync::Arc, time::Duration};
@@ -47,9 +47,21 @@ pub struct Sp1Param {
     pub prover: Option<ProverMode>,
     #[serde(default = "DEFAULT_TRUE")]
     pub verify: bool,
+    #[serde(default, skip_serializing_if = "is_default_sp1_network_mode")]
+    pub network_mode: Sp1NetworkMode,
+    #[serde(default, skip_serializing_if = "is_default_sp1_fulfillment_strategy")]
+    pub fulfillment_strategy: Sp1FulfillmentStrategy,
 }
 
 const DEFAULT_TRUE: fn() -> bool = || true;
+
+fn is_default_sp1_network_mode(mode: &Sp1NetworkMode) -> bool {
+    *mode == Sp1NetworkMode::default()
+}
+
+fn is_default_sp1_fulfillment_strategy(strategy: &Sp1FulfillmentStrategy) -> bool {
+    *strategy == Sp1FulfillmentStrategy::default()
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -79,6 +91,42 @@ pub enum ProverMode {
     Mock,
     Local,
     Network,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
+pub enum Sp1NetworkMode {
+    #[default]
+    Reserved,
+    Mainnet,
+}
+
+impl From<Sp1NetworkMode> for NetworkMode {
+    fn from(value: Sp1NetworkMode) -> Self {
+        match value {
+            Sp1NetworkMode::Reserved => NetworkMode::Reserved,
+            Sp1NetworkMode::Mainnet => NetworkMode::Mainnet,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
+pub enum Sp1FulfillmentStrategy {
+    #[default]
+    Reserved,
+    Hosted,
+    Auction,
+}
+
+impl From<Sp1FulfillmentStrategy> for FulfillmentStrategy {
+    fn from(value: Sp1FulfillmentStrategy) -> Self {
+        match value {
+            Sp1FulfillmentStrategy::Reserved => FulfillmentStrategy::Reserved,
+            Sp1FulfillmentStrategy::Hosted => FulfillmentStrategy::Hosted,
+            Sp1FulfillmentStrategy::Auction => FulfillmentStrategy::Auction,
+        }
+    }
 }
 
 impl From<Sp1Response> for Proof {
@@ -118,7 +166,7 @@ enum Sp1ProverClient {
         vk: SP1VerifyingKey,
     },
     Network {
-        client: Arc<BlockingNetworkProver>,
+        client: Arc<AsyncNetworkProver>,
         pk: SP1ProvingKey,
         vk: SP1VerifyingKey,
     },
@@ -133,8 +181,16 @@ impl Sp1ProverClient {
 }
 
 //TODO: use prover object to save such local storage members.
-static SHASTA_AGG_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
-static BATCH_PROOF_CLIENT: Lazy<DashMap<ProverMode, Sp1ProverClient>> = Lazy::new(DashMap::new);
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct Sp1ProverClientKey {
+    mode: ProverMode,
+    network_mode: Option<Sp1NetworkMode>,
+}
+
+static SHASTA_AGG_CLIENT: Lazy<DashMap<Sp1ProverClientKey, Sp1ProverClient>> =
+    Lazy::new(DashMap::new);
+static BATCH_PROOF_CLIENT: Lazy<DashMap<Sp1ProverClientKey, Sp1ProverClient>> =
+    Lazy::new(DashMap::new);
 
 impl Prover for Sp1Prover {
     async fn run(
@@ -166,21 +222,18 @@ impl Prover for Sp1Prover {
 
         let mode = param.prover.clone().unwrap_or_else(get_env_mock);
 
-        println!("batch_run param: {param:?}");
         let mut stdin = SP1Stdin::new();
         stdin.write(&input);
 
-        let prover_client = BATCH_PROOF_CLIENT
-            .entry(mode.clone())
-            .or_insert_with(|| {
-                let prover_client = build_sp1_prover_client(mode.clone(), BATCH_ELF);
-                info!(
-                    "new client and setup() for batch {:?}.",
-                    input.taiko.batch_id
-                );
-                prover_client
-            })
-            .clone();
+        let (prover_client, built_client) =
+            get_or_build_sp1_prover_client(&BATCH_PROOF_CLIENT, mode.clone(), BATCH_ELF, &param)
+                .await?;
+        if built_client {
+            info!(
+                "new client and setup() for batch {:?}.",
+                input.taiko.batch_id
+            );
+        }
         let vk = prover_client.vk().clone();
 
         info!(
@@ -192,59 +245,51 @@ impl Prover for Sp1Prover {
 
         let prove_result = match prover_client {
             Sp1ProverClient::Local { client, pk, .. } => {
-                let prove_mode = match param.recursion {
-                    RecursionMode::Core => SP1ProofMode::Core,
-                    RecursionMode::Compressed => SP1ProofMode::Compressed,
-                    RecursionMode::Plonk => SP1ProofMode::Plonk,
-                };
+                let recursion = param.recursion.clone();
+                let prove_mode = SP1ProofMode::from(recursion.clone());
                 let profiling = std::env::var("PROFILING").unwrap_or_default() == "1";
-                if profiling {
-                    info!(
-                        "Profiling locally with recursion mode: {:?}",
-                        param.recursion
-                    );
-                    client
-                        .execute(Elf::Static(BATCH_ELF), stdin)
-                        .run()
-                        .map_err(|e| {
-                            ProverError::GuestError(format!("Sp1: local proving failed: {e}"))
-                        })?;
-                    SP1ProofWithPublicValues {
-                        proof: SP1Proof::Groth16(Groth16Bn254Proof::default()),
-                        public_values: sp1_primitives::io::SP1PublicValues::new(),
-                        sp1_version: "0".to_owned(),
-                        tee_proof: None,
+                run_sp1_blocking("local batch proving", move || {
+                    if profiling {
+                        info!("Profiling locally with recursion mode: {:?}", recursion);
+                        let (public_values, _report) = client
+                            .execute(Elf::Static(BATCH_ELF), stdin)
+                            .run()
+                            .map_err(|e| {
+                                ProverError::GuestError(format!("Sp1: local proving failed: {e}"))
+                            })?;
+                        Ok(SP1ProofWithPublicValues {
+                            proof: SP1Proof::Groth16(Groth16Bn254Proof::default()),
+                            public_values,
+                            sp1_version: "0".to_owned(),
+                            tee_proof: None,
+                        })
+                    } else {
+                        info!("Execute locally with recursion mode: {:?}", recursion);
+                        client
+                            .prove(&pk, stdin)
+                            .mode(prove_mode)
+                            .run()
+                            .map_err(|e| {
+                                ProverError::GuestError(format!("Sp1: local proving failed: {e}"))
+                            })
                     }
-                } else {
-                    info!("Execute locally with recursion mode: {:?}", param.recursion);
-                    client
-                        .prove(&pk, stdin)
-                        .mode(prove_mode)
-                        .run()
-                        .map_err(|e| {
-                            ProverError::GuestError(format!("Sp1: local proving failed: {e}"))
-                        })?
-                }
+                })
+                .await?
             }
             Sp1ProverClient::Network { client, pk, .. } => {
                 let recursion = param.recursion.clone();
                 let client_for_request = client.clone();
-                let proof_id = tokio::task::spawn_blocking(move || {
-                    client_for_request
-                        .prove(&pk, stdin)
-                        .mode(recursion.into())
-                        .cycle_limit(1_000_000_000_000)
-                        .skip_simulation(true)
-                        .strategy(FulfillmentStrategy::Reserved)
-                        .request()
-                        .map_err(|e| {
-                            ProverError::GuestError(format!("Sp1: requesting proof failed: {e}"))
-                        })
-                })
-                .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Sp1: network proof request task failed: {e}"))
-                })??;
+                let proof_id = client_for_request
+                    .prove(&pk, stdin)
+                    .mode(recursion.into())
+                    .cycle_limit(1_000_000_000_000)
+                    .skip_simulation(true)
+                    .strategy(param.fulfillment_strategy.into())
+                    .request()
+                    .await
+                    .map_err(|e| {
+                        ProverError::GuestError(format!("Sp1: requesting proof failed: {e}"))
+                    })?;
                 if let Some(id_store) = id_store {
                     id_store
                         .store_id(
@@ -264,17 +309,12 @@ impl Prover for Sp1Prover {
                 );
                 let proof_id_for_wait = proof_id.clone();
                 let client_for_wait = client.clone();
-                tokio::task::spawn_blocking(move || {
-                    client_for_wait
-                        .wait_proof(proof_id_for_wait, Some(sp1_network_wait_timeout()), None)
-                        .map_err(|e| {
-                            ProverError::GuestError(format!("Sp1: network proof failed {e:?}"))
-                        })
-                })
-                .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Sp1: network proof wait task failed: {e}"))
-                })??
+                client_for_wait
+                    .wait_proof(proof_id_for_wait, Some(sp1_network_wait_timeout()), None)
+                    .await
+                    .map_err(|e| {
+                        ProverError::GuestError(format!("Sp1: network proof failed {e:?}"))
+                    })?
             }
         };
 
@@ -385,14 +425,16 @@ impl Prover for Sp1Prover {
             }
         }
 
-        let prover_client = SHASTA_AGG_CLIENT
-            .entry(mode.clone())
-            .or_insert_with(|| {
-                let prover_client = build_sp1_prover_client(mode.clone(), SHASTA_AGG_ELF);
-                info!("new client and setup() for shasta aggregation");
-                prover_client
-            })
-            .clone();
+        let (prover_client, built_client) = get_or_build_sp1_prover_client(
+            &SHASTA_AGG_CLIENT,
+            mode.clone(),
+            SHASTA_AGG_ELF,
+            &param,
+        )
+        .await?;
+        if built_client {
+            info!("new client and setup() for shasta aggregation");
+        }
         let vk = prover_client.vk().clone();
         info!(
             "Sp1 Shasta aggregation: {} proofs with vk {:?}",
@@ -400,47 +442,41 @@ impl Prover for Sp1Prover {
             vk.bytes32()
         );
 
-        let prove_result = match prover_client {
-            Sp1ProverClient::Local { client, pk, .. } => client
-                .prove(&pk, stdin)
-                .plonk()
-                .run()
-                .map_err(|e| ProverError::GuestError(format!("Sp1: proving failed: {e}")))?,
-            Sp1ProverClient::Network { client, pk, .. } => {
-                let recursion = param.recursion.clone();
-                let client_for_request = client.clone();
-                let proof_id = tokio::task::spawn_blocking(move || {
-                    client_for_request
+        let prove_result =
+            match prover_client {
+                Sp1ProverClient::Local { client, pk, .. } => {
+                    run_sp1_blocking("local shasta aggregation proving", move || {
+                        client.prove(&pk, stdin).plonk().run().map_err(|e| {
+                            ProverError::GuestError(format!("Sp1: proving failed: {e}"))
+                        })
+                    })
+                    .await?
+                }
+                Sp1ProverClient::Network { client, pk, .. } => {
+                    let recursion = param.recursion.clone();
+                    let client_for_request = client.clone();
+                    let proof_id = client_for_request
                         .prove(&pk, stdin)
                         .mode(recursion.into())
                         .cycle_limit(1_000_000_000_000)
                         .skip_simulation(true)
-                        .strategy(FulfillmentStrategy::Reserved)
+                        .strategy(param.fulfillment_strategy.into())
                         .request()
+                        .await
                         .map_err(|e| {
                             ProverError::GuestError(format!("Sp1: network proving failed: {e}"))
-                        })
-                })
-                .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Sp1: network proof request task failed: {e}"))
-                })??;
-                info!("Sp1: network proof id: {proof_id:?} for shasta aggregation");
-                let proof_id_for_wait = proof_id.clone();
-                let client_for_wait = client.clone();
-                tokio::task::spawn_blocking(move || {
+                        })?;
+                    info!("Sp1: network proof id: {proof_id:?} for shasta aggregation");
+                    let proof_id_for_wait = proof_id.clone();
+                    let client_for_wait = client.clone();
                     client_for_wait
                         .wait_proof(proof_id_for_wait, Some(sp1_network_wait_timeout()), None)
+                        .await
                         .map_err(|e| {
                             ProverError::GuestError(format!("Sp1: network proof failed {e:?}"))
-                        })
-                })
-                .await
-                .map_err(|e| {
-                    ProverError::GuestError(format!("Sp1: network proof wait task failed: {e}"))
-                })??
-            }
-        };
+                        })?
+                }
+            };
 
         let proof_bytes = prove_result.bytes();
         if param.verify && !proof_bytes.is_empty() {
@@ -532,23 +568,112 @@ fn sp1_network_wait_timeout() -> Duration {
     )
 }
 
-fn build_sp1_prover_client(mode: ProverMode, elf: &'static [u8]) -> Sp1ProverClient {
+fn sp1_prover_client_key(mode: ProverMode, param: &Sp1Param) -> Sp1ProverClientKey {
+    Sp1ProverClientKey {
+        network_mode: (mode == ProverMode::Network).then_some(param.network_mode),
+        mode,
+    }
+}
+
+async fn get_or_build_sp1_prover_client(
+    cache: &DashMap<Sp1ProverClientKey, Sp1ProverClient>,
+    mode: ProverMode,
+    elf: &'static [u8],
+    param: &Sp1Param,
+) -> ProverResult<(Sp1ProverClient, bool)> {
+    let key = sp1_prover_client_key(mode.clone(), param);
+    if let Some(client) = cache.get(&key) {
+        return Ok((client.clone(), false));
+    }
+
+    let client = build_sp1_prover_client(mode, elf, param).await?;
+    cache.insert(key, client.clone());
+    Ok((client, true))
+}
+
+fn validate_sp1_network_config(param: &Sp1Param) -> ProverResult<()> {
+    match (param.network_mode, param.fulfillment_strategy) {
+        (Sp1NetworkMode::Mainnet, Sp1FulfillmentStrategy::Auction)
+        | (
+            Sp1NetworkMode::Reserved,
+            Sp1FulfillmentStrategy::Reserved | Sp1FulfillmentStrategy::Hosted,
+        ) => Ok(()),
+        (Sp1NetworkMode::Mainnet, strategy) => Err(ProverError::GuestError(format!(
+            "Sp1: network_mode=mainnet requires fulfillment_strategy=auction, got {strategy:?}"
+        ))),
+        (Sp1NetworkMode::Reserved, strategy) => Err(ProverError::GuestError(format!(
+            "Sp1: network_mode=reserved requires fulfillment_strategy=reserved or hosted, got {strategy:?}"
+        ))),
+    }
+}
+
+fn sp1_network_private_key() -> ProverResult<String> {
+    env::var("NETWORK_PRIVATE_KEY")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            ProverError::GuestError(
+                "Sp1: NETWORK_PRIVATE_KEY must be set for network proving".to_string(),
+            )
+        })
+}
+
+fn sp1_network_rpc_url(network_mode: Sp1NetworkMode) -> String {
+    env::var("NETWORK_RPC_URL")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| get_default_rpc_url_for_mode(network_mode.into()))
+}
+
+async fn run_sp1_blocking<T, F>(task_name: &'static str, task: F) -> ProverResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce() -> ProverResult<T> + Send + 'static,
+{
+    tokio::task::spawn_blocking(task)
+        .await
+        .map_err(|e| ProverError::GuestError(format!("Sp1: {task_name} task failed: {e}")))?
+}
+
+async fn build_sp1_prover_client(
+    mode: ProverMode,
+    elf: &'static [u8],
+    param: &Sp1Param,
+) -> ProverResult<Sp1ProverClient> {
     match mode {
         ProverMode::Mock | ProverMode::Local => {
-            let client = Arc::new(match mode {
-                ProverMode::Mock => EnvProver::Mock(ProverClient::builder().mock().build()),
-                ProverMode::Local => EnvProver::Cpu(ProverClient::builder().cpu().build()),
-                ProverMode::Network => unreachable!(),
-            });
-            let pk = client.setup(Elf::Static(elf)).expect("sp1 setup failed");
-            let vk = pk.verifying_key().clone();
-            Sp1ProverClient::Local { client, pk, vk }
+            run_sp1_blocking("local setup", move || {
+                let client = Arc::new(match mode {
+                    ProverMode::Mock => EnvProver::Mock(ProverClient::builder().mock().build()),
+                    ProverMode::Local => EnvProver::Cpu(ProverClient::builder().cpu().build()),
+                    ProverMode::Network => unreachable!(),
+                });
+                let pk = client
+                    .setup(Elf::Static(elf))
+                    .map_err(|e| ProverError::GuestError(format!("Sp1: setup failed: {e}")))?;
+                let vk = pk.verifying_key().clone();
+                Ok(Sp1ProverClient::Local { client, pk, vk })
+            })
+            .await
         }
         ProverMode::Network => {
-            let client = Arc::new(ProverClient::builder().network().build());
-            let pk = client.setup(Elf::Static(elf)).expect("sp1 setup failed");
+            validate_sp1_network_config(param)?;
+            let private_key = sp1_network_private_key()?;
+            let signer = NetworkSigner::local(&private_key).map_err(|e| {
+                ProverError::GuestError(format!(
+                    "Sp1: NETWORK_PRIVATE_KEY is not a valid network signer: {e}"
+                ))
+            })?;
+            let rpc_url = sp1_network_rpc_url(param.network_mode);
+            let client = Arc::new(
+                AsyncNetworkProver::new(signer, &rpc_url, param.network_mode.into()).await,
+            );
+            let pk = client
+                .setup(Elf::Static(elf))
+                .await
+                .map_err(|e| ProverError::GuestError(format!("Sp1: setup failed: {e}")))?;
             let vk = pk.verifying_key().clone();
-            Sp1ProverClient::Network { client, pk, vk }
+            Ok(Sp1ProverClient::Network { client, pk, vk })
         }
     }
 }
@@ -581,12 +706,42 @@ mod test {
             recursion: RecursionMode::Core,
             prover: Some(ProverMode::Network),
             verify: true,
+            network_mode: Sp1NetworkMode::Reserved,
+            fulfillment_strategy: Sp1FulfillmentStrategy::Reserved,
         };
         let serialized = serde_json::to_value(param).unwrap();
         assert_eq!(json, serialized);
 
         let deserialized: Sp1Param = serde_json::from_value(serialized).unwrap();
         println!("{json:?} {deserialized:?}");
+    }
+
+    #[test]
+    fn test_sp1_network_defaults_match_reserved_capacity() {
+        let param: Sp1Param = serde_json::from_value(json!({
+            "recursion": "plonk",
+            "prover": "network",
+            "verify": true
+        }))
+        .unwrap();
+
+        assert_eq!(param.network_mode, Sp1NetworkMode::Reserved);
+        assert_eq!(param.fulfillment_strategy, Sp1FulfillmentStrategy::Reserved);
+        validate_sp1_network_config(&param).unwrap();
+    }
+
+    #[test]
+    fn test_sp1_rejects_reserved_network_with_auction_strategy() {
+        let param: Sp1Param = serde_json::from_value(json!({
+            "recursion": "plonk",
+            "prover": "network",
+            "verify": true,
+            "network_mode": "reserved",
+            "fulfillment_strategy": "auction"
+        }))
+        .unwrap();
+
+        assert!(validate_sp1_network_config(&param).is_err());
     }
 
     #[ignore = "elf needs input, ignore for now"]

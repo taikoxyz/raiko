@@ -33,7 +33,7 @@ impl Pipeline for Sp1Pipeline {
     }
 
     fn builder(&self) -> CommandBuilder {
-        CommandBuilder::new(&self.meta, "riscv32im-succinct-zkvm-elf", "succinct")
+        CommandBuilder::new(&self.meta, "riscv64im-succinct-zkvm-elf", "succinct")
             .rust_flags(&[
                 "passes=lower-atomic",
                 "link-arg=--image-base=2013265920",
@@ -43,13 +43,8 @@ impl Pipeline for Sp1Pipeline {
             ])
             .rust_cfgs(&["getrandom_backend=\"custom\""])
             .cc_compiler("gcc".into())
-            .c_flags(&[
-                "/opt/riscv/bin/riscv32-unknown-elf-gcc",
-                "-march=rv32im",
-                "-mstrict-align",
-                "-falign-functions=2",
-            ])
-            .custom_args(&["--ignore-rust-version"])
+            .c_flags(&["riscv64-unknown-elf-gcc", "-specs=picolibc.specs"])
+            .custom_args(&["--ignore-rust-version", "--locked"])
     }
 
     fn bins(&self, names: &[&str], dest: &str) {

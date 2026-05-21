@@ -2,8 +2,9 @@
 
 # Any error will result in failure
 set -e
+set -o pipefail
 
-TOOLCHAIN_RISC0=+nightly-2024-12-20
+TOOLCHAIN_RISC0=+1.91.1
 TOOLCHAIN_SP1=+1.91.1
 TOOLCHAIN_SGX=+nightly-2024-12-20
 

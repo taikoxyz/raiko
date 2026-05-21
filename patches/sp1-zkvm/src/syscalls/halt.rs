@@ -35,7 +35,8 @@ pub extern "C" fn syscall_halt(exit_code: u8) -> ! {
         // will be used to verify that the provided public values digest matches the one
         // computed by the program.
         for i in 0..PV_DIGEST_NUM_WORDS {
-            let word = u32::from_le_bytes(pv_digest_bytes[i * 4..(i + 1) * 4].try_into().unwrap());
+            let word =
+                u32::from_le_bytes(pv_digest_bytes[i * 4..(i + 1) * 4].try_into().unwrap()) as u64;
             asm!("ecall", in("t0") crate::syscalls::COMMIT, in("a0") i, in("a1") word);
         }
 
@@ -44,7 +45,7 @@ pub extern "C" fn syscall_halt(exit_code: u8) -> ! {
                 let deferred_proofs_digest = zkvm::DEFERRED_PROOFS_DIGEST.as_mut().unwrap();
 
                 for i in 0..POSEIDON_NUM_WORDS {
-                    let word = deferred_proofs_digest[i].as_canonical_u64() as u32;
+                    let word = deferred_proofs_digest[i].as_canonical_u64();
                     asm!("ecall", in("t0") crate::syscalls::COMMIT_DEFERRED_PROOFS, in("a0") i, in("a1") word);
                 }
             } else {
