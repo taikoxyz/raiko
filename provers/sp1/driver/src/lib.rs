@@ -227,16 +227,24 @@ impl Prover for Sp1Prover {
                 }
             }
             Sp1ProverClient::Network { client, pk, .. } => {
-                let proof_id = client
-                    .prove(&pk, stdin)
-                    .mode(param.recursion.clone().into())
-                    .cycle_limit(1_000_000_000_000)
-                    .skip_simulation(true)
-                    .strategy(FulfillmentStrategy::Reserved)
-                    .request()
-                    .map_err(|e| {
-                        ProverError::GuestError(format!("Sp1: requesting proof failed: {e}"))
-                    })?;
+                let recursion = param.recursion.clone();
+                let client_for_request = client.clone();
+                let proof_id = tokio::task::spawn_blocking(move || {
+                    client_for_request
+                        .prove(&pk, stdin)
+                        .mode(recursion.into())
+                        .cycle_limit(1_000_000_000_000)
+                        .skip_simulation(true)
+                        .strategy(FulfillmentStrategy::Reserved)
+                        .request()
+                        .map_err(|e| {
+                            ProverError::GuestError(format!("Sp1: requesting proof failed: {e}"))
+                        })
+                })
+                .await
+                .map_err(|e| {
+                    ProverError::GuestError(format!("Sp1: network proof request task failed: {e}"))
+                })??;
                 if let Some(id_store) = id_store {
                     id_store
                         .store_id(
@@ -254,11 +262,19 @@ impl Prover for Sp1Prover {
                     "Sp1 Prover: batch {:?} - proof id {proof_id:?}",
                     input.taiko.batch_id
                 );
-                client
-                    .wait_proof(proof_id, Some(sp1_network_wait_timeout()), None)
-                    .map_err(|e| {
-                        ProverError::GuestError(format!("Sp1: network proof failed {e:?}"))
-                    })?
+                let proof_id_for_wait = proof_id.clone();
+                let client_for_wait = client.clone();
+                tokio::task::spawn_blocking(move || {
+                    client_for_wait
+                        .wait_proof(proof_id_for_wait, Some(sp1_network_wait_timeout()), None)
+                        .map_err(|e| {
+                            ProverError::GuestError(format!("Sp1: network proof failed {e:?}"))
+                        })
+                })
+                .await
+                .map_err(|e| {
+                    ProverError::GuestError(format!("Sp1: network proof wait task failed: {e}"))
+                })??
             }
         };
 
@@ -391,22 +407,38 @@ impl Prover for Sp1Prover {
                 .run()
                 .map_err(|e| ProverError::GuestError(format!("Sp1: proving failed: {e}")))?,
             Sp1ProverClient::Network { client, pk, .. } => {
-                let proof_id = client
-                    .prove(&pk, stdin)
-                    .mode(param.recursion.clone().into())
-                    .cycle_limit(1_000_000_000_000)
-                    .skip_simulation(true)
-                    .strategy(FulfillmentStrategy::Reserved)
-                    .request()
-                    .map_err(|e| {
-                        ProverError::GuestError(format!("Sp1: network proving failed: {e}"))
-                    })?;
+                let recursion = param.recursion.clone();
+                let client_for_request = client.clone();
+                let proof_id = tokio::task::spawn_blocking(move || {
+                    client_for_request
+                        .prove(&pk, stdin)
+                        .mode(recursion.into())
+                        .cycle_limit(1_000_000_000_000)
+                        .skip_simulation(true)
+                        .strategy(FulfillmentStrategy::Reserved)
+                        .request()
+                        .map_err(|e| {
+                            ProverError::GuestError(format!("Sp1: network proving failed: {e}"))
+                        })
+                })
+                .await
+                .map_err(|e| {
+                    ProverError::GuestError(format!("Sp1: network proof request task failed: {e}"))
+                })??;
                 info!("Sp1: network proof id: {proof_id:?} for shasta aggregation");
-                client
-                    .wait_proof(proof_id, Some(sp1_network_wait_timeout()), None)
-                    .map_err(|e| {
-                        ProverError::GuestError(format!("Sp1: network proof failed {e:?}"))
-                    })?
+                let proof_id_for_wait = proof_id.clone();
+                let client_for_wait = client.clone();
+                tokio::task::spawn_blocking(move || {
+                    client_for_wait
+                        .wait_proof(proof_id_for_wait, Some(sp1_network_wait_timeout()), None)
+                        .map_err(|e| {
+                            ProverError::GuestError(format!("Sp1: network proof failed {e:?}"))
+                        })
+                })
+                .await
+                .map_err(|e| {
+                    ProverError::GuestError(format!("Sp1: network proof wait task failed: {e}"))
+                })??
             }
         };
 
