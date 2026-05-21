@@ -68,11 +68,11 @@ risc0-binfmt = { version = "=3.0.2" }
 risc0-zkos-v1compat = { version = "=2.2.0" }
 
 # SP1
-sp1-sdk = { version = "=5.0.2" }
-sp1-prover = { version = "=5.0.1" }
-sp1-zkvm = { version = "=5.0.0" }
-sp1-helper = { version = "=5.0.0" }
-sp1-primitives = { version = "=5.0.0" }
+sp1-sdk = { version = "=6.1.0", features = ["blocking", "network"] }
+sp1-prover = { version = "=6.1.0" }
+sp1-zkvm = { version = "=6.1.0" }
+sp1-helper = { version = "=6.1.0" }
+sp1-primitives = { version = "=6.1.0" }
 
 # alloy
 alloy-rlp = { version = "0.3.4", default-features = false }
@@ -216,3 +216,6 @@ alloy-signer-local = { git = "https://github.com/taikoxyz/alloy.git", branch = "
 alloy-signer = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 alloy-rpc-types-beacon = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
 alloy-eips = { git = "https://github.com/taikoxyz/alloy.git", branch = "v0.1.4-patch" }
+alloy-signer-aws = { path = "patches/alloy-signer-aws" }
+alloy-signer-local-1 = { package = "alloy-signer-local", path = "patches/alloy-signer-local" }
+sp1-zkvm = { path = "patches/sp1-zkvm" }

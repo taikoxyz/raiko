@@ -1,0 +1,13 @@
+[package]
+name = "alloy-signer-aws"
+version = "1.0.1"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+rust-version = "1.82"
+
+[dependencies]
+alloy-primitives = { version = "=1.0.0", default-features = false, features = ["k256"] }
+alloy-signer = { version = "=1.0.1", default-features = false }
+async-trait = "0.1"
+aws-sdk-kms = "1.77.0"
+thiserror = "1"

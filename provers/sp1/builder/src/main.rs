@@ -36,10 +36,12 @@ impl Pipeline for Sp1Pipeline {
         CommandBuilder::new(&self.meta, "riscv32im-succinct-zkvm-elf", "succinct")
             .rust_flags(&[
                 "passes=lower-atomic",
-                "link-arg=-Ttext=0x00200800",
+                "link-arg=--image-base=2013265920",
                 "panic=abort",
+                "llvm-args=-misched-prera-direction=bottomup",
+                "llvm-args=-misched-postra-direction=bottomup",
             ])
-            .rust_cfgs(&["getrandom_backend=\"unsupported\""])
+            .rust_cfgs(&["getrandom_backend=\"custom\""])
             .cc_compiler("gcc".into())
             .c_flags(&[
                 "/opt/riscv/bin/riscv32-unknown-elf-gcc",

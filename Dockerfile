@@ -17,7 +17,7 @@ RUN ego sign && ego bundle gaiko-ego gaiko
 RUN ego uniqueid gaiko-ego 2>&1 | tee /tmp/gaiko_uniqueid.log
 RUN ego signerid gaiko-ego
 
-FROM rust:1.85.0 AS chef
+FROM rust:1.91.1 AS chef
 RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
 RUN cargo binstall -y cargo-chef
 RUN cargo binstall -y wild-linker --version 0.7.0
