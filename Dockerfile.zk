@@ -52,6 +52,7 @@ COPY reqpool reqpool
 COPY reqactor reqactor
 COPY ballot ballot
 COPY redis-derive redis-derive
+COPY patches patches
 RUN ls -al > /tmp/file_list.txt
 RUN cat /tmp/file_list.txt
 
