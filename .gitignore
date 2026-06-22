@@ -63,9 +63,9 @@ perf.data.old
 .vscode/
 
 log.build.*
+docker/enclave-key.pem
 
 # Python
 # -----------------------------------------------------------------------------------------
 venv/
 .venv/
-

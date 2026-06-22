@@ -53,11 +53,27 @@ case "$proof_type" in
 esac
 
 echo "Build and push $image_name:$tag..."
-docker buildx build . \
+build_secret_args=()
+if [ "$proof_type" = "0" ] || [ "$proof_type" = "tee" ]; then
+	enclave_key_path="${ENCLAVE_KEY_PATH:-docker/enclave-key.pem}"
+	if [ ! -s "$enclave_key_path" ]; then
+		echo "❌ Missing enclave signing key: $enclave_key_path"
+		echo "Set ENCLAVE_KEY_PATH=/path/to/enclave-key.pem or provide docker/enclave-key.pem locally."
+		exit 1
+	fi
+	enclave_key_public_sha256="$(openssl rsa -in "$enclave_key_path" -pubout 2>/dev/null | openssl sha256 | awk '{print $2}')"
+	build_secret_args=(
+		--secret "id=enclave_key,src=$enclave_key_path"
+		--build-arg "ENCLAVE_KEY_PUBLIC_SHA256=$enclave_key_public_sha256"
+	)
+fi
+
+DOCKER_BUILDKIT=1 docker buildx build . \
 	-f $target_dockerfile \
 	--load \
 	--platform linux/amd64 \
 	-t $image_name:latest \
+	"${build_secret_args[@]}" \
 	$build_flags \
 	--build-arg TARGETPLATFORM=linux/amd64 \
 	--progress=plain \

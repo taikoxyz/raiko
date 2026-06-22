@@ -6,7 +6,6 @@
 !/Cargo.toml
 !/config.json
 !/docker/entrypoint.sh
-!/docker/enclave-key.pem
 !/docker/cargo-config.toml
 !/.env
 !/lib

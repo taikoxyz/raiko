@@ -12,8 +12,16 @@ RUN ego-go build -o gaiko-ego ./cmd/gaiko
 
 # Sign with our enclave config and private key
 COPY gaiko/ego/enclave.json .
-COPY docker/enclave-key.pem private.pem
-RUN ego sign && ego bundle gaiko-ego gaiko
+ARG ENCLAVE_KEY_PUBLIC_SHA256
+RUN --mount=type=secret,id=enclave_key,target=/run/secrets/enclave-key.pem \
+    set -e; \
+    test -n "${ENCLAVE_KEY_PUBLIC_SHA256}"; \
+    test -s /run/secrets/enclave-key.pem; \
+    test "$(openssl rsa -in /run/secrets/enclave-key.pem -pubout 2>/dev/null | openssl sha256 | awk '{print $2}')" = "${ENCLAVE_KEY_PUBLIC_SHA256}"; \
+    cp /run/secrets/enclave-key.pem private.pem; \
+    trap 'rm -f private.pem' EXIT; \
+    ego sign && \
+    ego bundle gaiko-ego gaiko
 RUN ego uniqueid gaiko-ego 2>&1 | tee /tmp/gaiko_uniqueid.log
 RUN ego signerid gaiko-ego
 
@@ -87,13 +95,18 @@ COPY --from=builder /opt/raiko/host/config/chain_spec_list_devnet.json /etc/raik
 COPY --from=builder /opt/raiko/target/release/sgx-guest ./bin/
 COPY --from=builder /opt/raiko/target/release/raiko-host ./bin/
 COPY --from=builder /opt/raiko/target/release/raiko-setup ./bin/
-COPY --from=builder /opt/raiko/docker/enclave-key.pem /root/.config/gramine/enclave-key.pem
 
 ARG EDMM=0
+ARG ENCLAVE_KEY_PUBLIC_SHA256
 ENV EDMM=${EDMM}
 WORKDIR /opt/raiko/bin
-RUN gramine-manifest -Dlog_level=error -Ddirect_mode=0 -Darch_libdir=/lib/x86_64-linux-gnu/ ../provers/sgx/config/sgx-guest.local.manifest.template sgx-guest.manifest && \
-    gramine-sgx-sign --manifest sgx-guest.manifest --output sgx-guest.manifest.sgx && \
+RUN --mount=type=secret,id=enclave_key,target=/run/secrets/enclave-key.pem \
+    set -e; \
+    test -n "${ENCLAVE_KEY_PUBLIC_SHA256}"; \
+    test -s /run/secrets/enclave-key.pem; \
+    test "$(openssl rsa -in /run/secrets/enclave-key.pem -pubout 2>/dev/null | openssl sha256 | awk '{print $2}')" = "${ENCLAVE_KEY_PUBLIC_SHA256}"; \
+    gramine-manifest -Dlog_level=error -Ddirect_mode=0 -Darch_libdir=/lib/x86_64-linux-gnu/ ../provers/sgx/config/sgx-guest.local.manifest.template sgx-guest.manifest && \
+    gramine-sgx-sign --key /run/secrets/enclave-key.pem --manifest sgx-guest.manifest --output sgx-guest.manifest.sgx && \
     gramine-sgx-sigstruct-view "sgx-guest.sig" 2>&1 | tee /tmp/sgx_sigstruct.log
 
 
