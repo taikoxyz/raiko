@@ -54,11 +54,51 @@ esac
 
 echo "Build and push $image_name:$tag..."
 build_secret_args=()
+tmp_enclave_key_path=""
+cleanup_tmp_enclave_key() {
+	if [[ -n "$tmp_enclave_key_path" ]]; then
+		rm -f "$tmp_enclave_key_path"
+	fi
+}
+trap cleanup_tmp_enclave_key EXIT
+
 if [ "$proof_type" = "0" ] || [ "$proof_type" = "tee" ]; then
-	enclave_key_path="${ENCLAVE_KEY_PATH:-docker/enclave-key.pem}"
+	if [[ -n "${GCP_ENCLAVE_KEY_SECRET:-}" ]]; then
+		if ! command -v gcloud >/dev/null 2>&1; then
+			echo "❌ gcloud is required when GCP_ENCLAVE_KEY_SECRET is set."
+			exit 1
+		fi
+
+		tmp_enclave_key_path="$(mktemp)"
+		gcloud_secret_version="${GCP_ENCLAVE_KEY_VERSION:-latest}"
+		gcloud_secret_args=(
+			secrets versions access "$gcloud_secret_version"
+			--secret "$GCP_ENCLAVE_KEY_SECRET"
+			--out-file "$tmp_enclave_key_path"
+		)
+		if [[ -n "${GCP_ENCLAVE_KEY_PROJECT:-}" ]]; then
+			gcloud_secret_args+=(--project "$GCP_ENCLAVE_KEY_PROJECT")
+		fi
+
+		echo "Fetching enclave signing key from GCP Secret Manager: $GCP_ENCLAVE_KEY_SECRET version $gcloud_secret_version"
+		case "$-" in
+		*x*) xtrace_was_on=1 ;;
+		*) xtrace_was_on=0 ;;
+		esac
+		set +x
+		gcloud "${gcloud_secret_args[@]}"
+		if [[ "$xtrace_was_on" = "1" ]]; then
+			set -x
+		fi
+		chmod 0600 "$tmp_enclave_key_path"
+		enclave_key_path="$tmp_enclave_key_path"
+	else
+		enclave_key_path="${ENCLAVE_KEY_PATH:-docker/enclave-key.pem}"
+	fi
+
 	if [ ! -s "$enclave_key_path" ]; then
 		echo "❌ Missing enclave signing key: $enclave_key_path"
-		echo "Set ENCLAVE_KEY_PATH=/path/to/enclave-key.pem or provide docker/enclave-key.pem locally."
+		echo "Set GCP_ENCLAVE_KEY_SECRET=<secret-name>, ENCLAVE_KEY_PATH=/path/to/enclave-key.pem, or provide docker/enclave-key.pem locally."
 		exit 1
 	fi
 	enclave_key_public_sha256="$(openssl rsa -in "$enclave_key_path" -pubout 2>/dev/null | openssl sha256 | awk '{print $2}')"
