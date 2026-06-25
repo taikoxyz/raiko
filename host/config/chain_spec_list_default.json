@@ -187,10 +187,10 @@
         "beacon_rpc": null,
         "verifier_address_forks": {
             "SHASTA": {
-                "SGX": "0xa1018Ba2e22139076f91dA2A856B2CAB22d968F6",
+                "SGX": "0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8",
                 "RISC0": "0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b",
                 "SP1": "0x96337327648dcFA22b014009cf10A2D5E2F305f6",
-                "SGXGETH": "0x08568Df252ecf37D6C3eFD24f6ca3688118697F1"
+                "SGXGETH": "0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee"
             }
         },
         "genesis_time": 0,
