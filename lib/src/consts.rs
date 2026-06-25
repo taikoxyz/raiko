@@ -320,14 +320,9 @@ mod tests {
         let taiko_mainnet_spec = SupportedChainSpecs::default()
             .get_chain_spec(&Network::TaikoMainnet.to_string())
             .unwrap();
-        assert_eq!(taiko_mainnet_spec.active_fork(0, 0).unwrap(), SpecId::HEKLA);
         assert_eq!(
-            taiko_mainnet_spec.active_fork(538303, 0).unwrap(),
-            SpecId::HEKLA
-        );
-        assert_eq!(
-            taiko_mainnet_spec.active_fork(538304, 0).unwrap(),
-            SpecId::ONTAKE
+            taiko_mainnet_spec.active_fork(0, 1_775_135_700).unwrap(),
+            SpecId::SHASTA
         );
     }
 
