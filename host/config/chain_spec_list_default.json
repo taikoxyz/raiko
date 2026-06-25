@@ -158,19 +158,9 @@
         "chain_id": 167000,
         "max_spec_id": "SHASTA",
         "hard_forks": {
-            "HEKLA": {
-                "Block": 0
-            },
-            "ONTAKE": {
-                "Block": 538304
-            },
-            "PACAYA": {
-                "Block": 1166000
-            },
             "SHASTA": {
                 "Timestamp": 1775135700
-            },
-            "CANCUN": "TBD"
+            }
         },
         "eip_1559_constants": {
             "base_fee_change_denominator": "0x8",
@@ -179,7 +169,6 @@
             "elasticity_multiplier": "0x2"
         },
         "l1_contract": {
-            "PACAYA": "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
             "SHASTA": "0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f"
         },
         "l2_contract": "0x1670000000000000000000000000000000010001",
@@ -202,19 +191,9 @@
         "chain_id": 167013,
         "max_spec_id": "SHASTA",
         "hard_forks": {
-            "HEKLA": {
-                "Block": 0
-            },
-            "ONTAKE": {
-                "Block": 0
-            },
-            "PACAYA": {
-                "Block": 0
-            },
             "SHASTA": {
                 "Timestamp": 1770296400
-            },
-            "CANCUN": "TBD"
+            }
         },
         "eip_1559_constants": {
             "base_fee_change_denominator": "0x8",
@@ -223,7 +202,6 @@
             "elasticity_multiplier": "0x2"
         },
         "l1_contract": {
-            "PACAYA": "0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9",
             "SHASTA": "0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF"
         },
         "l2_contract": "0x1670130000000000000000000000000000010001",
@@ -246,19 +224,9 @@
         "chain_id": 167014,
         "max_spec_id": "SHASTA",
         "hard_forks": {
-            "HEKLA": {
-                "Block": 0
-            },
-            "ONTAKE": {
-                "Block": 0
-            },
-            "PACAYA": {
-                "Block": 0
-            },
             "SHASTA": {
                 "Timestamp": 1770987600
-            },
-            "CANCUN": "TBD"
+            }
         },
         "eip_1559_constants": {
             "base_fee_change_denominator": "0x8",
@@ -267,7 +235,6 @@
             "elasticity_multiplier": "0x2"
         },
         "l1_contract": {
-            "PACAYA": "0x07700C3bC1B0EE3D311E7D642d364242fd537906",
             "SHASTA": "0x2C34D466f6f57043B534D9b24DD032e905a95f50"
         },
         "l2_contract": "0x1670140000000000000000000000000000010001",
