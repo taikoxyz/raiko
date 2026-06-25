@@ -357,7 +357,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             verifier_address,
-            address!("a1018Ba2e22139076f91dA2A856B2CAB22d968F6")
+            address!("9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8")
         );
     }
 

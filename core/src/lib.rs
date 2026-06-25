@@ -325,17 +325,16 @@ pub fn merge(a: &mut Value, b: &Value) {
 
 #[cfg(test)]
 mod tests {
-    use crate::interfaces::{aggregate_shasta_proposals, ShastaProposalCheckpoint};
+    use crate::interfaces::aggregate_shasta_proposals;
     use crate::preflight::parse_l1_batch_proposal_tx_for_shasta_fork;
     use crate::{interfaces::ProofRequest, provider::rpc::RpcBlockDataProvider, ChainSpec, Raiko};
     use alloy_primitives::Address;
-    use alloy_provider::Provider;
     use env_logger;
     use raiko_lib::input::{RawProof, ShastaAggregationGuestInput, ShastaRawAggregationGuestInput};
     use raiko_lib::protocol_instance::shasta_pcd_aggregation_hash;
     use raiko_lib::{
-        consts::{Network, SupportedChainSpecs},
-        input::{AggregationGuestOutput, BlobProofType, GuestBatchInput, GuestBatchOutput},
+        consts::SupportedChainSpecs,
+        input::{AggregationGuestOutput, BlobProofType},
         primitives::B256,
         proof_type::ProofType,
         prover::Proof,
@@ -347,11 +346,6 @@ mod tests {
     fn get_proof_type_from_env() -> ProofType {
         let proof_type = env::var("TARGET").unwrap_or("native".to_string());
         ProofType::from_str(&proof_type).unwrap()
-    }
-
-    fn is_ci() -> bool {
-        let ci = env::var("CI").unwrap_or("0".to_string());
-        ci == "1"
     }
 
     fn test_proof_params(enable_aggregation: bool) -> HashMap<String, Value> {
