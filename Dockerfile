@@ -13,13 +13,19 @@ RUN ego-go build -o gaiko-ego ./cmd/gaiko
 # Sign with our enclave config and private key
 COPY gaiko/ego/enclave.json .
 ARG ENCLAVE_KEY_PUBLIC_SHA256
+# CI/local compose builds use a throwaway key; release builds pass a secret and hash.
 RUN --mount=type=secret,id=enclave_key,target=/run/secrets/enclave-key.pem \
     set -e; \
-    test -n "${ENCLAVE_KEY_PUBLIC_SHA256}"; \
-    test -s /run/secrets/enclave-key.pem; \
-    test "$(openssl rsa -in /run/secrets/enclave-key.pem -pubout 2>/dev/null | openssl sha256 | awk '{print $2}')" = "${ENCLAVE_KEY_PUBLIC_SHA256}"; \
-    cp /run/secrets/enclave-key.pem private.pem; \
     trap 'rm -f private.pem' EXIT; \
+    if [ -s /run/secrets/enclave-key.pem ]; then \
+        if [ -n "${ENCLAVE_KEY_PUBLIC_SHA256}" ]; then \
+            test "$(openssl rsa -in /run/secrets/enclave-key.pem -pubout 2>/dev/null | openssl sha256 | awk '{print $2}')" = "${ENCLAVE_KEY_PUBLIC_SHA256}"; \
+        fi; \
+        cp /run/secrets/enclave-key.pem private.pem; \
+    else \
+        test -z "${ENCLAVE_KEY_PUBLIC_SHA256}"; \
+        openssl genrsa -3 -out private.pem 3072; \
+    fi; \
     ego sign && \
     ego bundle gaiko-ego gaiko
 RUN ego uniqueid gaiko-ego 2>&1 | tee /tmp/gaiko_uniqueid.log
@@ -102,11 +108,19 @@ ENV EDMM=${EDMM}
 WORKDIR /opt/raiko/bin
 RUN --mount=type=secret,id=enclave_key,target=/run/secrets/enclave-key.pem \
     set -e; \
-    test -n "${ENCLAVE_KEY_PUBLIC_SHA256}"; \
-    test -s /run/secrets/enclave-key.pem; \
-    test "$(openssl rsa -in /run/secrets/enclave-key.pem -pubout 2>/dev/null | openssl sha256 | awk '{print $2}')" = "${ENCLAVE_KEY_PUBLIC_SHA256}"; \
+    enclave_key_path=/tmp/enclave-key.pem; \
+    trap 'rm -f "$enclave_key_path"' EXIT; \
+    if [ -s /run/secrets/enclave-key.pem ]; then \
+        if [ -n "${ENCLAVE_KEY_PUBLIC_SHA256}" ]; then \
+            test "$(openssl rsa -in /run/secrets/enclave-key.pem -pubout 2>/dev/null | openssl sha256 | awk '{print $2}')" = "${ENCLAVE_KEY_PUBLIC_SHA256}"; \
+        fi; \
+        cp /run/secrets/enclave-key.pem "$enclave_key_path"; \
+    else \
+        test -z "${ENCLAVE_KEY_PUBLIC_SHA256}"; \
+        openssl genrsa -3 -out "$enclave_key_path" 3072; \
+    fi; \
     gramine-manifest -Dlog_level=error -Ddirect_mode=0 -Darch_libdir=/lib/x86_64-linux-gnu/ ../provers/sgx/config/sgx-guest.local.manifest.template sgx-guest.manifest && \
-    gramine-sgx-sign --key /run/secrets/enclave-key.pem --manifest sgx-guest.manifest --output sgx-guest.manifest.sgx && \
+    gramine-sgx-sign --key "$enclave_key_path" --manifest sgx-guest.manifest --output sgx-guest.manifest.sgx && \
     gramine-sgx-sigstruct-view "sgx-guest.sig" 2>&1 | tee /tmp/sgx_sigstruct.log
 
 

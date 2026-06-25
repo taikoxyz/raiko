@@ -774,6 +774,7 @@ mod tests {
         }
     }
 
+    #[ignore = "default Taiko mainnet spec is Shasta-only"]
     #[tokio::test(flavor = "multi_thread")]
     async fn test_prove_pacaya_batch_taiko_mainnet() {
         env_logger::init();
