@@ -40,19 +40,9 @@
         "chain_id": 167001,
         "max_spec_id": "SHASTA",
         "hard_forks": {
-            "HEKLA": {
-                "Block": 0
-            },
-            "ONTAKE": {
-                "Block": 0
-            },
-            "PACAYA": {
-                "Block": 0
-            },
             "SHASTA": {
                 "Timestamp": 0
-            },
-            "CANCUN": "TBD"
+            }
         },
         "eip_1559_constants": {
             "base_fee_change_denominator": "0x8",

@@ -293,6 +293,10 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                 block: block.clone(),
                 parent_header: parent_block.header.clone().try_into().unwrap(),
                 chain_spec: taiko_chain_spec.clone(),
+                taiko: TaikoGuestInput {
+                    anchor_tx: block.body.first().cloned(),
+                    ..Default::default()
+                },
                 ..Default::default()
             })
             .collect(),
