@@ -1,7 +1,7 @@
 use core::cmp::{max, min};
-use reth_evm_ethereum::taiko::ANCHOR_V4_GAS_LIMIT;
+use reth_evm_ethereum::taiko::{decode_anchor_shasta, ANCHOR_V4_GAS_LIMIT};
 use reth_primitives::revm_primitives::SpecId;
-use reth_primitives::{Block, Header};
+use reth_primitives::Header;
 use std::cmp::max as std_max;
 use tracing::{info, warn};
 
@@ -244,8 +244,9 @@ pub(crate) fn validate_force_inc_proposal_manifest(manifest: &DerivationSourceMa
 
 pub(crate) fn validate_input_block_param(
     manifest_block: &ProtocolBlockManifest,
-    input_block: &Block,
+    input: &GuestInput,
 ) -> bool {
+    let input_block = &input.block;
     if manifest_block.timestamp != input_block.header.timestamp {
         warn!(
             "manifest_block.timestamp != input_block.header.timestamp, manifest_block.timestamp: {}, input_block.header.timestamp: {}",
@@ -264,6 +265,32 @@ pub(crate) fn validate_input_block_param(
         warn!(
             "manifest_block.gas_limit != input_block.header.gas_limit, manifest_block.gas_limit: {}, input_block.header.gas_limit: {}",
             manifest_block.gas_limit, input_block.header.gas_limit
+        );
+        return false;
+    }
+    let Some(anchor_tx) = &input.taiko.anchor_tx else {
+        warn!("input block missing shasta anchor tx");
+        return false;
+    };
+    if !validate_shasta_anchor_tx_for_manifest_block(manifest_block, anchor_tx.input()) {
+        return false;
+    }
+    true
+}
+
+fn validate_shasta_anchor_tx_for_manifest_block(
+    manifest_block: &ProtocolBlockManifest,
+    anchor_tx_input: &[u8],
+) -> bool {
+    let Ok(anchor_data) = decode_anchor_shasta(anchor_tx_input) else {
+        warn!("failed to decode shasta anchor tx calldata");
+        return false;
+    };
+    if anchor_data._checkpoint.blockNumber != manifest_block.anchor_block_number {
+        warn!(
+            "manifest_block.anchor_block_number != anchor_tx checkpoint blockNumber, manifest_block.anchor_block_number: {}, anchor_tx checkpoint blockNumber: {}",
+            manifest_block.anchor_block_number,
+            anchor_data._checkpoint.blockNumber
         );
         return false;
     }
@@ -664,12 +691,25 @@ mod tests {
         BlockProposedFork, GuestBatchInput, GuestInput, TaikoGuestBatchInput,
     };
     use crate::manifest::{DerivationSourceManifest, ProtocolBlockManifest};
-    use alloy_primitives::B256;
+    use alloy_primitives::{Address, B256};
+    use alloy_sol_types::SolCall;
+    use reth_evm_ethereum::taiko::{anchorV4Call, Checkpoint};
     use reth_primitives::revm_primitives::SpecId;
     use reth_primitives::Header;
     use std::collections::BTreeMap;
 
     use super::calc_next_shasta_base_fee;
+
+    fn shasta_anchor_input(anchor_block_number: u64) -> Vec<u8> {
+        anchorV4Call {
+            _checkpoint: Checkpoint {
+                blockNumber: anchor_block_number,
+                blockHash: B256::ZERO,
+                stateRoot: B256::ZERO,
+            },
+        }
+        .abi_encode()
+    }
 
     fn base_fee_guest_input(parent_header: Header, block_base_fee: u64) -> GuestInput {
         let mut input = GuestInput {
@@ -678,6 +718,30 @@ mod tests {
         };
         input.block.header.base_fee_per_gas = Some(block_base_fee);
         input
+    }
+
+    #[test]
+    fn validate_shasta_anchor_tx_for_manifest_block_rejects_anchor_mismatch() {
+        let manifest_block = ProtocolBlockManifest {
+            timestamp: 100,
+            coinbase: Address::ZERO,
+            anchor_block_number: 100,
+            gas_limit: 20_000_000,
+            transactions: Vec::new(),
+        };
+
+        assert!(!super::validate_shasta_anchor_tx_for_manifest_block(
+            &manifest_block,
+            &shasta_anchor_input(101)
+        ));
+        assert!(super::validate_shasta_anchor_tx_for_manifest_block(
+            &manifest_block,
+            &shasta_anchor_input(100)
+        ));
+        assert!(!super::validate_shasta_anchor_tx_for_manifest_block(
+            &manifest_block,
+            b"not-anchor-calldata"
+        ));
     }
 
     #[test]

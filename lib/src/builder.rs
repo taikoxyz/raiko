@@ -30,6 +30,14 @@ use reth_primitives::{
 };
 use tracing::{debug, error};
 
+fn assert_shasta_taiko_fork(taiko_fork: SpecId) {
+    assert_eq!(
+        taiko_fork,
+        SpecId::SHASTA,
+        "only SHASTA fork is supported, got {taiko_fork:?}"
+    );
+}
+
 pub fn calculate_block_header(input: &GuestInput) -> Header {
     let cycle_tracker = CycleTracker::start("initialize_database");
     let db = create_mem_db(&mut input.clone()).unwrap();
@@ -201,42 +209,14 @@ impl<DB: Database<Error = ProviderError> + DatabaseCommit + OptimisticDatabase>
         let block_ts = self.input.block.timestamp;
         let taiko_fork = self.input.chain_spec.spec_id(block_num, block_ts).unwrap();
         if reth_chain_spec.is_taiko() {
-            match taiko_fork {
-                SpecId::HEKLA => {
-                    assert!(
-                        reth_chain_spec
-                            .fork(Hardfork::Hekla)
-                            .active_at_block(block_num),
-                        "evm fork HEKLA is not active, please update the chain spec"
-                    );
-                }
-                SpecId::ONTAKE => {
-                    assert!(
-                        reth_chain_spec
-                            .fork(Hardfork::Ontake)
-                            .active_at_block(block_num),
-                        "evm fork ONTAKE is not active, please update the chain spec"
-                    );
-                }
-                SpecId::PACAYA => {
-                    assert!(
-                        reth_chain_spec
-                            .fork(Hardfork::Pacaya)
-                            .active_at_block(block_num),
-                        "evm fork PACAYA is not active, please update the chain spec"
-                    );
-                }
-                SpecId::SHASTA => {
-                    // shasta is activated by timestamp, not block number
-                    assert!(
-                        reth_chain_spec
-                            .fork(Hardfork::Shasta)
-                            .active_at_timestamp(block_ts),
-                        "evm fork SHASTA is not active, please update the chain spec"
-                    );
-                }
-                _ => unimplemented!(),
-            }
+            assert_shasta_taiko_fork(taiko_fork);
+            // Shasta is activated by timestamp, not block number.
+            assert!(
+                reth_chain_spec
+                    .fork(Hardfork::Shasta)
+                    .active_at_timestamp(block_ts),
+                "evm fork SHASTA is not active, please update the chain spec"
+            );
         }
 
         // Generate the transactions from the tx list
@@ -551,4 +531,28 @@ pub fn create_mem_db(input: &mut GuestInput) -> Result<MemDb> {
         accounts,
         block_hashes,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shasta_fork_guard_accepts_shasta() {
+        assert_shasta_taiko_fork(SpecId::SHASTA);
+    }
+
+    #[test]
+    fn shasta_fork_guard_rejects_legacy_forks() {
+        for legacy_fork in [SpecId::HEKLA, SpecId::ONTAKE, SpecId::PACAYA] {
+            let panic = std::panic::catch_unwind(|| assert_shasta_taiko_fork(legacy_fork))
+                .expect_err("legacy fork should be rejected");
+            let message = panic
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .or_else(|| panic.downcast_ref::<&str>().copied())
+                .unwrap_or_default();
+            assert!(message.contains("only SHASTA fork is supported"));
+        }
+    }
 }
