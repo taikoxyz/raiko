@@ -1,3 +1,5 @@
+ARG RAIKO_RUNTIME_BASE_IMAGE=us-docker.pkg.dev/evmchain/images/raiko:base-clean
+
 FROM ghcr.io/edgelesssys/ego-dev:v1.8.1 AS build-gaiko
 WORKDIR /opt/gaiko
 
@@ -78,9 +80,9 @@ RUN cargo build --release ${BUILD_FLAGS} --features "sgx" --features "docker_bui
 # RUN sed -i 's/#default quoting type = ecdsa_256/default quoting type = ecdsa_256/' /etc/aesmd.conf && \
 #     sed -i 's/,"use_secure_cert": true/,"use_secure_cert": false/' /etc/sgx_default_qcnl.conf
 
-# use base image from us-docker.pkg.dev/evmchain/images/raiko:base
+# use base image from us-docker.pkg.dev/evmchain/images/raiko:base-clean
 # to avoid re-setup all intel sgx dependencies, some of them are not available in repository
-FROM us-docker.pkg.dev/evmchain/images/raiko:base AS runtime
+FROM ${RAIKO_RUNTIME_BASE_IMAGE} AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /opt/raiko
 

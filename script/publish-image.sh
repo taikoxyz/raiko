@@ -54,6 +54,7 @@ esac
 
 echo "Build and push $image_name:$tag..."
 build_secret_args=()
+runtime_base_args=()
 tmp_enclave_key_path=""
 cleanup_tmp_enclave_key() {
 	if [[ -n "$tmp_enclave_key_path" ]]; then
@@ -63,6 +64,10 @@ cleanup_tmp_enclave_key() {
 trap cleanup_tmp_enclave_key EXIT
 
 if [ "$proof_type" = "0" ] || [ "$proof_type" = "tee" ]; then
+	if [[ -n "${RAIKO_RUNTIME_BASE_IMAGE:-}" ]]; then
+		runtime_base_args=(--build-arg "RAIKO_RUNTIME_BASE_IMAGE=$RAIKO_RUNTIME_BASE_IMAGE")
+	fi
+
 	if [[ -n "${GCP_ENCLAVE_KEY_SECRET:-}" ]]; then
 		if ! command -v gcloud >/dev/null 2>&1; then
 			echo "❌ gcloud is required when GCP_ENCLAVE_KEY_SECRET is set."
@@ -114,6 +119,7 @@ DOCKER_BUILDKIT=1 docker buildx build . \
 	--platform linux/amd64 \
 	-t $image_name:latest \
 	"${build_secret_args[@]}" \
+	"${runtime_base_args[@]}" \
 	$build_flags \
 	--build-arg TARGETPLATFORM=linux/amd64 \
 	--progress=plain \

@@ -1,0 +1,12 @@
+FROM us-docker.pkg.dev/evmchain/images/raiko:base AS scrubber
+
+RUN rm -f /root/.config/gramine/enclave-key.pem
+
+FROM scratch
+COPY --from=scrubber / /
+
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV DEBIAN_FRONTEND=noninteractive
+ENV EDMM=1
+WORKDIR /opt/raiko/bin
+ENTRYPOINT ["/opt/raiko/bin/entrypoint.sh"]
