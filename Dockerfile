@@ -89,6 +89,10 @@ RUN mkdir -p \
     ./provers/sgx \
     /var/log/raiko
 
+# The runtime base image contains Gramine's default development signing key.
+# Production images sign with the BuildKit secret above, so do not ship it.
+RUN rm -f /root/.config/gramine/enclave-key.pem
+
 COPY --from=build-gaiko /opt/gaiko/gaiko ./bin/
 COPY --from=build-gaiko /tmp/gaiko_uniqueid.log /tmp/
 COPY --from=builder /opt/raiko/docker/entrypoint.sh ./bin/
