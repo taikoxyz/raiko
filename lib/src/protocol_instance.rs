@@ -26,7 +26,7 @@ use crate::{
     primitives::{
         eip4844::{self, commitment_to_version_hash},
         keccak::keccak,
-        mpt::MptNode,
+        mpt::{MptNode, StateAccount},
     },
     proof_type::ProofType,
     prover::{ProofCarryData, ShastaTransitionInput, TransitionInputData},
@@ -548,6 +548,27 @@ fn read_parent_shasta_checkpoint(input: &GuestInput, block_number: u64) -> Optio
         shasta_signal_service_address_from_l2_contract(input.chain_spec.l2_contract)?;
     let (block_hash_slot, state_root_slot) = shasta_checkpoint_storage_slots(block_number);
     let (storage_trie, _) = input.parent_storage.get(&signal_service)?;
+    if input.parent_state_trie.hash() != input.parent_header.state_root {
+        error!(
+            "cannot read parent shasta checkpoint: parent state trie root mismatch, expected: {:?}, got: {:?}",
+            input.parent_header.state_root,
+            input.parent_state_trie.hash()
+        );
+        return None;
+    }
+    let state_account = input
+        .parent_state_trie
+        .get_rlp::<StateAccount>(&keccak(signal_service))
+        .ok()
+        .flatten()?;
+    if storage_trie.hash() != state_account.storage_root {
+        error!(
+            "cannot read parent shasta checkpoint: signal service storage root mismatch, expected: {:?}, got: {:?}",
+            state_account.storage_root,
+            storage_trie.hash()
+        );
+        return None;
+    }
     let block_hash = read_storage_b256(storage_trie, block_hash_slot)?;
     let state_root = read_storage_b256(storage_trie, state_root_slot)?;
     if block_hash == B256::ZERO || state_root == B256::ZERO {
@@ -1189,7 +1210,7 @@ mod tests {
     use alloy_primitives::{address, b256, Bytes, U256};
     use alloy_sol_types::SolCall;
     use reth_evm_ethereum::taiko::anchorV4Call;
-    use reth_primitives::{Signature, TransactionSigned, TxKind, TxLegacy};
+    use reth_primitives::{Header, Signature, TransactionSigned, TxKind, TxLegacy};
 
     use super::*;
     use crate::{
@@ -1275,6 +1296,16 @@ mod tests {
                 U256::from_be_bytes::<32>(*parent_checkpoint.stateRoot),
             )
             .unwrap();
+        let mut parent_state_trie = MptNode::default();
+        parent_state_trie
+            .insert_rlp(
+                &keccak(signal_service),
+                StateAccount {
+                    storage_root: storage_trie.hash(),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
 
         let mut parent_storage = HashMap::new();
         parent_storage.insert(
@@ -1287,6 +1318,11 @@ mod tests {
                 l2_contract: Some(address!("1670010000000000000000000000000000010001")),
                 ..Default::default()
             },
+            parent_header: Header {
+                state_root: parent_state_trie.hash(),
+                ..Default::default()
+            },
+            parent_state_trie,
             parent_storage,
             taiko: crate::input::TaikoGuestInput {
                 anchor_tx: Some(test_anchor_tx(anchor_tx_checkpoint)),
