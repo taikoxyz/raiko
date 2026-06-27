@@ -9,7 +9,7 @@ use reth_primitives::{Block, Header};
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::SupportedChainSpecs,
+    consts::{ChainSpec, SupportedChainSpecs},
     input::{
         shasta::{Checkpoint, Commitment, Proposal as ShastaProposal},
         BlobProofType, BlockProposedFork, GuestBatchInput, GuestInput,
@@ -29,7 +29,6 @@ use crate::{
     CycleTracker,
 };
 use tracing::{debug, error, info};
-
 #[derive(Debug, Clone)]
 pub enum BlockMetaDataFork {
     None,
@@ -271,12 +270,13 @@ fn verify_shasha_anchor_linkage(
 
 /// Validates input chain spec against known specs when chain_id is recognized.
 /// For unknown chain ids, skips check to allow tests with custom data.
-fn validate_chain_spec_against_known(chain_spec: &crate::consts::ChainSpec) -> Result<()> {
+fn validate_known_chain_spec(chain_spec: &crate::consts::ChainSpec) -> Result<()> {
     let Some(verified) =
         SupportedChainSpecs::default().get_chain_spec_with_chain_id(chain_spec.chain_id)
     else {
         return Ok(());
     };
+    ensure!(chain_spec.name == verified.name, "unexpected name");
     ensure!(
         chain_spec.max_spec_id == verified.max_spec_id,
         "unexpected max_spec_id"
@@ -298,6 +298,10 @@ fn validate_chain_spec_against_known(chain_spec: &crate::consts::ChainSpec) -> R
     ensure!(
         chain_spec.l2_contract == verified.l2_contract,
         "unexpected l2_contract"
+    );
+    ensure!(
+        chain_spec.is_taiko == verified.is_taiko,
+        "unexpected is_taiko"
     );
     Ok(())
 }
@@ -450,7 +454,7 @@ impl ProtocolInstance {
         verify_batch_mode_blob_usage(batch_input, proof_type)?;
 
         for input in &batch_input.inputs {
-            validate_chain_spec_against_known(&input.chain_spec)?;
+            validate_known_chain_spec(&input.chain_spec)?;
         }
 
         // todo: move chain_spec into the batch input
@@ -969,6 +973,25 @@ mod tests {
         };
 
         assert!(bypass_shasta_anchor_linkage(&batch_input));
+    }
+
+    #[test]
+    fn known_chain_spec_rejects_name_mismatch() {
+        let mut chain_spec = crate::consts::SupportedChainSpecs::default()
+            .get_chain_spec("taiko_mainnet")
+            .unwrap();
+        chain_spec.name = "taiko_dev".to_string();
+        let batch_input = GuestBatchInput {
+            inputs: vec![GuestInput {
+                chain_spec,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let err = ProtocolInstance::new_batch(&batch_input, Vec::new(), ProofType::Sgx)
+            .expect_err("chain spec name mismatch should be rejected");
+        assert!(err.to_string().contains("unexpected name"));
     }
 
     #[test]
