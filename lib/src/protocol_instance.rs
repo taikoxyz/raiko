@@ -302,21 +302,40 @@ fn validate_chain_spec_against_known(chain_spec: &crate::consts::ChainSpec) -> R
 }
 
 fn bypass_shasta_anchor_linkage(batch_input: &GuestBatchInput) -> bool {
-    if !batch_input.taiko.l1_ancestor_headers.is_empty() {
+    let mut anchor_block_numbers = Vec::with_capacity(batch_input.inputs.len());
+    for input in &batch_input.inputs {
+        let Some(anchor_tx) = input.taiko.anchor_tx.as_ref() else {
+            error!("cannot bypass shasta anchor linkage: missing anchor tx");
+            return false;
+        };
+        let std::result::Result::Ok(anchor_data) = decode_anchor_shasta(anchor_tx.input()) else {
+            error!("cannot bypass shasta anchor linkage: failed to decode anchor tx");
+            return false;
+        };
+        anchor_block_numbers.push(anchor_data._checkpoint.blockNumber);
+    }
+
+    is_stalled_anchor_bypass_allowed(
+        batch_input.taiko.l1_ancestor_headers.is_empty(),
+        batch_input.taiko.prover_data.last_anchor_block_number,
+        &anchor_block_numbers,
+    )
+}
+
+fn is_stalled_anchor_bypass_allowed(
+    l1_ancestor_headers_empty: bool,
+    last_anchor_block_number: Option<u64>,
+    anchor_block_numbers: &[u64],
+) -> bool {
+    if !l1_ancestor_headers_empty || anchor_block_numbers.is_empty() {
         return false;
     }
-    let mut anchors = batch_input.inputs.iter().filter_map(|input| {
-        input
-            .taiko
-            .anchor_tx
-            .as_ref()
-            .and_then(|tx| decode_anchor_shasta(tx.input()).ok())
-            .map(|data| data._checkpoint.blockNumber)
-    });
-    let Some(first_anchor) = anchors.next() else {
+    let Some(last_anchor_block_number) = last_anchor_block_number else {
         return false;
     };
-    anchors.all(|h| h == first_anchor)
+    anchor_block_numbers
+        .iter()
+        .all(|anchor_block_number| *anchor_block_number == last_anchor_block_number)
 }
 
 impl ProtocolInstance {
@@ -695,6 +714,28 @@ mod tests {
 
     use super::*;
     use crate::input::shasta::Checkpoint;
+
+    #[test]
+    fn stalled_anchor_bypass_requires_last_anchor_match() {
+        assert!(is_stalled_anchor_bypass_allowed(
+            true,
+            Some(100),
+            &[100, 100]
+        ));
+        assert!(!is_stalled_anchor_bypass_allowed(
+            true,
+            Some(100),
+            &[101, 101]
+        ));
+        assert!(!is_stalled_anchor_bypass_allowed(
+            true,
+            Some(100),
+            &[100, 101]
+        ));
+        assert!(!is_stalled_anchor_bypass_allowed(false, Some(100), &[100]));
+        assert!(!is_stalled_anchor_bypass_allowed(true, None, &[100]));
+        assert!(!is_stalled_anchor_bypass_allowed(true, Some(100), &[]));
+    }
 
     #[test]
     fn test_shasta_aggregation_output() {
