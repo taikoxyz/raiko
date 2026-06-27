@@ -144,6 +144,55 @@ impl<'a, BDP: BlockDataProvider> ProviderDb<'a, BDP> {
         Ok((initial_proofs, latest_proofs, num_storage_proofs))
     }
 
+    pub async fn load_initial_storage_values(
+        &mut self,
+        slots: &[(Address, U256)],
+    ) -> RaikoResult<()> {
+        if slots.is_empty() {
+            return Ok(());
+        }
+
+        let mut addresses = slots
+            .iter()
+            .map(|(address, _)| *address)
+            .collect::<Vec<_>>();
+        addresses.sort_unstable();
+        addresses.dedup();
+
+        let accounts = self
+            .provider
+            .get_accounts(self.block_number, &addresses)
+            .await?;
+        if accounts.len() != addresses.len() {
+            return Err(RaikoError::RPC(format!(
+                "expected {} accounts, got {}",
+                addresses.len(),
+                accounts.len()
+            )));
+        }
+        for (address, account) in addresses.into_iter().zip(accounts) {
+            self.initial_db.insert_account_info(address, account);
+        }
+
+        let values = self
+            .provider
+            .get_storage_values(self.block_number, slots)
+            .await?;
+        if values.len() != slots.len() {
+            return Err(RaikoError::RPC(format!(
+                "expected {} storage values, got {}",
+                slots.len(),
+                values.len()
+            )));
+        }
+        for ((address, slot), value) in slots.iter().zip(values) {
+            self.initial_db
+                .insert_account_storage(address, *slot, value);
+        }
+
+        Ok(())
+    }
+
     pub async fn get_ancestor_headers(&mut self) -> RaikoResult<Vec<Header>> {
         let earliest_block = &self.block_number.saturating_sub(255);
         let mut headers = Vec::with_capacity(
