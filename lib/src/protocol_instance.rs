@@ -1,7 +1,7 @@
 use core::fmt::Display;
 use std::collections::HashSet;
 
-use alloy_primitives::{b256, Address, TxHash, B256};
+use alloy_primitives::{b256, Address, TxHash, B256, U256};
 use alloy_sol_types::SolValue;
 use anyhow::{ensure, Ok, Result};
 use pretty_assertions::Comparison;
@@ -26,6 +26,7 @@ use crate::{
     primitives::{
         eip4844::{self, commitment_to_version_hash},
         keccak::keccak,
+        mpt::{MptNode, StateAccount},
     },
     proof_type::ProofType,
     prover::{ProofCarryData, ShastaTransitionInput, TransitionInputData},
@@ -505,8 +506,96 @@ fn verify_shasha_anchor_linkage(
     last_parent_hash == *expected_parent_hash
 }
 
+const SHASTA_ANCHOR_PREDEPLOY_SUFFIX: [u8; 3] = [0x01, 0x00, 0x01];
+// L2 SignalService proxy uses the same chain-id predeploy prefix as Anchor with suffix 0005.
+const SHASTA_SIGNAL_SERVICE_PREDEPLOY_SUFFIX: [u8; 3] = [0x00, 0x00, 0x05];
+// SignalService_Layout.sol: mapping(uint48 => CheckpointRecord) _checkpoints at slot 254.
+const SHASTA_SIGNAL_SERVICE_CHECKPOINTS_SLOT: u64 = 254;
+
+pub fn shasta_signal_service_address_from_l2_contract(
+    l2_contract: Option<Address>,
+) -> Option<Address> {
+    let mut bytes = [0u8; 20];
+    bytes.copy_from_slice(l2_contract?.as_slice());
+    if bytes[17..20] != SHASTA_ANCHOR_PREDEPLOY_SUFFIX {
+        return None;
+    }
+    bytes[17..20].copy_from_slice(&SHASTA_SIGNAL_SERVICE_PREDEPLOY_SUFFIX);
+    Some(Address::from_slice(&bytes))
+}
+
+pub fn shasta_checkpoint_storage_slots(block_number: u64) -> (U256, U256) {
+    let mut encoded = Vec::with_capacity(64);
+    encoded.extend_from_slice(&U256::from(block_number).to_be_bytes::<32>());
+    encoded
+        .extend_from_slice(&U256::from(SHASTA_SIGNAL_SERVICE_CHECKPOINTS_SLOT).to_be_bytes::<32>());
+    let block_hash_slot = U256::from_be_bytes::<32>(keccak(&encoded));
+    let state_root_slot = block_hash_slot + U256::from(1);
+    (block_hash_slot, state_root_slot)
+}
+
+fn read_storage_b256(storage_trie: &MptNode, slot: U256) -> Option<B256> {
+    let value = storage_trie
+        .get_rlp::<U256>(&keccak(slot.to_be_bytes::<32>()))
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    Some(B256::from_slice(&value.to_be_bytes::<32>()))
+}
+
+fn read_parent_shasta_checkpoint(input: &GuestInput, block_number: u64) -> Option<Checkpoint> {
+    let signal_service =
+        shasta_signal_service_address_from_l2_contract(input.chain_spec.l2_contract)?;
+    let (block_hash_slot, state_root_slot) = shasta_checkpoint_storage_slots(block_number);
+    let (storage_trie, _) = input.parent_storage.get(&signal_service)?;
+    if input.parent_state_trie.hash() != input.parent_header.state_root {
+        error!(
+            "cannot read parent shasta checkpoint: parent state trie root mismatch, expected: {:?}, got: {:?}",
+            input.parent_header.state_root,
+            input.parent_state_trie.hash()
+        );
+        return None;
+    }
+    let state_account = input
+        .parent_state_trie
+        .get_rlp::<StateAccount>(&keccak(signal_service))
+        .ok()
+        .flatten()?;
+    if storage_trie.hash() != state_account.storage_root {
+        error!(
+            "cannot read parent shasta checkpoint: signal service storage root mismatch, expected: {:?}, got: {:?}",
+            state_account.storage_root,
+            storage_trie.hash()
+        );
+        return None;
+    }
+    let block_hash = read_storage_b256(storage_trie, block_hash_slot)?;
+    let state_root = read_storage_b256(storage_trie, state_root_slot)?;
+    if block_hash == B256::ZERO || state_root == B256::ZERO {
+        return None;
+    }
+    Some(Checkpoint {
+        blockNumber: block_number,
+        blockHash: block_hash,
+        stateRoot: state_root,
+    })
+}
+
 fn bypass_shasta_anchor_linkage(batch_input: &GuestBatchInput) -> bool {
-    let mut anchor_block_numbers = Vec::with_capacity(batch_input.inputs.len());
+    if !batch_input.taiko.l1_ancestor_headers.is_empty() || batch_input.inputs.is_empty() {
+        return false;
+    }
+    let Some(last_anchor_block_number) = batch_input.taiko.prover_data.last_anchor_block_number
+    else {
+        return false;
+    };
+    let Some(parent_checkpoint) =
+        read_parent_shasta_checkpoint(&batch_input.inputs[0], last_anchor_block_number)
+    else {
+        error!("cannot bypass shasta anchor linkage: missing parent checkpoint");
+        return false;
+    };
+
     for input in &batch_input.inputs {
         let Some(anchor_tx) = input.taiko.anchor_tx.as_ref() else {
             error!("cannot bypass shasta anchor linkage: missing anchor tx");
@@ -516,16 +605,23 @@ fn bypass_shasta_anchor_linkage(batch_input: &GuestBatchInput) -> bool {
             error!("cannot bypass shasta anchor linkage: failed to decode anchor tx");
             return false;
         };
-        anchor_block_numbers.push(anchor_data._checkpoint.blockNumber);
+        let anchor_checkpoint = Checkpoint {
+            blockNumber: anchor_data._checkpoint.blockNumber,
+            blockHash: anchor_data._checkpoint.blockHash,
+            stateRoot: anchor_data._checkpoint.stateRoot,
+        };
+        if anchor_checkpoint != parent_checkpoint {
+            error!(
+                "cannot bypass shasta anchor linkage: anchor checkpoint mismatch, expected: {:?}, got: {:?}",
+                parent_checkpoint, anchor_checkpoint
+            );
+            return false;
+        }
     }
-
-    is_stalled_anchor_bypass_allowed(
-        batch_input.taiko.l1_ancestor_headers.is_empty(),
-        batch_input.taiko.prover_data.last_anchor_block_number,
-        &anchor_block_numbers,
-    )
+    true
 }
 
+#[cfg(test)]
 fn is_stalled_anchor_bypass_allowed(
     l1_ancestor_headers_empty: bool,
     last_anchor_block_number: Option<u64>,
@@ -1109,13 +1205,19 @@ fn bind_aggregate_hash_with_zk_image_id(sub_image_id: B256, sub_input_hash: B256
 }
 #[cfg(test)]
 mod tests {
-    use alloy_primitives::{address, b256};
+    use std::collections::HashMap;
+
+    use alloy_primitives::{address, b256, Bytes, U256};
     use alloy_sol_types::SolCall;
+    use reth_evm_ethereum::taiko::anchorV4Call;
+    use reth_primitives::{Header, Signature, TransactionSigned, TxKind, TxLegacy};
 
     use super::*;
     use crate::{
-        input::{proveBlockCall, shasta::Checkpoint, TierProof},
-        primitives::keccak,
+        input::{
+            proveBlockCall, shasta::Checkpoint, TaikoGuestBatchInput, TaikoProverData, TierProof,
+        },
+        primitives::{keccak, mpt::MptNode},
     };
 
     #[test]
@@ -1151,6 +1253,136 @@ mod tests {
         assert!(!is_stalled_anchor_bypass_allowed(false, Some(100), &[100]));
         assert!(!is_stalled_anchor_bypass_allowed(true, None, &[100]));
         assert!(!is_stalled_anchor_bypass_allowed(true, Some(100), &[]));
+    }
+
+    fn test_checkpoint_storage_slots(block_number: u64) -> (U256, U256) {
+        shasta_checkpoint_storage_slots(block_number)
+    }
+
+    fn test_anchor_tx(checkpoint: Checkpoint) -> TransactionSigned {
+        let input = anchorV4Call {
+            _checkpoint: reth_evm_ethereum::taiko::Checkpoint {
+                blockNumber: checkpoint.blockNumber,
+                blockHash: checkpoint.blockHash,
+                stateRoot: checkpoint.stateRoot,
+            },
+        }
+        .abi_encode();
+        let tx = TxLegacy {
+            to: TxKind::Call(address!("1670010000000000000000000000000000010001")),
+            input: Bytes::from(input),
+            ..Default::default()
+        };
+        TransactionSigned::from_transaction_and_signature(tx.into(), Signature::default())
+    }
+
+    fn test_input_with_parent_checkpoint(
+        anchor_tx_checkpoint: Checkpoint,
+        parent_checkpoint: Checkpoint,
+    ) -> GuestInput {
+        let signal_service = address!("1670010000000000000000000000000000000005");
+        let (block_hash_slot, state_root_slot) =
+            test_checkpoint_storage_slots(parent_checkpoint.blockNumber);
+        let mut storage_trie = MptNode::default();
+        storage_trie
+            .insert_rlp(
+                &keccak(block_hash_slot.to_be_bytes::<32>()),
+                U256::from_be_bytes::<32>(*parent_checkpoint.blockHash),
+            )
+            .unwrap();
+        storage_trie
+            .insert_rlp(
+                &keccak(state_root_slot.to_be_bytes::<32>()),
+                U256::from_be_bytes::<32>(*parent_checkpoint.stateRoot),
+            )
+            .unwrap();
+        let mut parent_state_trie = MptNode::default();
+        parent_state_trie
+            .insert_rlp(
+                &keccak(signal_service),
+                StateAccount {
+                    storage_root: storage_trie.hash(),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
+        let mut parent_storage = HashMap::new();
+        parent_storage.insert(
+            signal_service,
+            (storage_trie, vec![block_hash_slot, state_root_slot]),
+        );
+
+        GuestInput {
+            chain_spec: crate::consts::ChainSpec {
+                l2_contract: Some(address!("1670010000000000000000000000000000010001")),
+                ..Default::default()
+            },
+            parent_header: Header {
+                state_root: parent_state_trie.hash(),
+                ..Default::default()
+            },
+            parent_state_trie,
+            parent_storage,
+            taiko: crate::input::TaikoGuestInput {
+                anchor_tx: Some(test_anchor_tx(anchor_tx_checkpoint)),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn stalled_anchor_bypass_rejects_checkpoint_value_mismatch() {
+        let parent_checkpoint = Checkpoint {
+            blockNumber: 100,
+            blockHash: b256!("1111111111111111111111111111111111111111111111111111111111111111"),
+            stateRoot: b256!("2222222222222222222222222222222222222222222222222222222222222222"),
+        };
+        let forged_checkpoint = Checkpoint {
+            blockNumber: parent_checkpoint.blockNumber,
+            blockHash: b256!("3333333333333333333333333333333333333333333333333333333333333333"),
+            stateRoot: parent_checkpoint.stateRoot,
+        };
+        let batch_input = GuestBatchInput {
+            inputs: vec![test_input_with_parent_checkpoint(
+                forged_checkpoint,
+                parent_checkpoint,
+            )],
+            taiko: TaikoGuestBatchInput {
+                prover_data: TaikoProverData {
+                    last_anchor_block_number: Some(100),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        };
+
+        assert!(!bypass_shasta_anchor_linkage(&batch_input));
+    }
+
+    #[test]
+    fn stalled_anchor_bypass_accepts_parent_checkpoint_match() {
+        let parent_checkpoint = Checkpoint {
+            blockNumber: 100,
+            blockHash: b256!("1111111111111111111111111111111111111111111111111111111111111111"),
+            stateRoot: b256!("2222222222222222222222222222222222222222222222222222222222222222"),
+        };
+        let batch_input = GuestBatchInput {
+            inputs: vec![test_input_with_parent_checkpoint(
+                parent_checkpoint.clone(),
+                parent_checkpoint,
+            )],
+            taiko: TaikoGuestBatchInput {
+                prover_data: TaikoProverData {
+                    last_anchor_block_number: Some(100),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        };
+
+        assert!(bypass_shasta_anchor_linkage(&batch_input));
     }
 
     #[test]

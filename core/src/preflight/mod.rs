@@ -14,6 +14,9 @@ use raiko_lib::{
         TaikoProverData,
     },
     primitives::mpt::proofs_to_tries,
+    protocol_instance::{
+        shasta_checkpoint_storage_slots, shasta_signal_service_address_from_l2_contract,
+    },
     utils::txs::{generate_transactions, generate_transactions_for_batch_blocks},
     Measurement,
 };
@@ -75,6 +78,36 @@ impl PreflightData {
             blob_proof_type,
         }
     }
+}
+
+fn shasta_parent_checkpoint_storage_slots(
+    input: &GuestInput,
+) -> RaikoResult<Vec<(raiko_lib::primitives::Address, raiko_lib::primitives::U256)>> {
+    let Some(last_anchor_block_number) = input.taiko.prover_data.last_anchor_block_number else {
+        return Err(RaikoError::Preflight(
+            "cannot load shasta parent checkpoint: missing last_anchor_block_number".to_owned(),
+        ));
+    };
+    let Some(signal_service) =
+        shasta_signal_service_address_from_l2_contract(input.chain_spec.l2_contract)
+    else {
+        return Err(RaikoError::Preflight(
+            "cannot load shasta parent checkpoint: invalid l2 contract address".to_owned(),
+        ));
+    };
+    let (block_hash_slot, state_root_slot) =
+        shasta_checkpoint_storage_slots(last_anchor_block_number);
+    Ok(vec![
+        (signal_service, block_hash_slot),
+        (signal_service, state_root_slot),
+    ])
+}
+
+fn should_load_shasta_parent_checkpoint_storage(
+    input: &GuestInput,
+    _batch_block_idx: usize,
+) -> bool {
+    matches!(input.taiko.block_proposed, BlockProposedFork::Shasta(_))
 }
 
 pub async fn preflight<BDP: BlockDataProvider>(
@@ -434,6 +467,18 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                     return Err(RaikoError::Preflight("No db in builder".to_owned()));
                 };
 
+                if should_load_shasta_parent_checkpoint_storage(&input, batch_block_idx) {
+                    let checkpoint_slots = shasta_parent_checkpoint_storage_slots(&input)?;
+                    db.load_initial_storage_values(&checkpoint_slots)
+                        .await
+                        .map_err(|e| {
+                            RaikoError::Preflight(format!(
+                                "failed to load shasta parent checkpoint storage at block {}: {e:?}",
+                                db.block_number
+                            ))
+                        })?;
+                }
+
                 // Gather inclusion proofs for the initial and final state
                 let measurement = Measurement::start("Fetching storage proofs...", true);
                 let (parent_proofs, current_proofs, num_storage_proofs) = db.get_proofs().await?;
@@ -514,10 +559,24 @@ mod test {
     use ethers_core::types::Transaction;
     use raiko_lib::{
         consts::{Network, SupportedChainSpecs},
+        input::{BlockProposedFork, GuestInput},
         utils::txs::decode_transactions,
     };
 
+    use super::should_load_shasta_parent_checkpoint_storage;
     use crate::preflight::util::{blob_to_bytes, block_time_to_block_slot};
+
+    #[test]
+    fn shasta_parent_checkpoint_storage_is_loaded_for_every_batch_block() {
+        let mut input = GuestInput::default();
+        input.taiko.block_proposed = BlockProposedFork::Shasta(Default::default());
+
+        assert!(should_load_shasta_parent_checkpoint_storage(&input, 0));
+        assert!(should_load_shasta_parent_checkpoint_storage(&input, 1));
+
+        input.taiko.block_proposed = BlockProposedFork::Nothing;
+        assert!(!should_load_shasta_parent_checkpoint_storage(&input, 0));
+    }
 
     #[test]
     fn test_new_blob_decode() {
