@@ -11,7 +11,7 @@ use reth_primitives::{Block, Header};
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::SupportedChainSpecs,
+    consts::{ChainSpec, SupportedChainSpecs},
     input::{
         ontake::{BlockMetadataV2, BlockProposedV2},
         pacaya::{BatchInfo, BatchMetadata, BlockParams, Transition as PacayaTransition},
@@ -38,6 +38,49 @@ use tracing::{debug, error, info};
 // The empty root of [`Vec<EthDeposit>`]
 const EMPTY_ETH_DEPOSIT_ROOT: B256 =
     b256!("569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd");
+
+fn validate_known_chain_spec(chain_spec: &ChainSpec) -> Result<()> {
+    // If the passed in chain spec contains a known chain id, the chain spec NEEDS to match the
+    // one we expect, because the prover could otherwise just fill in any values.
+    // The chain id is used because that is the value that is put onchain,
+    // and so all other chain data needs to be derived from it.
+    // For unknown chain ids we just skip this check so that tests using test data can still pass.
+    // TODO: we should probably split things up in critical and non-critical parts
+    // in the chain spec itself so we don't have to manually all the ones we have to care about.
+    if let Some(verified_chain_spec) =
+        SupportedChainSpecs::default().get_chain_spec_with_chain_id(chain_spec.chain_id)
+    {
+        ensure!(
+            chain_spec.name == verified_chain_spec.name,
+            "unexpected name"
+        );
+        ensure!(
+            chain_spec.max_spec_id == verified_chain_spec.max_spec_id,
+            "unexpected max_spec_id"
+        );
+        ensure!(
+            chain_spec.hard_forks == verified_chain_spec.hard_forks,
+            "unexpected hard_forks"
+        );
+        ensure!(
+            chain_spec.eip_1559_constants == verified_chain_spec.eip_1559_constants,
+            "unexpected eip_1559_constants"
+        );
+        ensure!(
+            chain_spec.l1_contract == verified_chain_spec.l1_contract,
+            "unexpected l1_contract"
+        );
+        ensure!(
+            chain_spec.l2_contract == verified_chain_spec.l2_contract,
+            "unexpected l2_contract"
+        );
+        ensure!(
+            chain_spec.is_taiko == verified_chain_spec.is_taiko,
+            "unexpected is_taiko"
+        );
+    }
+    Ok(())
+}
 
 #[derive(Debug, Clone)]
 pub enum BlockMetaDataFork {
@@ -666,41 +709,7 @@ impl ProtocolInstance {
             TxHash::from(keccak(input.taiko.tx_data.as_slice()))
         };
 
-        // If the passed in chain spec contains a known chain id, the chain spec NEEDS to match the
-        // one we expect, because the prover could otherwise just fill in any values.
-        // The chain id is used because that is the value that is put onchain,
-        // and so all other chain data needs to be derived from it.
-        // For unknown chain ids we just skip this check so that tests using test data can still pass.
-        // TODO: we should probably split things up in critical and non-critical parts
-        // in the chain spec itself so we don't have to manually all the ones we have to care about.
-        if let Some(verified_chain_spec) =
-            SupportedChainSpecs::default().get_chain_spec_with_chain_id(input.chain_spec.chain_id)
-        {
-            ensure!(
-                input.chain_spec.max_spec_id == verified_chain_spec.max_spec_id,
-                "unexpected max_spec_id"
-            );
-            ensure!(
-                input.chain_spec.hard_forks == verified_chain_spec.hard_forks,
-                "unexpected hard_forks"
-            );
-            ensure!(
-                input.chain_spec.eip_1559_constants == verified_chain_spec.eip_1559_constants,
-                "unexpected eip_1559_constants"
-            );
-            ensure!(
-                input.chain_spec.l1_contract == verified_chain_spec.l1_contract,
-                "unexpected l1_contract"
-            );
-            ensure!(
-                input.chain_spec.l2_contract == verified_chain_spec.l2_contract,
-                "unexpected l2_contract"
-            );
-            ensure!(
-                input.chain_spec.is_taiko == verified_chain_spec.is_taiko,
-                "unexpected eip_1559_constants"
-            );
-        }
+        validate_known_chain_spec(&input.chain_spec)?;
 
         let verifier_address = input
             .chain_spec
@@ -759,41 +768,7 @@ impl ProtocolInstance {
         verify_batch_mode_blob_usage(batch_input, proof_type)?;
 
         for input in &batch_input.inputs {
-            // If the passed in chain spec contains a known chain id, the chain spec NEEDS to match the
-            // one we expect, because the prover could otherwise just fill in any values.
-            // The chain id is used because that is the value that is put onchain,
-            // and so all other chain data needs to be derived from it.
-            // For unknown chain ids we just skip this check so that tests using test data can still pass.
-            // TODO: we should probably split things up in critical and non-critical parts
-            // in the chain spec itself so we don't have to manually all the ones we have to care about.
-            if let Some(verified_chain_spec) = SupportedChainSpecs::default()
-                .get_chain_spec_with_chain_id(input.chain_spec.chain_id)
-            {
-                ensure!(
-                    input.chain_spec.max_spec_id == verified_chain_spec.max_spec_id,
-                    "unexpected max_spec_id"
-                );
-                ensure!(
-                    input.chain_spec.hard_forks == verified_chain_spec.hard_forks,
-                    "unexpected hard_forks"
-                );
-                ensure!(
-                    input.chain_spec.eip_1559_constants == verified_chain_spec.eip_1559_constants,
-                    "unexpected eip_1559_constants"
-                );
-                ensure!(
-                    input.chain_spec.l1_contract == verified_chain_spec.l1_contract,
-                    "unexpected l1_contract"
-                );
-                ensure!(
-                    input.chain_spec.l2_contract == verified_chain_spec.l2_contract,
-                    "unexpected l2_contract"
-                );
-                ensure!(
-                    input.chain_spec.is_taiko == verified_chain_spec.is_taiko,
-                    "unexpected eip_1559_constants"
-                );
-            }
+            validate_known_chain_spec(&input.chain_spec)?;
         }
 
         // todo: move chain_spec into the batch input
@@ -1383,6 +1358,25 @@ mod tests {
         };
 
         assert!(bypass_shasta_anchor_linkage(&batch_input));
+    }
+
+    #[test]
+    fn known_chain_spec_rejects_name_mismatch() {
+        let mut chain_spec = crate::consts::SupportedChainSpecs::default()
+            .get_chain_spec("taiko_mainnet")
+            .unwrap();
+        chain_spec.name = "taiko_dev".to_string();
+        let batch_input = GuestBatchInput {
+            inputs: vec![GuestInput {
+                chain_spec,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let err = ProtocolInstance::new_batch(&batch_input, Vec::new(), ProofType::Sgx)
+            .expect_err("chain spec name mismatch should be rejected");
+        assert!(err.to_string().contains("unexpected name"));
     }
 
     #[test]
