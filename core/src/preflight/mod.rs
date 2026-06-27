@@ -14,10 +14,14 @@ use raiko_lib::{
         TaikoProverData,
     },
     primitives::mpt::proofs_to_tries,
+    protocol_instance::{
+        shasta_checkpoint_storage_slots, shasta_signal_service_address_from_l2_contract,
+    },
     utils::txs::{generate_transactions, generate_transactions_for_batch_blocks},
     Measurement,
 };
 use reth_primitives::TransactionSigned;
+use reth_revm::Database;
 use tracing::{debug, info};
 
 use util::{
@@ -75,6 +79,33 @@ impl PreflightData {
             blob_proof_type,
         }
     }
+}
+
+fn load_shasta_parent_checkpoint_storage<BDP: BlockDataProvider>(
+    db: &mut ProviderDb<BDP>,
+    input: &GuestInput,
+) -> RaikoResult<()> {
+    let Some(last_anchor_block_number) = input.taiko.prover_data.last_anchor_block_number else {
+        return Ok(());
+    };
+    let Some(signal_service) =
+        shasta_signal_service_address_from_l2_contract(input.chain_spec.l2_contract)
+    else {
+        return Err(RaikoError::Preflight(
+            "cannot load shasta parent checkpoint: invalid l2 contract address".to_owned(),
+        ));
+    };
+    let (block_hash_slot, state_root_slot) =
+        shasta_checkpoint_storage_slots(last_anchor_block_number);
+    for slot in [block_hash_slot, state_root_slot] {
+        db.storage(signal_service, slot).map_err(|e| {
+            RaikoError::Preflight(format!(
+                "failed to load shasta parent checkpoint slot {slot:?} at block {}: {e:?}",
+                db.block_number
+            ))
+        })?;
+    }
+    Ok(())
 }
 
 pub async fn preflight<BDP: BlockDataProvider>(
@@ -433,6 +464,16 @@ pub async fn batch_preflight<BDP: BlockDataProvider>(
                 } else {
                     return Err(RaikoError::Preflight("No db in builder".to_owned()));
                 };
+
+                if batch_block_idx == 0
+                    && matches!(
+                        taiko_guest_batch_input.batch_proposed,
+                        BlockProposedFork::Shasta(_)
+                    )
+                    && taiko_guest_batch_input.l1_ancestor_headers.is_empty()
+                {
+                    load_shasta_parent_checkpoint_storage(db, &input)?;
+                }
 
                 // Gather inclusion proofs for the initial and final state
                 let measurement = Measurement::start("Fetching storage proofs...", true);
