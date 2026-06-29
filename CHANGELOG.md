@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.17.1](https://github.com/taikoxyz/raiko/compare/v1.17.0...v1.17.1) (2026-06-29)
+
+
+### Bug Fixes
+
+* keep enclave signing key out of image builds ([#703](https://github.com/taikoxyz/raiko/issues/703)) ([e7f1f87](https://github.com/taikoxyz/raiko/commit/e7f1f878ecc4a9b8c5151c1a1740040c3d6a54d7))
+* port Shasta hotfix soundness checks to main ([#702](https://github.com/taikoxyz/raiko/issues/702)) ([27868f3](https://github.com/taikoxyz/raiko/commit/27868f3f6984044fb75225e91ee6bf881fe2f908))
+* validate Shasta grandparent base fee ([#697](https://github.com/taikoxyz/raiko/issues/697)) ([769a3f9](https://github.com/taikoxyz/raiko/commit/769a3f931e1ed252381a41c4f1b28b12d291d4dc))
+
 ## [1.17.0](https://github.com/taikoxyz/raiko/compare/v1.16.0...v1.17.0) (2026-04-10)
 
 
