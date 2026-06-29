@@ -276,7 +276,12 @@ fn validate_known_chain_spec(chain_spec: &crate::consts::ChainSpec) -> Result<()
     else {
         return Ok(());
     };
-    ensure!(chain_spec.name == verified.name, "unexpected name");
+    ensure!(
+        chain_spec.name == verified.name,
+        "unexpected name: {:?}, expected: {:?}",
+        chain_spec.name,
+        verified.name
+    );
     ensure!(
         chain_spec.max_spec_id == verified.max_spec_id,
         "unexpected max_spec_id"
