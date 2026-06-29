@@ -21,7 +21,7 @@ password is also `admin` (this can be changed to match your preference).
 
 You can now simply click on the `+` icon in the upper right corner of the UI to import a dashboard.
 In the dashboard import screen you have the option to upload a dashboard JSON file.
-This repo contains the [raiko.json](./docker/monitoring/grafana/raiko.json) dashboard definition file.
+This repo contains the [raiko.json](/docker/monitoring/grafana/raiko.json) dashboard definition file.
 Next, you will be asked to provide a prometheus data source that provides the Raiko metrics.
 If you have your own setup, please use that prometheus instance, otherwise, a prometheus instance will be available
 on the following URL `http://localhost:9090`.
