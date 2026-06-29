@@ -139,11 +139,17 @@ pub enum BlockProposedFork {
 
 impl BlockProposedFork {
     pub fn blob_used(&self) -> bool {
-        matches!(self, BlockProposedFork::Shasta(event_data) if event_data
-            .proposal
-            .sources
-            .iter()
-            .all(|s| !s.blobSlice.blobHashes.is_empty()))
+        match self {
+            BlockProposedFork::Hekla(block) => block.meta.blobUsed,
+            BlockProposedFork::Ontake(block) => block.meta.blobUsed,
+            BlockProposedFork::Pacaya(batch) => batch.info.blobHashes.len() > 0,
+            BlockProposedFork::Shasta(event_data) => event_data
+                .proposal
+                .sources
+                .iter()
+                .any(|source| !source.blobSlice.blobHashes.is_empty()),
+            _ => false,
+        }
     }
 
     pub fn block_number(&self) -> u64 {
