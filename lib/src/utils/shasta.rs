@@ -161,7 +161,7 @@ pub fn generate_transactions_for_shasta_blocks(
                     assert!(
                         validate_input_block_param(
                             block_manifest,
-                            &guest_batch_input.inputs[idx + offset].block
+                            &guest_batch_input.inputs[idx + offset]
                         ),
                         "input block manifest is invalid"
                     );
@@ -212,7 +212,7 @@ pub fn generate_transactions_for_shasta_blocks(
             assert!(
                 validate_input_block_param(
                     force_inc_block_manifest,
-                    &guest_batch_input.inputs[idx].block
+                    &guest_batch_input.inputs[idx]
                 ),
                 "force inclusion source is invalid"
             );
