@@ -9,7 +9,7 @@ use reth_primitives::{Block, Header};
 #[cfg(not(feature = "std"))]
 use crate::no_std::*;
 use crate::{
-    consts::{ChainSpec, SupportedChainSpecs},
+    consts::SupportedChainSpecs,
     input::{
         shasta::{Checkpoint, Commitment, Proposal as ShastaProposal},
         BlobProofType, BlockProposedFork, GuestBatchInput, GuestInput,

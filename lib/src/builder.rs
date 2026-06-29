@@ -5,7 +5,7 @@ use crate::primitives::keccak::keccak;
 use crate::primitives::mpt::StateAccount;
 use crate::utils::txs::{generate_transactions, generate_transactions_for_batch_blocks};
 use crate::{
-    consts::{ChainSpec, MAX_BLOCK_HASH_AGE},
+    consts::{ChainSpec, SpecId, MAX_BLOCK_HASH_AGE},
     guest_mem_forget,
     input::{GuestBatchInput, GuestInput},
     mem_db::{AccountState, DbAccount, MemDb},
