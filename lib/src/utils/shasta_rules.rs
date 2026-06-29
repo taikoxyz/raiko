@@ -519,6 +519,42 @@ pub const INITIAL_BASE_FEE: u64 = 1_000_000_000;
 /// CHANGE(taiko): add ShastaInitialBaseFee for Shasta fork.
 pub const SHASTA_INITIAL_BASE_FEE: u64 = 25_000_000;
 
+fn parent_block_time_from_grandparent(
+    parent: &Header,
+    l2_grandparent_header: Option<&Header>,
+) -> Option<u64> {
+    if parent.number == 0 {
+        return Some(BLOCK_TIME_TARGET);
+    }
+
+    let Some(grandparent) = l2_grandparent_header else {
+        warn!(
+            "missing L2 grandparent header for parent block {}",
+            parent.number
+        );
+        return None;
+    };
+
+    if grandparent.number + 1 != parent.number {
+        warn!(
+            "L2 grandparent number mismatch: grandparent {}, parent {}",
+            grandparent.number, parent.number
+        );
+        return None;
+    }
+
+    let grandparent_hash = grandparent.hash_slow();
+    if grandparent_hash != parent.parent_hash {
+        warn!(
+            "L2 grandparent hash mismatch: expected {}, found {}",
+            parent.parent_hash, grandparent_hash
+        );
+        return None;
+    }
+
+    Some(parent.timestamp.saturating_sub(grandparent.timestamp))
+}
+
 pub fn validate_shasta_block_base_fee(
     block_guest_inputs: &[GuestInput],
     use_init_base_fee: bool,
@@ -537,14 +573,11 @@ pub fn validate_shasta_block_base_fee(
     } else {
         // Calculate parent_block_time = parent.timestamp - grandparent.timestamp
         // According to EIP-4396, we need the time between parent and grandparent
-        let parent_block_time = if let Some(grandparent) = l2_grandparent_header {
-            block_guest_inputs[0]
-                .parent_header
-                .timestamp
-                .saturating_sub(grandparent.timestamp)
-        } else {
-            // Fallback: if no parent's parent (e.g., first block ever), use default block time target
-            BLOCK_TIME_TARGET
+        let Some(parent_block_time) = parent_block_time_from_grandparent(
+            &block_guest_inputs[0].parent_header,
+            l2_grandparent_header,
+        ) else {
+            return false;
         };
         let first_block_base_fee = calc_next_shasta_base_fee(
             block_guest_inputs[0].parent_header.gas_limit,
@@ -630,6 +663,15 @@ mod tests {
 
     use super::calc_next_shasta_base_fee;
 
+    fn base_fee_guest_input(parent_header: Header, block_base_fee: u64) -> GuestInput {
+        let mut input = GuestInput {
+            parent_header,
+            ..Default::default()
+        };
+        input.block.header.base_fee_per_gas = Some(block_base_fee);
+        input
+    }
+
     #[test]
     fn test_calc_next_shasta_base_fee() {
         let parent_gas_limit = 16_000_000;
@@ -664,6 +706,70 @@ mod tests {
         );
 
         assert_eq!(result, 5_059_102);
+    }
+
+    #[test]
+    fn test_base_fee_rejects_missing_grandparent_for_non_genesis_parent() {
+        let parent_header = Header {
+            number: 10,
+            timestamp: 100,
+            gas_limit: 16_000_000,
+            gas_used: 15_000_000,
+            base_fee_per_gas: Some(5_000_000),
+            ..Default::default()
+        };
+        let default_time_base_fee = calc_next_shasta_base_fee(
+            parent_header.gas_limit,
+            parent_header.gas_used,
+            parent_header.base_fee_per_gas.unwrap(),
+            super::BLOCK_TIME_TARGET,
+            super::DEFAULT_ELASTICITY_MULTIPLIER,
+            super::DEFAULT_BASE_FEE_CHANGE_DENOMINATOR,
+            super::MIN_BASE_FEE_SHASTA,
+        );
+        let input = base_fee_guest_input(parent_header, default_time_base_fee);
+
+        assert!(!super::validate_shasta_block_base_fee(
+            &[input],
+            false,
+            None,
+            super::MIN_BASE_FEE_SHASTA,
+        ));
+    }
+
+    #[test]
+    fn test_base_fee_rejects_unlinked_grandparent() {
+        let grandparent = Header {
+            number: 9,
+            timestamp: 98,
+            ..Default::default()
+        };
+        let parent_header = Header {
+            number: 10,
+            timestamp: 100,
+            gas_limit: 16_000_000,
+            gas_used: 15_000_000,
+            base_fee_per_gas: Some(5_000_000),
+            parent_hash: B256::repeat_byte(0x42),
+            ..Default::default()
+        };
+        let grandparent_time_base_fee = calc_next_shasta_base_fee(
+            parent_header.gas_limit,
+            parent_header.gas_used,
+            parent_header.base_fee_per_gas.unwrap(),
+            parent_header.timestamp - grandparent.timestamp,
+            super::DEFAULT_ELASTICITY_MULTIPLIER,
+            super::DEFAULT_BASE_FEE_CHANGE_DENOMINATOR,
+            super::MIN_BASE_FEE_SHASTA,
+        );
+        let input = base_fee_guest_input(parent_header, grandparent_time_base_fee);
+
+        assert!(!super::validate_shasta_block_base_fee(
+            &[input],
+            false,
+            Some(&grandparent),
+            super::MIN_BASE_FEE_SHASTA,
+        ));
     }
 
     #[test]
