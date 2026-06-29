@@ -380,7 +380,7 @@ async fn setup(cur_dir: &Path, direct_mode: bool) -> ProverResult<(), String> {
         .arg("sgx-guest.manifest")
         .output()
         .await
-        .map_err(|e| handle_gramine_error("Could not generate manfifest", e))?;
+        .map_err(|e| handle_gramine_error("Could not generate manifest", e))?;
     handle_output(&output, "SGX generate manifest")?;
 
     if !direct_mode {
@@ -404,7 +404,7 @@ async fn setup(cur_dir: &Path, direct_mode: bool) -> ProverResult<(), String> {
             .arg("sgx-guest.manifest.sgx")
             .output()
             .await
-            .map_err(|e| handle_gramine_error("Could not sign manfifest", e))?;
+            .map_err(|e| handle_gramine_error("Could not sign manifest", e))?;
         handle_output(&output, "SGX manifest sign")?;
     }
 
