@@ -23,7 +23,7 @@ mod aggregate;
 mod batch;
 mod batch_handler;
 mod cancel;
-mod shasta_handler;
+pub(crate) mod shasta_handler;
 
 #[utoipa::path(post, path = "/proof",
     tag = "Proving",

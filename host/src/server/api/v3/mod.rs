@@ -14,7 +14,7 @@ pub use crate::server::api::v2::ProofResponse;
 pub use crate::server::api::v2::PruneStatus;
 pub use crate::server::api::v2::Status;
 
-mod proof;
+pub(crate) mod proof;
 
 #[derive(OpenApi)]
 #[openapi(

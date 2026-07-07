@@ -47,7 +47,15 @@ use super::batch::process_shasta_batch;
 async fn shasta_batch_handler(
     State(actor): State<Actor>,
     Extension(authenticated_key): Extension<AuthenticatedApiKey>,
-    Json(mut shasta_request_opt): Json<Value>,
+    Json(shasta_request_opt): Json<Value>,
+) -> HostResult<Status> {
+    handle_shasta_batch_request(actor, authenticated_key, shasta_request_opt).await
+}
+
+pub(crate) async fn handle_shasta_batch_request(
+    actor: Actor,
+    authenticated_key: AuthenticatedApiKey,
+    mut shasta_request_opt: Value,
 ) -> HostResult<Status> {
     tracing::info!(
         "Incoming Shasta batch request: {} from {}",
