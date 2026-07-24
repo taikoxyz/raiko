@@ -35,7 +35,11 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      # (registry login step here — your existing release convention)
+      # Auth Docker to the Artifact Registry host publish-image.sh pushes to
+      # (DOCKER_REPOSITORY=us-docker.pkg.dev/evmchain/images). Uses the same
+      # WIF credential from the auth step above — no registry secret needed.
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-docker.pkg.dev --quiet
 
       - name: Build, sign & push SGX image
         env:
@@ -43,6 +47,7 @@ jobs:
           GCP_ENCLAVE_KEY_PROJECT: ${{ vars.GCP_ENCLAVE_KEY_PROJECT }}
           # GCP_ENCLAVE_KEY_VERSION: latest   # optional; latest == v2 today
         run: |
-          # publish-image.sh prompts for proof type (0=tee/SGX, 1=zk); feed via stdin.
-          # args: $1 = EDMM flag, $2 = tag
-          echo "0" | ./script/publish-image.sh "${{ inputs.edmm }}" "${{ inputs.tag }}"
+          # publish-image.sh is interactive: it prompts for proof type
+          # (0=tee/SGX, 1=zk) and then for a push confirmation (y/N).
+          # Feed both via stdin. args: $1 = EDMM flag, $2 = tag.
+          printf '0\ny\n' | ./script/publish-image.sh "${{ inputs.edmm }}" "${{ inputs.tag }}"
