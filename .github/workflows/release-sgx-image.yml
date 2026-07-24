@@ -2,16 +2,23 @@
 # Builds & pushes the SIGNED SGX release image. The enclave signing key is
 # pulled from GCP Secret Manager at build time by script/publish-image.sh —
 # no human ever holds it, and it never lands in an image layer.
+#
+# Trust model (see PR description): the signer identity is impersonable ONLY by
+# THIS workflow file running on refs/heads/main, via a dedicated WIF pool
+# (github-raiko-signer) whose provider is locked to repository == taikoxyz/raiko.
+# So it must be dispatched from the main branch after merge.
 name: Release - SGX signed image
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Image tag to build & push"
+        description: "Image tag to build & push (e.g. 1.2.3)"
         required: true
       edmm:
-        description: "EDMM flag (1 = on)"
+        description: "EDMM flag"
+        type: choice
+        options: ["1", "0"]
         default: "1"
 
 permissions:
@@ -21,19 +28,24 @@ permissions:
 jobs:
   build-sign-push:
     runs-on: [taiko-runner]         # SGX-capable runner (same as ci-sgx-docker)
+    # Gate on a protected environment — a repo admin must configure required
+    # reviewers + restrict deployment branches to main on this environment.
+    # The environment approval is defense-in-depth; the WIF ref-scoping above
+    # is the real cloud trust boundary.
+    environment: sgx-release-signing
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           submodules: true
 
       - id: auth
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
         with:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_ENCLAVE_SIGNER_SA }}
 
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
 
       # Auth Docker to the Artifact Registry host publish-image.sh pushes to
       # (DOCKER_REPOSITORY=us-docker.pkg.dev/evmchain/images). Uses the same
@@ -43,11 +55,19 @@ jobs:
 
       - name: Build, sign & push SGX image
         env:
+          # Pass dispatch inputs via env — NEVER interpolate ${{ inputs.* }}
+          # directly into a run: script (that is shell injection).
+          INPUT_EDMM: ${{ inputs.edmm }}
+          INPUT_TAG: ${{ inputs.tag }}
           GCP_ENCLAVE_KEY_SECRET: ${{ vars.GCP_ENCLAVE_KEY_SECRET }}
           GCP_ENCLAVE_KEY_PROJECT: ${{ vars.GCP_ENCLAVE_KEY_PROJECT }}
           # GCP_ENCLAVE_KEY_VERSION: latest   # optional; latest == v2 today
         run: |
+          set -euo pipefail
+          # Validate inputs before they reach the build script.
+          [[ "$INPUT_EDMM" =~ ^[01]$ ]] || { echo "Invalid EDMM value: $INPUT_EDMM" >&2; exit 1; }
+          [[ "$INPUT_TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]] || { echo "Invalid image tag: $INPUT_TAG" >&2; exit 1; }
           # publish-image.sh is interactive: it prompts for proof type
-          # (0=tee/SGX, 1=zk) and then for a push confirmation (y/N).
-          # Feed both via stdin. args: $1 = EDMM flag, $2 = tag.
-          printf '0\ny\n' | ./script/publish-image.sh "${{ inputs.edmm }}" "${{ inputs.tag }}"
+          # (0=tee/SGX, 1=zk) then a push confirmation (y/N). Feed both via stdin.
+          # args: $1 = EDMM flag, $2 = tag.
+          printf '0\ny\n' | ./script/publish-image.sh "$INPUT_EDMM" "$INPUT_TAG"
