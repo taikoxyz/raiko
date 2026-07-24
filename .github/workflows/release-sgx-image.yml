@@ -1,0 +1,48 @@
+# .github/workflows/release-sgx-image.yml  (taikoxyz/raiko)
+# Builds & pushes the SIGNED SGX release image. The enclave signing key is
+# pulled from GCP Secret Manager at build time by script/publish-image.sh —
+# no human ever holds it, and it never lands in an image layer.
+name: Release - SGX signed image
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to build & push"
+        required: true
+      edmm:
+        description: "EDMM flag (1 = on)"
+        default: "1"
+
+permissions:
+  contents: read
+  id-token: write        # required for Workload Identity Federation
+
+jobs:
+  build-sign-push:
+    runs-on: [taiko-runner]         # SGX-capable runner (same as ci-sgx-docker)
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_ENCLAVE_SIGNER_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # (registry login step here — your existing release convention)
+
+      - name: Build, sign & push SGX image
+        env:
+          GCP_ENCLAVE_KEY_SECRET: ${{ vars.GCP_ENCLAVE_KEY_SECRET }}
+          GCP_ENCLAVE_KEY_PROJECT: ${{ vars.GCP_ENCLAVE_KEY_PROJECT }}
+          # GCP_ENCLAVE_KEY_VERSION: latest   # optional; latest == v2 today
+        run: |
+          # publish-image.sh prompts for proof type (0=tee/SGX, 1=zk); feed via stdin.
+          # args: $1 = EDMM flag, $2 = tag
+          echo "0" | ./script/publish-image.sh "${{ inputs.edmm }}" "${{ inputs.tag }}"
